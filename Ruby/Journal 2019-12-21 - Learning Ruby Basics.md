@@ -9,12 +9,7 @@ So, let's go through some basic tutorials then, to learn how things are done.
 
 
 
-## Basics
-
-Basics of Ruby plus whatever tangents I go off on I guess.
-
-
-### Math
+## Math
 
 Math is pretty standard, though they show off support for the infix exponentiation operator, `**`, which JS only got just recently.  Haskel meanwhile is all "why the hell do you guys distinguish between infix and non-infix?  they're just functions..." but everyone just goes back to doing their own thing when Haskel starts talking like that so eh.
 
@@ -23,7 +18,8 @@ Curiously, in [the page that shows off the exponetiation operator](https://www.r
 Anyway, nothing remarkable there.  We still have standard order of operations (probably mostly?) rather than things like RPN which of course pollutes everything with precedence but nobody likes RPN because nobody likes writing in Forth so whatever.
 
 
-### Printing Strings
+
+## Printing Strings
 
 Strings are print to stdout with `puts()`.  It accepts an argument (or many?) and prints them!
 
@@ -35,7 +31,8 @@ It then returns `nil`.
 Not much to say there.
 
 
-### String Interpolation
+
+## String Interpolation
 
 String interpolation is done using `#{stuff}`, so:
 
@@ -47,7 +44,8 @@ puts "Arghl #{a}"
 prints `Arghl Barghl` to stdout.
 
 
-### Functions/Procedures/Subs
+
+## Functions/Procedures/Subs
 
 You can define a function using `def NAME(ARGS) ... end`:
 
@@ -128,7 +126,66 @@ hi ("Greetings and salutations", "Friendo")
 What's happening there?  No idea, yet.  Dunno enough to know what's going on there.
 
 
-### Classes
+### To Parethesize Or Not?
+
+Solely because of how the two Block syntaxes have different precedence, I'm going to always parethesize.  That's just a nasty surprise.
+
+The only time I'd give for not doing that is for methods of no arguments.  Then it's fine, I guess.  I'm not sure.  That depends on how I come to feel about calling bare words.  (But `num.times do...` feels more ruby than `num.times() do...` even if that's more dogmatic.  Feck.)
+
+```ruby
+def map2(a, b)
+  result = []
+  result_len = if a.length > b.length
+    then a.length
+    else b.length
+  end
+
+  # NOTE: Unguarded zip.
+  # nils will appear if one is longer than the other!
+  result_len.times do |index|
+    result[index] = yield a[index], b[index]
+  end
+
+  result
+end
+
+array_left = ['a', 'b', 'c']
+array_right = [1, 3, 5]
+
+array_result = map2 array_left, array_right do |left, right|
+  "#{left} -> #{right}"
+end
+# => ["a -> 1", "b -> 3", "c -> 5"]
+
+array_result = map2 array_left, array_right { |left, right| "#{left} -> #{right}" }
+# NoMethodError: undefined method `array_right' for main:Object
+
+array_result = map2(array_left, array_right) { |left, right| "#{left} -> #{right}" }
+# => ["a -> 1", "b -> 3", "c -> 5"]
+```
+
+#### On Super
+
+Apparently `super` in methods has some special behavior:
+
+- Using just `super` as a bare word invokes the same method on the parent class, forwarding all arguments.
+- Using `super()` invokes the the same method on the parent class with 0 arguments.
+- Using `super(foo, bar)` invokes the the same method on the parent class with the arguments `foo` and `bar`.
+
+So, two different cases.  That really makes me want to always use parens.
+
+
+### Fun Aside: `to_a`
+
+You can convert any Enumerator into an Array with the `to_a` method.  Probably only necessary if for some reason you need to deal with things in an array context, which would be if you need random access to all elements.  Otherwise, you can just use `.next` manually and catch any end exceptions, etc.
+
+Still, good to know.
+
+And of course, you can go back to an Enumerator with `some_array.each`.
+
+
+
+## Classes
 
 The only thing I remember is that Ruby explicitly allows you to bodge new things onto existing classes.  Something either like or the same as monkey patching in JS.  Dunno if that's still considered good practice or not, but it seemed to be when I first looked at it.
 
@@ -199,7 +256,7 @@ g
 # => #<Greeter:0x007fd803884b08 @name="George">
 ```
 
-- Here, we can see that we have a method named `respond_to?` which accepts a name and returns if the instance can respond to that method name.
+- Here, we can see that we have an instance method named `respond_to?` which accepts a name and returns if the instance can respond to that method name.
 - Remembering that functions are invoked if they are referenced, with or without parens, we can see that the distinction between a property getter or setter and an accessor method is none in Ruby.
 - Defining a method named `some_name=` defines a setter for the instance property `some_name`.
 
@@ -215,7 +272,8 @@ Greeter.instance_methods(false)
 This shows the accessor methods.
 
 
-### List Iteration
+
+## ~~List Iteration~~ Blocks!
 
 I'm going to skip the mega greeter example because I think it's a bit ridiculous and crams too much together into a big pile of symbol soup if you've not seen much Ruby.  Instead, I'm going to look at List Iteration directly, because that's the only significantly new thing.
 
@@ -254,7 +312,112 @@ What's that?  [This page](https://www.ruby-lang.org/en/documentation/quickstart/
 That's annoying.  Let's find other places, I guess.
 
 
-### More String Things
+### Blocks, Continued
+
+The specific syntax for passing a Block is to pass either a `do ... end` syntax block or a `{ ... }` syntax block.  If the Block accepts parameters, you put them between two pipes: `|foo, bar|`.  And yes, blocks may accept an arbitrary number of parameters.
+
+
+### Block Syntax
+
+There are two different styles, and the prevailing styleguide may or may not say that `do ... end` is preferred for multiline and complex Blocks, while `{ ... }` is preferred for one line Blocks.
+
+It is noted however that [these two syntaxes have different precedence](http://rubylearning.com/satishtalim/ruby_blocks.html)!
+
+- `do ... end` has very low precedence, and can be used safely without enclosing the method call's parameters in parentheses.
+- `{ ... }` has high enough precedence that, with unparethesized parameters, it will bind instead to the last parameter rather than to the method call!
+
+I think just for that, I'm going to always parethesize parameters.
+
+
+### What If We Don't Pass A Block?
+
+```ruby
+5.times
+# => #<Enumerator: 5:times>
+```
+
+Huh.
+
+```ruby
+five_times = 5.times
+five_times { |n| puts "This is number #{n}..." }
+# NoMethodError: undefined method `five_times' for main:Object
+```
+
+I guess that makes sense given it's an Enumerator, whatever that is, and not a method.
+
+How do we use it, then?  [With the `each` method, most basically](https://ruby-doc.org/core-2.6/Enumerator.html#method-i-each):
+
+```ruby
+five_times.each { |n| puts "This is number #{n}..." }
+# This is number 0...
+# This is number 1...
+# This is number 2...
+# This is number 3...
+# This is number 4...
+# => 5
+```
+
+Neat.
+
+
+### What If I Want To Pass Blocks Around?
+
+While not always necessary, sometimes you might want or need to pass a block around.  Well, you can't.
+
+What you _can_ pass are [Procs](http://rubylearning.com/satishtalim/ruby_procs.html).  (see also [Proc class reference](https://ruby-doc.org/core-2.6/Proc.html))
+
+And, like in Python, these are created by calling some `lambda` function/method somewhere:
+
+```ruby
+p = lambda { puts "Howdy!" }
+# => #<Proc:0x007f81da877db0@(irb):57 (lambda)>
+
+p.call
+# Howdy!
+# => nil
+
+p = lambda { |name| puts "Hello #{name}!" }
+# => #<Proc:0x007f81db09ccc0@(irb):60 (lambda)>
+
+p.call("Barf")
+# Hello Barf!
+# => nil
+```
+
+The difference between a Method and a Proc then is that a Proc is an object itself that can be passed around, while a Method is defined only on a Class and can therefore only be invoked from that Class (static method) or from Class Instances (instance method).
+
+Methods have the object they are attached to as part of their context (accessable via `@vars`) while Procs do not; rather Procs capture their surrounding context and can be passed around, taking that context with them.
+
+As compared to JS, this makes Ruby much more object-centric, whereas JS is relatively function-centric or at least has function-centricity baked in to a much lower level degree than Ruby does.  There are probably cases where you'd have to rewrite things not insignificantly if you were porting code from one to the other, but I currently think that in most common use cases this difference won't matter.
+
+
+### List Iteration, With Indices!
+
+I thought it was mildly annoying at first that you couldn't get the index during iteration, but really most of the time it's not necessary.  However, [the Enumerator class](https://ruby-doc.org/core-2.6/Enumerator.html) provides a way to get that index anyway: the `with_index` method.
+
+For example:
+
+```ruby
+['foo', 'bar', 'baz'].each.with_index do |thing, index|
+  puts "Number #{index} is: #{thing}"
+end
+# Number 0 is: foo
+# Number 1 is: bar
+# Number 2 is: baz
+# => ["foo", "bar", "baz"]
+
+[1, 2, 3].map.with_index do |n, index|
+  n * 2 + index
+end
+# => [2, 5, 8]
+```
+
+This is nice: while the index is not provided by default you can still get it leveraging the built in machinery for no real additional cost.  As a benefit, it tells the other devs that you're using an index.
+
+
+
+## More String Things
 
 [This seems to be a much better overview of random string stuff](http://rubylearning.com/satishtalim/fun_with_strings.html).
 
@@ -301,9 +464,10 @@ puts "Hello" * 3
 # => nil
 ```
 
-#### String Conversion/Coercion
 
-Other things will have a to_s method called:
+### String Conversion/Coercion
+
+Other things will have a `to_s` method called:
 
 ```ruby
 PI = 3.141592653589
@@ -338,7 +502,8 @@ hi marklesparkle
 ```
 
 
-### The Main Object
+
+## The Main Object
 
 Even in the top level, you're always in some object context, and the object context of the top level is `main`:
 
@@ -347,3 +512,27 @@ puts self
 # main
 # => nil
 ```
+
+More on that later, I guess.
+
+
+### What About Top Level Functions?
+
+```ruby
+def what_is_self
+  puts self
+  self
+end
+
+what_is_self
+# main
+# => main
+```
+
+That's simple enough, then.
+
+
+
+## Script That Can Also Be A Non-Running Module
+
+Sometimes it's convenient to run a script as both an importable module and as a stand alone script.  In Node.js, you do `if (module === require.main) {...}`.  In Ruby, it seems you do `if __FILE__ == $0 ...`.

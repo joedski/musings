@@ -186,3 +186,10 @@ Other Things
 - `options.data: Object` can be used instead of `options.series` to specify raw data, but requires the optional `modules/data.js` module to be loaded.
   - You can still specify a number of series from your imported data by using `options.data.seriesMapping: Array<Object>`, which maps data point attributes to data columns.
     - e.g. `[{ label: 2 }, { x: 3, y: 4, label: 5 }]` creates two series: one with `x` pulled from column `0`, `y` pulled from column `1`, and `label` pulled from column `2`; And another with `x`, `y`, and `label` respectively from columns `3`, `4`, and `5`.
+
+
+
+Drill Down
+----------
+
+One thing I found interesting was that [one of their bar (I mean "column") chart examples](https://www.highcharts.com/demo/column-drilldown) has built in [drill down](https://api.highcharts.com/highcharts/drilldown).  I'm not sure, but it looks like [each Drill Down entry is a Series](https://api.highcharts.com/highcharts/drilldown.series).  Potentially, this gives you the ability to drill down arbitrarily, which would make things like multiple-detail-level metrics charts much more interactive.

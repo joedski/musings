@@ -1,12 +1,10 @@
 <template>
   <div id="app">
-    <b-nav-bar>
-      <b-nav>
-        <b-nav-item>
-          <router-link to="/basic-chart">Basic Chart</router-link>
-        </b-nav-item>
+    <b-navbar>
+      <b-nav pills>
+        <b-nav-item to="/basic-chart">Basic Chart</b-nav-item>
       </b-nav>
-    </b-nav-bar>
+    </b-navbar>
     <router-view />
   </div>
 </template>

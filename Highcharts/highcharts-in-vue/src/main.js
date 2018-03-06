@@ -18,6 +18,7 @@ Vue.use(BootstrapVue)
 Vue.use(VueHighcharts, { Highcharts })
 
 new Vue({
+  router,
   el: '#app',
   render: h => h(App)
 })

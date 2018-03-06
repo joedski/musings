@@ -5,7 +5,7 @@ export default new Router({
   routes: [
     {
       path: '/',
-      redirectTo: '/basic-chart',
+      redirect: '/basic-chart',
     },
     {
       path: '/basic-chart',

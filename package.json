@@ -1,0 +1,24 @@
+{
+  "name": "musings-public",
+  "version": "0.0.0",
+  "description": "Publicly revealed musings",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joedski/musings.git"
+  },
+  "author": "Joe Sikorski <joedski@gmail.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/joedski/musings/issues"
+  },
+  "homepage": "https://github.com/joedski/musings#readme",
+  "devDependencies": {
+    "babel-eslint": "^8.2.2",
+    "eslint": "^4.18.2",
+    "eslint-plugin-vue": "^4.3.0"
+  }
+}

@@ -188,6 +188,78 @@ Other Things
     - e.g. `[{ label: 2 }, { x: 3, y: 4, label: 5 }]` creates two series: one with `x` pulled from column `0`, `y` pulled from column `1`, and `label` pulled from column `2`; And another with `x`, `y`, and `label` respectively from columns `3`, `4`, and `5`.
 
 
+### Initial Bundle Size
+
+The only issue I see right now is that, currently, we have to bundle Highcharts at the root of the app, rather than lazily at the first chart, meaning everything including Pages _without charts_ will receive the Highcharts bundle.  Das ist ein nicht so gut idea.
+
+Given how Vue plugins work, basically being a standard way to modify the global Vue instance, we could (theoretically) do it at any time with no issues.  Probably.  So we could defer even installing the plugin until the first time a chart is required, at which point our `vue-highcharts` integration is loaded the first time and installs itself to our Vue module.
+
+
+### Automatic Resizing
+
+Highcharts itself only resizes when the window resizes and not when, say, some side bar opens up and changes the width of the main content area.  I saw that [the dev team doesn't want to include what are essentially hacks in the core code](https://github.com/highcharts/highcharts/issues/6427#issuecomment-286070895), which is reasonable enough given their extremely large support matrix, though annoying in that Chartjs _does_ have [options to deal with this out of the box](http://www.chartjs.org/docs/latest/general/responsive.html).
+
+One way I've seen referenced for how to handle this is to [use an `<object>` tag](http://www.backalleycoder.com/2013/03/18/cross-browser-event-based-element-resize-detection/), which seems to be one of the only elements that has its own `resize` events.
+
+Searching for `vue resize event` turns up [`vue-resize` component](https://github.com/Akryum/vue-resize) which seems to implement (more or less) the above trick with the `<object>` tag.  It requires importing both the plugin and CSS separately, which is a bit odd, but oh well?  The nice thing is that it includes [provisions for older IE support](https://github.com/Akryum/vue-resize/blob/master/src/components/ResizeObserver.vue#L55) which I don't think I would ever have caught.  It also requires the parent of the thing that you're wanting to resize be an offset parent, by having a position like `relative` or `absolute`, thought it may be feasible to apply that [just to the `<highcharts>` tag itself](https://vuejs.org/v2/guide/class-and-style.html#With-Components).
+
+There's also this pseudoevent [`vue-resize-directive`](https://www.npmjs.com/package/vue-resize-directive), but it requires installing other things separately: the `ResizeSensor` from [`css-element-queries`](https://github.com/marcj/css-element-queries) and an unknown amount of Lodash.  I mean, I like Lodash, but it is a big blob of code.
+
+#### Using vue-resize
+
+Using `vue-resize` is easy enough.  In the main file, you install it like any other plugin:
+
+```js
+import 'vue-resize/dist/vue-resize.css'
+import Vue from 'vue'
+import VueResize from 'vue-resize'
+
+Vue.use(VueResize)
+```
+
+This gives us a `<resize-observer>` component we can use anywhere.  Using refs, we don't even need to hook things up in the component code, we can do it all from the template.  Which is probably a bit code-smelly, but anyway.
+
+```html
+<template>
+  <div style="position: relative;">
+    <resize-observer @notify="$refs.chart.chart.reflow()" />
+    <highcharts ref="chart" :options="chartOptions" />
+  </div>
+</template>
+```
+
+Just note that you'll want to opt out of Highcharts' own auto-reflow:
+
+```js
+export default {
+  // ...
+
+  data() {
+    return {
+      chartOptions: {
+        chart: {
+          reflow: false,
+          // ...
+        },
+        // ...
+      },
+    }
+  },
+
+  // ...
+}
+```
+
+#### How Does Chartjs Handle Resize Detection?
+
+I looked at what Chartjs does, at least a bit.  They don't use the `<object>` tag, but they do use a `position: relative` container and some other things.  I might want to dig into it more some time.
+
+
+### Highchart Colors
+
+When looking through the options, I saw references to `Color`, with a capital C, which usually means it ought to be defined somewhere.  While not apparent from their API docs page, [there _is_ a `Highcharts.Color` class](http://jsfiddle.net/highcharts/zy1epj3o/), but it does _not_ show up in the list of Classes in the docs.
+
+
 
 Drill Down
 ----------

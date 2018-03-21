@@ -105,7 +105,7 @@ data() {
       tooltip: {
         // ...
         shadow: false,
-        backgroundColor: 'rgba(0,0,0,0.8)'
+        backgroundColor: 'rgba(0,0,0,0.8)',
         style: {
           color: 'white',
         },

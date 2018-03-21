@@ -265,3 +265,5 @@ Drill Down
 ----------
 
 One thing I found interesting was that [one of their bar (I mean "column") chart examples](https://www.highcharts.com/demo/column-drilldown) has built in [drill down](https://api.highcharts.com/highcharts/drilldown).  I'm not sure, but it looks like [each Drill Down entry is a Series](https://api.highcharts.com/highcharts/drilldown.series).  Potentially, this gives you the ability to drill down arbitrarily, which would make things like multiple-detail-level metrics charts much more interactive.
+
+An easy way to test this is to just create 3-5 series, one at the top, the other two-to-four in the drilldown option.  (Technically we only nee 3, 1 at the top and 1 at each other level, but that's boring and adding the extra data points is minimal work.)

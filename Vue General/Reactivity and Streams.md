@@ -162,3 +162,100 @@ Seems like a nice first whack, but also seems rather more complicated.  I don't 
 Another option is to create the actual render function at `created` time rather than `beforeCreate` so that all the data stuff is present, and just assume all props (data, props, computed) are statically defined. (they should be.)
 
 Obviously, the easiest way would be to stick purely with Streams as Cycle does.
+
+
+
+## Sticking with Vue
+
+One of the nicer things about Vue is that it encourages pragmatic extension, though of course such tools also enable shooting your self in the foot not just once, but automating said footshooting.  It's for this reason that advanced features are always advised to be used with caution.  While it is true that using them in production with out an idea of the ramifications can lead to Massive Trouble, such warnings should still be taken as encouragement to experiment with things in non-production projects.
+
+
+### Take-Latest (or Merge)
+
+We could do a sort of variant of a computed property called a `withLatest` property which implements the above behavior.  This is different from a normal computed property because we're not concerned with the current value of every single property we're sourcing from, we're concerned with which one was the latest.
+
+This requires a bit of thought: In streams, we're concerned with events through time, but in Vue, we're concerned with values and their changes.  This in mind, we can now draft an implementation.
+
+First, it's usage:
+
+```js
+export default {
+  mixins: [TakeLatest],
+
+  takeLatest: {
+    foo: {
+      // These should be either a string-path or a function that can be passed to this.$watch.
+      sources: [
+        // You can watch just the value itself.
+        'bar',
+        // Or you can pass a computed-value function.
+        // A good way to use this is to tag the source.
+        function baz() { return { from: 'baz', value: this.baz } },
+        // Functions are also handy for, among other things:
+        // - Sourcing from two props simultaneously (as opposed to separately)
+        // - Transforming a source before the scan
+        function beepAndBoop() {
+          return { from: 'beepAndBoop', beep: this.beep, boop: this.boop };
+        },
+      ],
+      // startWith must be a function, for the same reasons as data().
+      startWith() {
+        return { from: '', value: null };
+      },
+      handler(sourceValue, prevSourceValue) {
+        // you can now return a new value for this.foo based on the current this.foo
+        // and the new value from sourceName/sourceValue,
+        // optionally with the previous sourceValue.
+        return { from: sourceValue.from || 'bar', value: sourceValue };
+      },
+    },
+  },
+}
+```
+
+And here, a draft implementation:
+
+```js
+// The TakeLatest mixin.
+export default {
+  data() {
+    return Object.keys(this.$options.takeLatest)
+      .map((key) => {
+        const { startWith } = this.$options.takeLatest[key];
+        if (startWith) {
+          if (typeof startWith !== 'function') {
+            throw new Error(`Invalid definition for takeLatest.${key}: 'startWith' must be a function`);
+          }
+
+          return { [key]: startWith.call(this) };
+        }
+      })
+      .reduce((dataProps, nextProp) => Object.assign(dataProps, nextProp), {})
+    ;
+  },
+
+  beforeCreate() {
+    Object.keys(this.$options.takeLatest).forEach((key) => {
+      const { sources, handler } = this.$options.takeLatest[key];
+
+      if (! sources || ! Array.isArray(sources)) {
+        // TODO: Type-check the items in sources.
+        throw new Error(`Invalid definition for takeLatest.${key}: 'sources' must be an array`);
+      }
+
+      if (! handler || typeof handler !== 'function') {
+        throw new Error(`Invalid definition for takeLatest.${key}: 'handler' must be a function`)
+      }
+
+      // TODO: Allow for passing $watch options.
+      sources.forEach((source) => {
+        this.$watch(source, function (nextValue, prevValue) {
+          this[key] = handler.call(this, nextValue, prevValue);
+        });
+      });
+    });
+  },
+};
+```
+
+I think that many reactive stream paradigms can be implemented, it's mainly that they're not implemented out of the box that makes things kind of interesting to work with.

@@ -52,8 +52,11 @@ export default {
   watch: {
     series(nextSeries) {
       nextSeries.forEach((series, index) => {
-        this.$refs.chart.chart.series[index].setData(series.data)
+        // Pass false as the second arg to prevent immediate redraws.
+        this.$refs.chart.chart.series[index].setData(series.data, false)
       })
+      // Manually trigger a redraw now that we've got everything in.
+      this.$refs.chart.chart.redraw()
     }
   }
 }

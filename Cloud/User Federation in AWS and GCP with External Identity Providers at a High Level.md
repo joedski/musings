@@ -44,7 +44,7 @@ GCP's approach is a bit simpler: You just create a Google Account for each User 
 
 1. [GCP, SSO, and Cloud Apps][gcp-sso]
 2. [Best Practices for Enterprise][gcp-enterprise-orgs], probably the most relevant to what's being discussed here, or at least when I was first researching this.
-  1. [Using Corporate Login Credentials][gcp-enterprise-orgs-login]
+  1. [Using Corporate Login Credentials][gcp-enterprise-orgs-corp-login]
 3. [SSO via SAML][gcp-sso-saml]
 
 [gcp-sso]: https://cloud.google.com/identity/solutions/enable-sso

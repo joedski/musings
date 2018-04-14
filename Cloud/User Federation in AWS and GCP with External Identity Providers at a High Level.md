@@ -5,6 +5,10 @@ Notes on how Federated Users, that is Users whose Identities are not tied to AWS
 
 In general, the process is about mapping User Records in your given User Federation IdP to Permission Grants in AWS or GCP.  The way they go about these things is quite different, as you'll see below.
 
+In essence, it goes like this:
+- In AWS, IAM Roles have Trust Policies with the IdP as the Principal and Conditions which test the response from the IdP to determine what IAM Roles a User may Assume.
+- In CGP, every Corporate User has a Google Account, and it was probably automatically provisioned from an LDAP directory or other corporate directory.
+
 Where appropriate, I will use the terminology of the platform under discussion, although this will require context switching due to the very large differences in how AWS and GCP name and group things.  Compare what AWS calls a Role (A named set of Policies that Users, Services, et al may temporarily assume, effectively becoming that Role for awhile rather than themselves.) to what GCP calls a Role (A named group of Permission Grants.). I will also largely assume familiarity with these terms.
 
 I also use a few more general terms:

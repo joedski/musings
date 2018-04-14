@@ -23,7 +23,7 @@ Essentially, then, integrating with external Identity Providers goes like this:
   - This allows you great freedom to map Users in your IdP to IAM Roles that they can assume.  You could do it based on certain specific Scopes/Assertions in their SAML or OIDC record, or you could even allow a specific User access to a given role by name/id.
 
 1. [IAM Role Terms and Concepts][aws-iam-role-terms]
-2. [IdPs and IAM Roles][aws-iam-roles-ipds]
+2. [IdPs and IAM Roles][aws-iam-roles-idps]
 3. [Overview on options for federation and AWS][aws-federation-overview]
 4. [What the SAML claim needs to have to make AWS happy][aws-saml-claims]
 5. [A different take on SAML+AWS Console Access][aws-saml-diff-take]

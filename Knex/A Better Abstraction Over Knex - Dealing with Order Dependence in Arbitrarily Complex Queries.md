@@ -13,7 +13,7 @@ I wonder if there's some minimal machinery that can be added to reduce or elimin
 
 One thought is that a collection can be created that simply holds the kinds of operations in order of addition, then evaluation of the collection to an actual query occurs on `then`.
 
-So `query.select()` would add a `['select', q => q.select(...)]`, `query.from()` would add a `['from', q => q.from(...)]` etc.  Then you do `calls |> groupBy(nth(0)) |> over(map(get, keyOrder)) |> flatten |> reduce((q, a) => a(q), actualQuery)` and that should do everything up nice and neat.
+So `query.select()` would add a `['select', q => q.select(...)]`, `query.from()` would add a `['from', q => q.from(...)]` etc.  Then you do `calls |> groupBy(nth(0)) |> over(map(get, keyOrder)) |> filter(Boolean) |> flatten |> reduce((q, a) => a(q), actualQuery)` and that should do everything up nice and neat.
 
 I don't think this needs much extra checking since Knex already does so much of that itself.
 

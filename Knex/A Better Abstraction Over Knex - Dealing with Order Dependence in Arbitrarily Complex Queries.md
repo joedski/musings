@@ -15,6 +15,6 @@ One thought is that a collection can be created that simply holds the kinds of o
 
 So `query.select()` would add a `['select', q => q.select(...)]`, `query.from()` would add a `['from', q => q.from(...)]` etc.  Then you do `calls |> groupBy(nth(0)) |> over(map(get, keyOrder)) |> filter(Boolean) |> flatten |> reduce((q, a) => a(q), actualQuery)` and that should do everything up nice and neat.
 
-I don't think this needs much extra checking since Knex already does so much of that itself.
+I don't think this needs much extra checking since Knex already does so much of that itself.  It's basically just a wrapper utility around the stuff knex already does, it just enforces a standard order, which is "each call grouped by type and run in order of addition".  Things like calling `from` twice would probably only get an error from Knex itself, though, rather than this.  I mean, we could check it, but I'm not sure if we need to?
 
-This would be pretty long and arbitrary, but ultimately pretty simple to implement.
+This would be pretty long and arbitrary, or at least the list of methods would be since knex's own method list is quite long, but ultimately pretty simple to implement.

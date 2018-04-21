@@ -18,11 +18,11 @@ First, a restriction:
 - The things that the Heavy Dependency injects can _only_ be used by the things that actually import it.  Anything else trying to use those things, even though they're installed via `Vue.use()`, will cause an error because they're trying to use something before it's installed!
 
 Broadly speaking, this way requires a few different files:
-- The Installer: This is what actually calls `Vue.use()`, and is imported by any wrapper.
+- The Installer: This is what actually calls `Vue.use()` to install the features used by the Wrappers.
 - The Wrappers: These actually use the features installed by the Installer.
-- The Wrapper Loaders: These stitch together the prior two items.
+- The Wrapper Loaders: These stitch together the prior two items, wrapping them in an Async Component definition.
 
-We end up with something that looks rather like an AMDish mess, but oh well.  There's a reason AMD was what it was.
+We end up with something that looks rather like an AMDish mess, but oh well.  There's a reason AMD was what it was.  In fact, we might as well just call this ACD, for Asynchronous Component Definition.  Heh.  Anyway, here's an example using Vue Highcharts:
 
 ```js
 // installers/VueHighcharts.js
@@ -31,6 +31,8 @@ import Highcharts from 'highcharts'
 import VueHighcharts from 'vue-highcharts'
 
 Vue.use(VueHighcharts, { Highcharts })
+
+// We could export things here if we expected to need them...
 ```
 
 ```js
@@ -70,6 +72,8 @@ export default {
 ```
 
 Notice that when using SomeChart, you have to actually call it.  This is done so you can override the async component settings, which is important if we want to maintain flexibility in the face of various UI needs.
+
+Also notice that the `SomeChart.impl` is being shoved into a generic sounding `implementations--charts` chunk.  This is intentional in this specific instance: The Wrappers themselves are likely to be so light that bundling them all together will be more efficient than keeping them separate.  This is of course highly situational, and other Wrappers may be heavier and deserve their own Chunks.
 
 ```js
 import SomeChart from '@/components/Highcharts/SomeChart'

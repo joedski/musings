@@ -280,3 +280,47 @@ data() {
   }
 }
 ```
+
+
+### Inching Charts Towards or Away From the Edges
+
+There's a couple axis options I missed initially: `startOnTick` and `endOnTick`.  These default to `true`, but setting them to `false` will bound the chart drawing area along that axis to the data rather than to the next outer tick.
+
+Combined with `min` and `max`, you can specify bounds of your graph.  So, as an example, suppose we wanted to ignore ticks on the y axis so things would always go to the top, but always have 0:
+
+```js
+data() {
+  return {
+    chartOptions: {
+      yAxis: {
+        // Let the top of the graph coincide with the top of the data.
+        endOnTick: false,
+
+        // Then always make sure the bottom is 0.
+        startOnTick: false,
+        min: 0,
+      },
+    },
+  }
+}
+```
+
+You can also use `minPadding` or `maxPadding` if you want to do things like have the data almost exactly fitted to the drawing area, but have a certain amount of padding between a given min/max and the end of the axis.
+
+```js
+data() {
+  return {
+    chartOptions: {
+      yAxis: {
+        // Let the top of the graph coincide with the top of the data.
+        endOnTick: false,
+
+        // Then always make sure the bottom is 0.
+        startOnTick: false,
+        // Pad the bottom by 5% of the pixel length of the y axis.
+        minPadding: 0.05,
+      },
+    },
+  }
+}
+```

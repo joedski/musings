@@ -324,3 +324,91 @@ data() {
   }
 }
 ```
+
+
+
+Other Things
+------------
+
+### Small Sparklines with Dot Annotations and no interaction
+
+[Matomo](https://matomo.org) has some little sparkline charts in their Visits Overview widget.  To implement this, we'll need to do a few broad things:
+- Disable interaction.
+- Add dot annotations.
+- Eliminate all spacing, except maybe a few px to prevent annotations being clipped.
+- Remove ALL the titles!
+- Remove markers.
+
+I imagine it would end up something like this:
+
+```js
+data() {
+  return {
+    chartOptions: {
+      chart: {
+        type: 'line',
+        spacing: [1, 1, 1, 1],
+      },
+
+      series: [
+        {
+          name: 'Some data series',
+          color: someGrayColor,
+          data: [],
+          enableMouseTracking: false,
+        },
+      ],
+
+      annotations: [
+        {
+          // NOTE: not actually used, more just for dev friendliness.
+          id: 'latest',
+          shapes: [{
+            fill: ANNOTATION_COLORS.latest,
+            r: 1.5,
+            // Can be either x/y or a point id.
+            // point: { x, y },
+            point: 'some-point-id',
+          }],
+        },
+        {
+          // NOTE: not actually used, more just for dev friendliness.
+          id: 'max',
+          shapes: [{
+            fill: ANNOTATION_COLORS.max,
+            r: 1.5,
+            point: 'some-other-point-id',
+          }],
+        },
+        {
+          // NOTE: not actually used, more just for dev friendliness.
+          id: 'min',
+          shapes: [{
+            fill: ANNOTATION_COLORS.min,
+            r: 1.5,
+            point: 'yet-another-point-id',
+          }],
+        },
+      ],
+
+      title: { text: null, margin: 0 },
+      legend: { enabled: false },
+      tooltip: { enabled: false },
+      xAxis: {
+        title: { enabled: false },
+        labels: { enabled: false },
+        visible: false,
+        startOnTick: false,
+        endOnTick: false,
+      },
+      yAxis: {
+        title: { enabled: false },
+        labels: { enabled: false },
+        visible: false,
+        startOnTick: false,
+        endOnTick: false,
+      },
+    },
+  }
+}
+```

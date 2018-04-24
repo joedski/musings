@@ -21,4 +21,8 @@ I imagine this can be easily tested like so:
 
 ### Results
 
-... pending!
+The _Smoke Test_ worked about as expected, no errors during compilation, although I had to restart the Arduino IDE after creating the new folder in `libraries`.  I guess it scans on startup and never rescans.
+
+The _Other Test_ also seemed to work, so it seems you can include any file in a folder within `libraries`.  Again, I had to restart the Arduino IDE, but this shouldn't be a problem unless I'm actively developing on a library.
+
+This is good for if I want to break the library up into smaller targeted file.  Of course, I should probably include an omnibus file, too.

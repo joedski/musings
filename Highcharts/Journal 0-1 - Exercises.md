@@ -339,58 +339,34 @@ Other Things
 - Remove ALL the titles!
 - Remove markers.
 
-I imagine it would end up something like this:
+After rather a lot of finagling, I came up with this:
 
 ```js
 data() {
   return {
     chartOptions: {
       chart: {
-        type: 'line',
-        spacing: [1, 1, 1, 1],
+        type: 'spline',
+        // Make space for the annotation dots.
+        margin: [3, 3, 3, 3],
       },
 
       series: [
         {
-          name: 'Some data series',
-          color: someGrayColor,
+          name: 'Data',
+          color: SPARKLINE_COLORS.data,
+          lineWidth: 1,
+          marker: { enabled: false },
           data: [],
+          // Note: points should be passed in as triples:
+          // [xvalue, yvalue, idOrNull]
+          // The id is used to identify the min, max, and latest.
+          keys: ['x', 'y', 'id'],
           enableMouseTracking: false,
         },
       ],
 
-      annotations: [
-        {
-          // NOTE: not actually used, more just for dev friendliness.
-          id: 'latest',
-          shapes: [{
-            fill: ANNOTATION_COLORS.latest,
-            r: 1.5,
-            // Can be either x/y or a point id.
-            // point: { x, y },
-            point: 'some-point-id',
-          }],
-        },
-        {
-          // NOTE: not actually used, more just for dev friendliness.
-          id: 'max',
-          shapes: [{
-            fill: ANNOTATION_COLORS.max,
-            r: 1.5,
-            point: 'some-other-point-id',
-          }],
-        },
-        {
-          // NOTE: not actually used, more just for dev friendliness.
-          id: 'min',
-          shapes: [{
-            fill: ANNOTATION_COLORS.min,
-            r: 1.5,
-            point: 'yet-another-point-id',
-          }],
-        },
-      ],
-
+      // HIDE ALL THE THINGS
       title: { text: null, margin: 0 },
       legend: { enabled: false },
       tooltip: { enabled: false },
@@ -405,10 +381,142 @@ data() {
         title: { enabled: false },
         labels: { enabled: false },
         visible: false,
+        // I tried to make the no-data ones show a line on the bottom.
+        // Failed, but a mid-way line admittedly looks pretty nice.
         startOnTick: false,
         endOnTick: false,
+        softMin: 0,
+        softMax: 1,
       },
     },
   }
 }
 ```
+
+As noted above, the chart itself gets handed data in the form of `[xvalue, yvalue, idOrNull]`, but given the data straight from Matomo, we only have the first two elements, the xvalue and yvalue.  We have to get the id, which is `null` for most things, ourselves.
+
+To get the min, max, and latest points for the annotations, I just manually updated the data:
+
+```js
+function getMetricsProps(props) {
+  const { metrics } = props;
+
+  let minIndex = -1;
+  let maxIndex = -1;
+  const latestIndex = metrics.length - 1;
+
+  // Reverse a copy so we don't touch the original.
+  // We could use reduceRight if we wanted to avoid creating an extra array,
+  // but that looks noisier and I didn't feel like it.
+  // Laziness.
+  metrics.slice().reverse().forEach((datum, datumInverseIndex) => {
+    const datumIndex = metrics.length - 1 - datumInverseIndex;
+
+    if (minIndex === -1 || datum[1] < metrics[minIndex][1]) {
+      minIndex = datumIndex;
+    }
+
+    if (maxIndex === -1 || datum[1] > metrics[maxIndex][1]) {
+      maxIndex = datumIndex;
+    }
+  });
+
+  return {
+    // Replace the original metrics data with new ones that have additional ids tacked on.
+    metrics: metrics.map((datum, datumIndex) => {
+      // The latest one has precedence over the other ids.
+      if (datumIndex === latestIndex) {
+        return [...datum, 'latest-value'];
+      }
+
+      // Then max, because max is better.
+      if (datumIndex === maxIndex) {
+        return [...datum, 'max-value'];
+      }
+
+      if (datumIndex === minIndex) {
+        return [...datum, 'min-value'];
+      }
+
+      // NOTE: Others must have an explicit `null` or else Highcharts gets confused.
+      return [...datum, null];
+    }),
+    metricsHasLatest: true,
+    // these are used to determine if we need add the other annotations.
+    // It's kind of redundant to add them if they all overlap.
+    metricsHasMin: ![-1, maxIndex, latestIndex].includes(minIndex),
+    metricsHasMax: ![-1, minIndex, latestIndex].includes(maxIndex),
+  };
+}
+```
+
+Not the most FP-style but eh, it works.  To actually update the chart, I did the following:
+
+```js
+function updateChart(chart, props) {
+  // Clear out the old annotations, if any.
+  // Don't want to leave stale things about.
+  chart.removeAnnotation('latest');
+  chart.removeAnnotation('max');
+  chart.removeAnnotation('min');
+
+  // Add the data as usual.
+  chart.series[0].setData(props.metrics);
+
+  // Then we add the annotations, if we need to.
+  if (props.metricsHasLatest) {
+    chart.addAnnotation({
+      id: 'latest',
+      shapes: [{
+        type: 'circle',
+        fill: SPARKLINE_COLORS.latest,
+        r: 2,
+        strokeWidth: 0.6,
+        stroke: 'white',
+        point: 'latest-value',
+      }],
+    });
+  }
+
+  if (props.metricsHasMax) {
+    chart.addAnnotation({
+      id: 'max',
+      shapes: [{
+        type: 'circle',
+        fill: SPARKLINE_COLORS.max,
+        r: 2,
+        strokeWidth: 0.6,
+        stroke: 'white',
+        point: 'max-value',
+      }],
+    });
+  }
+
+  if (props.metricsHasMin) {
+    chart.addAnnotation({
+      id: 'min',
+      shapes: [{
+        type: 'circle',
+        fill: SPARKLINE_COLORS.min,
+        r: 2,
+        strokeWidth: 0.6,
+        stroke: 'white',
+        point: 'min-value',
+      }],
+    });
+  }
+}
+```
+
+This works pretty well, but as of 2018-04-24, [the bottoms of line/spline charts get clipped off](https://jsfiddle.net/Lcrkb7ov/).  Hopefully that gets fixed, but it's not the highest priority.
+
+Also as of 2018-04-24, [Annotations are still clipped when at the edges of the plot area](https://github.com/highcharts/highcharts/issues/7861), but that can be fixed by [disabling clipping](http://jsfiddle.net/1zm3ut2w/7/) as demonstrated by [mentioned by TornsteinHonsi](https://github.com/highcharts/highcharts/issues/7861#issuecomment-365559712):
+
+```js
+Highcharts.wrap(Highcharts.Annotation.prototype, 'render', function (proceed) {
+  proceed.call(this);
+  this.shapesGroup.clip();
+});
+```
+
+A small price to pay, I suppose.

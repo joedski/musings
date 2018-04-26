@@ -302,3 +302,36 @@ This in mind, the above example with `mapbubble` can be read thus: Given `mapDat
 The above in mind, I'll need to figure out what all data I can get from Matomo.  If I can get the ISO-A3 value directly, that'd be the best.  Otherwise, I'll have to just poke around and hope something happens to use something usable, like `countryFlag` or whatever.  Unfortunately, [Matomo's docs on their Live module](https://developer.matomo.org/api-reference/reporting-api#Live) do not give you a handy list of columns you can pass to `showColumns`.  (also not sure why it's `showColumns`, but it has a matching `hideColumns`, so maybe that's why?)
 
 There's a list of [actual database columns](https://developer.matomo.org/guides/persistence-and-the-mysql-backend), but this doesn't include any of the `nb_` things, and the location values are all prefixed with `location_`, while in the query's list of columns, they are not.
+
+There are the [usual columns for all metrics reports](https://developer.matomo.org/api-reference/reporting-api#api-response-metric-definitions), but those don't include any location based things.
+
+I've tried the following searches without finding anything that seemed to be what I want:
+- `matomo api columns`
+- `matomo what columns can I query for`
+- `matomo what columns can I ask the reporting api for`
+
+So, strike out there.  [The description of their Live module](https://developer.matomo.org/api-reference/reporting-api#Live) mentions _"… but also other attributes such as: days since last visit, days since first visit, country, continent, visitor IP, provider, referrer used …"_ however this still doesn't say what actual columns I'm supposed to pass into `showColumns`.
+
+I could just keep guessing various name permutations but that is stupid and frustrating, and I have to come up with those permutations which is see-last-description.
+
+I'm going to try grepping through the code base, I guess.  Let's start with something that looks pretty greppable, `continentCode`.
+
+- `plugins/UserCountry/VisitorDetails.php`
+  - `$visitor['continentCode'] = $this->getContinentCode();`
+  - `$continentCode = $visit->getColumn('continentCode');`
+  - So something is in there.  I guess `UserCountry` is the plugin that adds that capability.
+- `plugins/UserCountry/Columns/Continent.php`
+  - `protected $segmentName = 'continentCode';`
+  - Here Content, or `contentCode` specifically, is defined as a named Segment.
+- `plugins/UserCountry/UserCountry.php`
+  - `foreach ($regionDataProvider->getCountryList() as $countryCode => $continentCode)`
+
+The rest is just test data snapshots.  Bah.
+
+I guess `countryCode` is usable, but it's only the 2-letter code.  Looking at [this example](http://jsfiddle.net/gh/get/library/pure/highcharts/highcharts/tree/master/samples/maps/plotoptions/series-border/), though, it seems I should be able to just reference `iso-a2` instead of `iso-a3` (and make sure to _capitalize the codes Matomo returns_) and I'm good to go.
+
+```
+joinBy: ['iso-a2', 'countryCode']
+```
+
+I'm sure Highmaps has their `mapData` documented ... somewhere.

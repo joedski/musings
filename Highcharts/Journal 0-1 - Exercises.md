@@ -508,7 +508,7 @@ function updateChart(chart, props) {
 }
 ```
 
-This works pretty well, but as of 2018-04-24, [the bottoms of line/spline charts get clipped off](https://jsfiddle.net/Lcrkb7ov/).  Hopefully that gets fixed, but it's not the highest priority.
+This works pretty well, but as of 2018-04-24, [the bottoms of line/spline charts get clipped off](https://jsfiddle.net/Lcrkb7ov/1/).  Hopefully that gets fixed, but it's not the highest priority.
 
 Also as of 2018-04-24, [Annotations are still clipped when at the edges of the plot area](https://github.com/highcharts/highcharts/issues/7861), but that can be fixed by [disabling clipping](http://jsfiddle.net/1zm3ut2w/7/) as demonstrated by [mentioned by TornsteinHonsi](https://github.com/highcharts/highcharts/issues/7861#issuecomment-365559712):
 

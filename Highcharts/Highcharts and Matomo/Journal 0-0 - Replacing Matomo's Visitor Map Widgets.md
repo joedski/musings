@@ -405,3 +405,81 @@ Since we were trying to get things out sooner than later, it meant just rolling 
 Matomo's Live Visitor Map widget uses pulsing bubbles of various sizes/brightnesses to represent visitor volume and recentness, although I'm not sure which is which.  If I had to guess, I'd say brightness is used to represent recentness, and size is used to represent visitor volume.  I'll need to poke around their widget to see if that's indeed what they do.
 
 Taking a look at it today, I see two bubbles with actual city locations... where are these coming from?  Aah, they are coming from the initial map load.  Hm!  And those more recent datapoints indeed have `city` and `latitude` and `longitude`!  Okay, so there's some extra consideration then.
+
+The question then is whether or not Highmaps can use lat/long data, and if so, how to normalize all points to have lat/long.  The answer seems to be yes, though we'll see just how that's implemented:
+
+- [Basic Lat/Long Example](https://www.highcharts.com/maps/demo/mappoint-latlon)
+- [More Advanced Lat/Long Example (using bubbles!)](https://www.highcharts.com/maps/demo/latlon-advanced)
+  - It also has a dotted crosshair.  Hee.
+- [General docs on Lat/Long in Maps](https://www.highcharts.com/docs/maps/latlon)
+
+From the docs, it looks then like we can give a datum a `lat` and a `lon` property with the appropriate values and, so long as the map itself has `hc-transform` defined.  As it would turn out, Highcharts' collection of Maps all have this.  Heh.
+
+This also means we don't need the `joinBy`... except that we don't have the center lat/lon for those data points which lack a `city`.  We need to somehow map those to country centers, or rather map their countries' centers to lat/lon.
+
+Looking at their [`world.json`](http://code.highcharts.com/mapdata/custom/world.js), the various Countries (well, Features, but the Features here happen to be Countries) do each have an `hc-middle-x` and `hc-middle-y`, but it looks like these are relative coordinates that go from 0 to 1, although I'm not sure where the origin is with them.  Still, I suppose the immediate question is if Highmaps includes some utility functions to give me some lat/lon coordinates for these.
+
+Looking at their [advanced lat/lon example](https://www.highcharts.com/maps/demo/latlon-advanced), their crosshairs include the lat/lon next to them using a custom method:
+
+```js
+$('#container').mousemove(function (e) {
+    var position;
+    if (chart) {
+        if (!chart.lab) {
+            chart.lab = chart.renderer.text('', 0, 0)
+                .attr({
+                    zIndex: 5
+                })
+                .css({
+                    color: '#505050'
+                })
+                .add();
+        }
+
+        e = chart.pointer.normalize(e);
+        position = chart.fromPointToLatLon({
+            x: chart.xAxis[0].toValue(e.chartX),
+            y: chart.yAxis[0].toValue(e.chartY)
+        });
+
+        chart.lab.attr({
+            x: e.chartX + 5,
+            y: e.chartY - 22,
+            text: 'Lat: ' + position.lat.toFixed(2) + '<br>Lon: ' + position.lon.toFixed(2)
+        });
+    }
+});
+```
+
+The key here seems to be the calculation of `position`, but that takes absolute chart coordinates, not relative chart coordinates.  I may need to dig into the various utility functions Highcharts/Highmaps provides to actually suss this one out.
+
+Looking at `chart` and `axis` are probably good places to start.  `series` too, probably.
+
+Hm.  Not really seeing much.  `series.data` might be a way to go?  But that doesn't really show `mapData`, I don't think.  Looking at `series.data` in [this Map Borders example](http://jsfiddle.net/gh/get/library/pure/highcharts/highcharts/tree/master/samples/maps/plotoptions/series-border/), though, I can see `plotX` and `plotY`.  Also `iso-a2` and `code`, but not `iso-a3`.  That might be due to `joinBy` though.  Ah, but `properties` is still there, which looks like it came from the Map JSON, so finding by `properties.iso-a2` might be the most dependable option.
+
+Or rather:
+
+```js
+const code2ToCoords = series[0].data.reduce((acc, datum) => {
+  acc[datum.properties['iso-a2']] = { plotX: datum.plotX, plotY: datum.plotY };
+  return acc;
+}, {})
+```
+
+Or even better:
+
+```js
+const code2ToLatLon = series[0].data.reduce((acc, datum) => {
+  acc[datum.properties['iso-a2']] = chart.fromPointToLatLon({
+    x: chart.xAxis[0].toValue(datum.plotX),
+    y: chart.yAxis[0].toValue(datum.plotY),
+  });
+  return acc;
+}, {});
+```
+
+Theoretically, that should only need to be done once on initial render, then we can convert 2-letter country codes as defaults.  Two problems:
+- This has to be done every time we show a chart.
+- This can't be done until after the first render.
+
+This introduces a 1-frame delay to showing the data itself.  Far better would be to have that data already calculated.  Since it's lat/lon, it's not beholden to any one particular rendering or projection.

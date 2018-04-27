@@ -328,10 +328,80 @@ I'm going to try grepping through the code base, I guess.  Let's start with some
 
 The rest is just test data snapshots.  Bah.
 
-I guess `countryCode` is usable, but it's only the 2-letter code.  Looking at [this example](http://jsfiddle.net/gh/get/library/pure/highcharts/highcharts/tree/master/samples/maps/plotoptions/series-border/), though, it seems I should be able to just reference `iso-a2` instead of `iso-a3` (and make sure to _capitalize the codes Matomo returns_) and I'm good to go.
+I guess `countryCode` is usable, but it's only the 2-letter code.
+
+
+### Highmaps Maps: How Do We Link Data to the Map?
+
+Looking at [this example](http://jsfiddle.net/gh/get/library/pure/highcharts/highcharts/tree/master/samples/maps/plotoptions/series-border/), though, it seems I should be able to just reference `iso-a2` instead of `iso-a3` (and make sure to _capitalize the codes Matomo returns_) and I'm good to go.
 
 ```
 joinBy: ['iso-a2', 'countryCode']
 ```
 
-I'm sure Highmaps has their `mapData` documented ... somewhere.
+I'm sure Highmaps has their `mapData` documented ... somewhere.  [The option](https://api.highcharts.com/highmaps/series.mapbubble.mapData) just stipulates that it's an array of objects with at least a `path` prop defining an SVG path definition and other props to use with the `joinBy` option, the default being `code`.
+
+I notice that in at least the global overviews, Highmaps examples reference `custom/world`, either as `chartConfig.chart.map = 'custom/world'` or `chartConfig.series[].mapData = Highcharts.maps['custom/world']`.  Looking at their general docs, [they mention](https://www.highcharts.com/docs/maps/map-collection) their [Map Collection](http://code.highcharts.com/mapdata).  Not sure if we care much about [drilldown](https://www.highcharts.com/maps/demo/map-drilldown) but it's probably something I should consider.  Notice that that drilldown example loads each detail-series' map asynchronously.
+
+Anyway, moving on, `custom/world` seems to point to [their medium-resolution Miller projection map](http://jsfiddle.net/gh/get/library/pure/highslide-software/highcharts.com/tree/master/samples/mapdata/custom/world), which is probably more than fine enough for our uses.
+
+Looking at the GeoJSON, I see this:
+
+```json
+{
+  "title": "World, Miller projection, medium resolution",
+  "copyrightUrl": "http://www.naturalearthdata.com",
+  "...": "...",
+  "features": [
+    "...",
+    {
+      "type": "Feature",
+      "id": "NO",
+      "properties": {
+        "hc-group": "admin0",
+        "hc-middle-x": 0.1,
+        "hc-middle-y": 0.93,
+        "hc-key": "no",
+        "hc-a2": "NO",
+        "name": "Norway",
+        "labelrank": "3",
+        "country-abbrev": "Nor.",
+        "subregion": "Northern Europe",
+        "region-wb": "Europe & Central Asia",
+        "iso-a3": "NOR",
+        "iso-a2": "NO",
+        "woe-id": "-90",
+        "continent": "Europe"
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          { "...": "..." }
+        ]
+      }
+    },
+    "..."
+  ]
+}
+```
+
+Seems the `properties` has what things we can use with `joinBy`.  Excellent.
+
+
+### Considerations: Only Country Code is Available... For Now
+
+In the project I was originally doing this for, we have a couple more issues: For one thing, most of our traffic is going through corporate proxies, which mainly exit in one location in the US, so most of our traffic reads as coming from the US.  `countryCode` is populated, but (probably?) has to be asked for from Matomo by name.
+
+Worse however is that there's no `city` nor `latitude` + `longitude`, though the latter might be a bit much to ask for.  For our project, we only wanted `city` accuracy, but as of now even if we did have that it would be only like 3 cities in the world.  We might as well just use a plain visitor counter.
+
+If we do get `city` later, it's likely we'll need to translate that to Latitude + Longitude, but that at least is just a lookup.  It's more annoying that we don't even have a city at all, even if it'd currently be inaccurate.
+
+Since we were trying to get things out sooner than later, it meant just rolling with what we've got, so country-accuracy it is.
+
+
+
+## Graphical Representation
+
+Matomo's Live Visitor Map widget uses pulsing bubbles of various sizes/brightnesses to represent visitor volume and recentness, although I'm not sure which is which.  If I had to guess, I'd say brightness is used to represent recentness, and size is used to represent visitor volume.  I'll need to poke around their widget to see if that's indeed what they do.
+
+Taking a look at it today, I see two bubbles with actual city locations... where are these coming from?  Aah, they are coming from the initial map load.  Hm!  And those more recent datapoints indeed have `city` and `latitude` and `longitude`!  Okay, so there's some extra consideration then.

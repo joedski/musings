@@ -520,3 +520,7 @@ Highcharts.wrap(Highcharts.Annotation.prototype, 'render', function (proceed) {
 ```
 
 A small price to pay, I suppose.
+
+#### Update: The series.clip Option
+
+[Turns out](https://github.com/highcharts/highcharts/issues/8235#issuecomment-384964783) there's a generally-available option that can disable clipping for a series: `series.clip`.  Setting this to `false` (in either `config.plotOptions.series.clip` or `config.series[].clip`) [prevents use of a clipping rect](https://jsfiddle.net/BlackLabel/Lcrkb7ov/2/), it just seems to have been not included for any series but `pie`.  Huzzah!  To wit, I believe this is still non-ideal behavior but at least the clipping can be disabled when necessary, which is mildly annoying but easy work around.  As far as frustrations go, that's really minor.

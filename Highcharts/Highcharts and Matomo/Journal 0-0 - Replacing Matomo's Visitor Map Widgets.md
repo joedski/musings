@@ -482,4 +482,4 @@ Theoretically, that should only need to be done once on initial render, then we 
 - This has to be done every time we show a chart.
 - This can't be done until after the first render.
 
-This introduces a 1-frame delay to showing the data itself.  Far better would be to have that data already calculated.  Since it's lat/lon, it's not beholden to any one particular rendering or projection.
+This introduces a 1-frame delay to showing the data itself.  Far better would be to have that data already calculated, since it's not likely countries are to change their lat/long appreciably in any reasonable timescale.  Since it's lat/lon, it's also not beholden to any one particular rendering or projection.

@@ -3,7 +3,7 @@ Highcharts and Matomo - Journal 0-0 - Replacing Matomo's Visitor Map Widgets
 
 Since Highcharts includes Highmaps, I figured I'd also look into using that to replace the Live View and Visitors Geography widgets.  So, time to dive in.
 
-The Live Visitors Map widget has this URL: https://metrics.exmaple.com/index.php?module=Widgetize&action=iframe&widget=1&moduleToWidgetize=UserCountryMap&actionToWidgetize=realtimeMap&idSite=1&period=day&date=yesterday&disableLink=1&widget=1
+The Live Visitors Map widget has this URL: `https://metrics.exmaple.com/index.php?module=Widgetize&action=iframe&widget=1&moduleToWidgetize=UserCountryMap&actionToWidgetize=realtimeMap&idSite=1&period=day&date=yesterday&disableLink=1&widget=1`
 
 The live usage map makes this query every so often:
 
@@ -483,3 +483,180 @@ Theoretically, that should only need to be done once on initial render, then we 
 - This can't be done until after the first render.
 
 This introduces a 1-frame delay to showing the data itself.  Far better would be to have that data already calculated, since it's not likely countries are to change their lat/long appreciably in any reasonable timescale.  Since it's lat/lon, it's also not beholden to any one particular rendering or projection.
+
+
+### Country Data
+
+[A bit of Googling](https://www.google.com/search?safe=active&q=country+land+mass+center+latitude+longitude+csv&oq=country+land+mass+center+latitude+longitude+csv) brought me to [this handly repository of country data](https://mledoze.github.io/countries/).  It's licensed under the [Open Data Commons Open DB License (ODbL)](https://opendatacommons.org/licenses/odbl/summary/), so should be fine to use, though technically we should include a statement for that.
+
+I have `jq` installed, so I should be able to do just this:
+
+```sh
+jq '[.[] | {cca2, cca3, location: { lat: .latlng[0], lon: .latlng[1] }}]' countries.json
+```
+
+And that'll filter it down to just the data I want.  Score.  Then, any datum that doesn't have latitude and longitude already included, I just use the appropriate country's location.  I used `lon` instead of `lng` because Highmaps uses the former.
+
+
+### Another Highcharts Wrapper
+
+Apparently there's an [official-for-sure React-wrapper for Highcharts](https://www.npmjs.com/package/highcharts-react-official), so.  There's that?  It doesn't include Highcharts with itself, which is perhaps reason enough to use it over the current one.  I don't think changing over should require too much work.  Probably.  Maybe I'll try that now?
+
+One thing to note: The official wrapper has not much update logic.  It updates if `props.update` is truthy, or if it's `undefined`, so by default.  It uses `chartInst.update(this.props.options)` to actually update the chart itself, so it defers to Highchart's own update functionality to deal with actual changes.  Naturally, you should try to prevent too many updates regardless of where they come up.  Since the metrics charts don't change the config and always update data manually, I can just pass `false` here.
+
+
+### Actually Querying Matomo
+
+So in the opnening, I didn't show the full request made my Matomo's Live Visitors Map widget, nor did I show the request it opens with, which is obviously a bit bigger than the one it makes every 5 seconds.
+
+Here's the initial request made:
+
+```
+https://metrics.example.com/index.php?period=range&idSite=1&segment=&date=last30&format=json&showRawMetrics=1&module=API&method=Live.getLastVisitsDetails&filter_limit=100&showColumns=latitude%2Clongitude%2Cactions%2ClastActionTimestamp%2CvisitLocalTime%2Ccity%2Ccountry%2CreferrerType%2CreferrerName%2CreferrerTypeName%2CbrowserIcon%2CoperatingSystemIcon%2CcountryFlag%2CidVisit%2CactionDetails%2CcontinentCode%2Cactions%2Csearches%2CgoalConversions%2CvisitorId%2CuserId&minTimestamp=-1
+
+query:
+  period: range
+  idSite: 1
+  segment:
+  date: last30
+  format: json
+  showRawMetrics: 1
+  module: API
+  method: Live.getLastVisitsDetails
+  filter_limit: 100
+  showColumns: latitude,longitude,actions,lastActionTimestamp,visitLocalTime,city,country,referrerType,referrerName,referrerTypeName,browserIcon,operatingSystemIcon,countryFlag,idVisit,actionDetails,continentCode,actions,searches,goalConversions,visitorId,userId
+  minTimestamp: -1
+```
+
+Here's the recurring request:
+
+```
+https://metrics.example.com/index.php?period=range&idSite=1&segment=&date=last30&format=json&showRawMetrics=1&module=API&method=Live.getLastVisitsDetails&filter_limit=100&showColumns=latitude%2Clongitude%2Cactions%2ClastActionTimestamp%2CvisitLocalTime%2Ccity%2Ccountry%2CreferrerType%2CreferrerName%2CreferrerTypeName%2CbrowserIcon%2CoperatingSystemIcon%2CcountryFlag%2CidVisit%2CactionDetails%2CcontinentCode%2Cactions%2Csearches%2CgoalConversions%2CvisitorId%2CuserId&minTimestamp=1525101937
+
+query:
+  period: range
+  idSite: 1
+  segment:
+  date: last30
+  format: json
+  showRawMetrics: 1
+  module: API
+  method: Live.getLastVisitsDetails
+  filter_limit: 100
+  showColumns: latitude,longitude,actions,lastActionTimestamp,visitLocalTime,city,country,referrerType,referrerName,referrerTypeName,browserIcon,operatingSystemIcon,countryFlag,idVisit,actionDetails,continentCode,actions,searches,goalConversions,visitorId,userId
+  minTimestamp: 1525101937
+```
+
+It looks like the primary difference is the `minTimestamp` param, which I suppose changes to the current tiem on any request after the first.
+
+After a bit of poking, I found that `Math.floor(Date.now() / 1000)` gives the same value as `minTimestamp` (taking into account a few seconds delay).  It seems you pass in the local time, and I suppose then that Matomo uses the request time to determine the timezone offset so it can relate that to the timestamp it stores internally.  Or maybe it doesn't do that at all, but that wouldn't really make sense for live visitor things.
+
+I think for now, I'll remove the `actionDetails` and add `countryCode`.
+
+```
+latitude
+longitude
+lastActionTimestamp
+visitLocalTime
+city
+country
+countryCode (NOTE: Adding this.)
+referrerType
+referrerName
+referrerTypeName
+browserIcon
+operatingSystemIcon
+countryFlag
+idVisit
+// actionDetails
+continentCode
+actions
+searches
+goalConversions
+visitorId
+userId
+```
+
+
+### Graphical Representation, Continued: Actually Formatting the Data
+
+I think Matomo's bubbles are purely about recentness, and they render both color and size based on that dimension, rather than something more complex like size being volume and color being recentness.  Granted, that would make things a bit odd in the case of when a location has 1 new hit but still has a bunch of older ones recent enough to have a bubble... I think that would involve some amount of binning-by-time-span.
+
+Fair bins might be something like:
+- 0 to >3min
+- 3min to >10min
+- 10min to >30min
+- 30min to >1hr
+- 1hr to >4hr
+- Drop anything 4hr or older
+
+Then, just give the bins ordering from oldest to newest, last layer on top, and that'd be good enough I think.
+
+Anyway, I guess I'll just do the same here: Bubble size maps to recentness rather than volume, although this is misleading, I think.
+
+Using the country JSON, we can guarantee every point has coordinates.
+
+How do we want to actually aggregate, now?  I think I might end up using the above bins, actually.
+- Time Bin, as described above
+- How long ago the most recent action was
+- Count of different users
+  - NOTE: I thought about listing out the users here, but that might be a bit much...
+- Count of total actions
+- Browsers used by all users (by icon)
+- OSes used by all users (by icon)
+
+As a note, it is possible to [control the color of a given datum either per datum with `datum.color` or by setting up zones for `column` charts with `chartOptions.column.zones[].color`](https://stackoverflow.com/questions/34800720/highcharts-dynamically-change-bar-color-based-on-value).  Not sure if `zones` works with other types, let alone maps, but failing that we can just control the colors directly.
+
+> NOTE: Actually, Matomo's widget just draws one bubble per user, and the bubble's size, color, and opacity are all linked to just one dimension, how recent that user's last action was.
+>
+> This is supported by how it draws many many bubbles over the same spot, specifically one city, which my boss said is where one of our corporate proxies exits.  This also explains why it shows a specific user when hovering the bubble.  I suspect Matomo expected to get accurate location data, or at least accurate enough.  This assumes most people won't be in the same place, though, so is kind of annoying.
+
+Given the above note, I think just to maintain the current behavior, sans the obnoxious overlay, I'll just do what Matomo did:
+- Cull older than 4 hours
+- Group by User
+- Show:
+  - City and/or Country
+  - How long ago most recent action was
+  - Country (flag icon)
+  - Browser (icon)
+  - OS (icon)
+
+Process then will go something like this:
+- Append received data to cache
+- Apply pipeline:
+  - For each `datum.userId`, take latest datum according to `datum.lastActionTimestamp`
+  - Cull data whose `lastActionTimestamp` is older than 4 hours ago
+  - Order by `lastActionTimestamp` ascending
+
+
+### Lat/Lon in Highmaps
+
+Seems the map `custom/world` [doesn't support lat/lon points out of the box](https://www.highcharts.com/errors/22).  That's interesting.  Time to load yet another library, then, specifically `proj4.js` in this case.
+
+I have no idea how Highcharts is accessing `proj4`, and I don't see it documented anywhere, so I assume it's pulling off of `window` or `global`.  This means I'll need add an import wrapper to make sure `proj4` is on `window` before `Highcharts` is even imported itself.  To ensure this, I'll add it to the project's own `Highcharts` import wrapper.  Wooo dependency graph.
+
+Okay, that didn't work.  Now what?  Maybe their [docs on custom GeoJSON maps](https://www.highcharts.com/docs/maps/custom-geojson-maps) will have something?  Nope.  Back to stabbing in the dark I suppose.  I'm definitely [not the only one facing this issue](https://stackoverflow.com/questions/49009504/how-to-import-proj4js-to-use-with-highmaps).  Time to look through Highcharts' code, I guess.
+
+- https://github.com/highcharts/highcharts/blob/87a23ca7db66c754e8502722c25fa6c345be7b14/js/parts-map/GeoJSON.js#L73
+  - Checks `win.proj4`, but it logs `error(21)`, not 22.
+- https://github.com/highcharts/highcharts/blob/87a23ca7db66c754e8502722c25fa6c345be7b14/js/parts-map/GeoJSON.js#L183
+  - Checks `this.mapTransforms` and if that's not truthy then it logs `error(22)`.
+  - Where's `this.mapTransforms` set?  [Their docs](https://api.highcharts.com/highmaps/chart.mapTransforms) would seem to indicate it's set in the options, or else extracted from the map data.
+
+What about that last point?  If it's supposed to pull the transform data from the map and Highmap's [GeoJSON of their medium resolution Miller projected world map](http://code.highcharts.com/mapdata/custom/world.geo.json) has such data, why's it still complaining?  Do I need to load it manually?  Looking again at their [general docs on their Map Collection](https://www.highcharts.com/docs/maps/map-collection), that is indeed the case.  Oops.  Well, does their NPM package include those?  Doesn't look like it.  I guess I'll need to download all the maps myself, either that or use their hosted files.
+
+It's really a good thing, of course, since including all the maps right off would both bloat the bundle and possibly cause licensing issues, but still annoying for getting off the ground.
+
+Well, Highcharts stopped spamming error 22, but now it's stuck on `loading`.  Oh, wait, that's my bad.  I have things set up to have that manual, so the updater function can show a message instead if it wants.
+
+Right, so it's rendering points, in two locations as expected since there's only two places right now... But where's the map?  Do I still need to set some lines or colors?  I already have `borderWidth: 1`, which is the only thing I can find right now.  Some maps don't even have that.
+
+Maybe I'll try just adding a series with nothing in it?  That doesn't show anything either.
+
+I'm going to try resetting to no chart config and see if that helps.  The base chart config is useful for all the non-map charts, but I actually have no idea if it's affecting something with the maps or not.
+
+Ah, indeed, something in there is the issue.  Next, we take out the saparate countries layer... and the map is gone.  Bah.  Putting that back, then.  And now the bubbles are gone.  Okay.
+
+Oh, interesting, looks like Highcharts mutates the array of data you pass to `chart.series[].setData()`.  Adding a `.slice()` call to that.
+
+This still doesn't explain why the bubbles don't show up here.  I'm kind of at wit's end today, I'll come back tomorrow.  I'm tempted to just put `joinBy: ['iso-a2', 'datum.countryCode']` and leave it at that, but we're going to the trouble of getting actual cities and lat/lon, so... Bleh.

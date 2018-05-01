@@ -59,3 +59,35 @@ if (typeof window !== 'undefined') {
 
 // ... etc.
 ```
+
+
+
+## The Case of the Missing Series
+
+A rather mysterious issue came up today: one of my Highmaps charts was mysteriously failing the second time it got rendered with the error `cannot read property 'setData' of undefined`, from the line `chart.series[1].setData(...)`.  Looking at `chart.options`, it seems `series` somehow got set to `null`!  Needless to say, this was rather surprising, as I explicitly set the series in my chart config to an array.  Why was it null?  Could it be Highcharts was mutating the config object?
+
+After putting the chart config into a separate const, it seemed this was indeed the case!  How naughty.  Also irritating, as it means I need to deep-clone the config fresh every instance, which is more work.
+
+In this case, since this happened in a React + Redux project, I just added an extra layer to the `mapStateToProps` that got passed to react-redux's `connect()` which created the per-instance config and returned that on whatever prop I had it on before.  In this particular case, the prop was `chartConfig`.
+
+```js
+export default compose(
+  connect(
+    () => {
+      const chartConfig = {
+        chart: {
+          map: 'custom/world',
+          // ...
+        },
+        // ...
+      };
+
+      return () => ({ chartConfig });
+    },
+    (dispatch, props) => ({
+      // dispatches...
+    })
+  ),
+  // ... more enhancers.
+)(BaseMapChartComponent);
+```

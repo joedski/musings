@@ -660,3 +660,295 @@ Ah, indeed, something in there is the issue.  Next, we take out the saparate cou
 Oh, interesting, looks like Highcharts mutates the array of data you pass to `chart.series[].setData()`.  Adding a `.slice()` call to that.
 
 This still doesn't explain why the bubbles don't show up here.  I'm kind of at wit's end today, I'll come back tomorrow.  I'm tempted to just put `joinBy: ['iso-a2', 'datum.countryCode']` and leave it at that, but we're going to the trouble of getting actual cities and lat/lon, so... Bleh.
+
+
+### New Day, and the Value of Walking Away
+
+So, last night, it occurred to me that when I added the separate maplines series, I added it as the first one in `chartConfig.series[]`, which meant that the data series was no longer the first one, but the second... but I'd still be setting the data with `chart.series[0].setData()`.  Naturally, this lead to things not displaying.  Correcting for this, things now display.  Now I can work on appearance.
+
+
+
+## User Geography: Percentage-of-Traffic Heatmap
+
+The next map we want to replace is the Visitor Map.  We're in a bit of a time crunch, so I can't implement all of the options of the their widget right off, that's going to keep me busy for quite a bit, but I can at least implement the basic Visitors heatmap.
+
+One interesting note: If a datum did not have a location more specific than the country, Matomo's own widget did not show it when you drill down.  Bah.  It does still represent all data at the country level, at least.  Since I'm not implementing drilldown immediately, that won't be a problem, but when I do, I might want to give some consideration to that.
+
+Anyway, here's the request their geography map makes:
+
+```
+https://metrics.example.com/index.php?period=day&idSite=1&date=yesterday&segment=&enable_filter_excludelowpop=1&filter_excludelowpop_value=-1&format=json&showRawMetrics=1&module=API&method=API.getProcessedReport&apiModule=UserCountry&apiAction=getCountry&filter_limit=-1&limit=-1&format_metrics=0
+
+query:
+  period: day
+  idSite: 1
+  date: yesterday
+  segment:
+  enable_filter_excludelowpop: 1
+  filter_excludelowpop_value: -1
+  format: json
+  showRawMetrics: 1
+  module: API
+  method: API.getProcessedReport
+  apiModule: UserCountry
+  apiAction: getCountry
+  filter_limit: -1
+  limit: -1
+  format_metrics: 0
+```
+
+A Processed Report for `UserCountry.getCountry`, so the response should have some extra metadata, and indeed it does:
+
+```json
+{
+  "website": "GE Aviation Metrics & Analytics",
+  "prettyDate": "Monday, April 30, 2018",
+  "metadata": {
+    "category": "Visitors",
+    "subcategory": "Locations",
+    "name": "Country",
+    "module": "UserCountry",
+    "action": "getCountry",
+    "dimension": "Country",
+    "documentation": "This report shows which country your visitors were in when they accessed your website.",
+    "metrics": {
+      "nb_visits": "Visits",
+      "nb_uniq_visitors": "Unique visitors",
+      "nb_actions": "Actions"
+    },
+    "metricsDocumentation": {
+      "nb_visits": "If a visitor comes to your website for the first time or if they visit a page more than 30 minutes after their last page view, this will be recorded as a new visit.",
+      "nb_uniq_visitors": "The number of unduplicated visitors coming to your website. Every user is only counted once, even if they visit the website multiple times a day.",
+      "nb_actions": "The number of actions performed by your visitors. Actions can be page views, internal site searches, downloads or outlinks.",
+      "nb_actions_per_visit": "The average number of actions (page views, site searches, downloads or outlinks) that were performed during the visits.",
+      "avg_time_on_site": "The average duration of a visit.",
+      "bounce_rate": "The percentage of visits that only had a single pageview. This means, that the visitor left the website directly from the entrance page.",
+      "conversion_rate": "The percentage of visits that triggered a goal conversion."
+    },
+    "processedMetrics": {
+      "nb_actions_per_visit": "Actions per Visit",
+      "avg_time_on_site": "Avg. Time on Website",
+      "bounce_rate": "Bounce Rate"
+    },
+    "metricsGoal": {
+      "nb_conversions": "Conversions",
+      "revenue": "Revenue"
+    },
+    "processedMetricsGoal": {
+      "revenue_per_visit": "Revenue per Visit"
+    },
+    "imageGraphUrl": "index.php?module=API&method=ImageGraph.get&idSite=1&apiModule=UserCountry&apiAction=getCountry&token_auth=7e7e33cef96a8dc60a80182ae762a5b5&period=day&date=yesterday",
+    "imageGraphEvolutionUrl": "index.php?module=API&method=ImageGraph.get&idSite=1&apiModule=UserCountry&apiAction=getCountry&token_auth=7e7e33cef96a8dc60a80182ae762a5b5&period=day&date=2018-04-01,2018-04-30",
+    "uniqueId": "UserCountry_getCountry"
+  },
+  "columns": {
+    "label": "Country",
+    "nb_visits": "Visits",
+    "nb_uniq_visitors": "Unique visitors",
+    "nb_actions": "Actions",
+    "nb_actions_per_visit": "Actions per Visit",
+    "avg_time_on_site": "Avg. Time on Website",
+    "bounce_rate": "Bounce Rate",
+    "revenue": "Revenue"
+  },
+  "reportData": [
+    {
+      "label": "United States",
+      "nb_uniq_visitors": 182,
+      "nb_visits": 310,
+      "nb_actions": 633,
+      "nb_users": 182,
+      "max_actions": 79,
+      "sum_visit_length": 128430,
+      "bounce_count": 189,
+      "nb_visits_converted": 0,
+      "conversion_rate": 0,
+      "nb_actions_per_visit": 2,
+      "avg_time_on_site": 414,
+      "bounce_rate": 0.61,
+      "revenue": 0
+    }
+  ],
+  "reportMetadata": [
+    {
+      "code": "us",
+      "logo": "plugins/Morpheus/icons/dist/flags/us.png",
+      "segment": "countryCode==us",
+      "logoHeight": 16
+    }
+  ],
+  "reportTotal": {
+    "nb_visits": 310,
+    "nb_uniq_visitors": 182,
+    "nb_actions": 633,
+    "nb_visits_converted": 0,
+    "bounce_count": 189
+  },
+  "timerMillis": "72"
+}
+```
+
+I think for trials I'll just do a plain report, though I should take note of the `segment` thing up there in `reportMetadata`.  Also, since I'm not getting report metadata with the normal request, I'll have to ask for `countryCode` directly.
+
+I see there's also the `excludelowpop` thing in there.  I'll leave that in for now I guess.  Don't want to change the request that much if I can help it.  Optimize it later.
+
+```
+label
+countryCode
+nb_uniq_visitors
+nb_visits
+nb_actions
+nb_users
+max_actions
+sum_visit_length
+bounce_count
+nb_visits_converted
+conversion_rate
+nb_actions_per_visit
+avg_time_on_site
+bounce_rate
+revenue
+
+https://metrics.example.com/index.php?
+  format=json
+  module=API
+  method=UserCountry.getCountry
+  idSite=1
+  date=yesterday
+  period=day
+  segment=
+  enable_filter_excludelowpop=1
+  filter_excludelowpop_value=-1
+  showRawMetrics=1
+  filter_limit=-1
+  limit=-1
+  format_metrics=0
+
+https://metrics.example.com/index.php?format=json&module=API&method=UserCountry.getCountry&idSite=1&date=yesterday&period=day&segment=&enable_filter_excludelowpop=1&filter_excludelowpop_value=-1&showRawMetrics=1&filter_limit=-1&limit=-1&format_metrics=0
+```
+
+As expected, this gives us back the `reportData` part of the above larger response:
+
+```json
+[
+  {
+    "label": "United States",
+    "nb_uniq_visitors": 182,
+    "nb_visits": 310,
+    "nb_actions": 633,
+    "nb_users": 182,
+    "max_actions": 79,
+    "sum_visit_length": 128430,
+    "bounce_count": 189,
+    "nb_visits_converted": 0,
+    "code": "us",
+    "logo": "plugins/Morpheus/icons/dist/flags/us.png",
+    "segment": "countryCode==us",
+    "logoHeight": 16
+  }
+]
+```
+
+And, looks like I forgot to add the desired columns to the request query, though it seems it wasn't necessary anyway as it seems both the data and the metadata were included in the response.  Fine enough by me, I suppose.
+
+For a smooth color shift, it looks like Highmaps supports a [`config.colorAxis` option](https://api.highcharts.com/highmaps/colorAxis) as shown in [this Highmaps demo](https://www.highcharts.com/maps/demo/all-maps) which is basically the heatmap I want to do here.  First though, get data actually showing up, then get it like that.
+
+Well, something is showing up, but Highcharts says the value is 0.  Maybe it's not using `point.z` as the bubble map chart does?  It looks like `point.value` is used in [that demo mentioned above](https://www.highcharts.com/maps/demo/all-maps), so I'll try using that instead.  Alternatively, I should see if the `map` series has something like `keys` or some other way to set what Highcharts checks for the the value.
+
+I don't see anything to select what to look at for the value, nor do I see `config.series[].keys` as an option, but I do see [`config.series[].data[].value`](https://api.highcharts.com/highmaps/series.map.data.value).  Indeed, the proper number is now shown.  What remains, then, is to proerly format things.  What's map use as `tooltip.pointFormat` by default in `map` type series?  The [config documentation there](https://api.highcharts.com/highmaps/tooltip.pointFormat) says it's `<span style="color:{point.color}">\u25CF</span> {series.name}: <b>{point.y}</b><br/>`, but the series name here is `Visits`, and in my data I was seeing `United States of America`.  It doesn't seem like that's the actual value, then, unless `series.name` is being overridden.  Similarly, `headerFormat` is `<span style="font-size: 10px">{point.key}</span><br/>`, which also doesn't seem right.
+
+I guess I'll just leave it as is and work on the gradient thing.  I don't have `config.legend` specified at all in my current chart, but [the demo mentioned above](https://www.highcharts.com/maps/demo/all-maps) does have that, so I'll try just putting that on.  Aaand no dice.  Must be more to it than that.
+
+Looking at [this GeoJSON demo](https://www.highcharts.com/maps/demo/geojson-multiple-types) they use `point.name` in the states case and `point.properties.NAME` for the rivers.  Hm, perhaps I can try those.  Specifically, each `feature` in [`world.geo.json`](http://code.highcharts.com/mapdata/custom/world.geo.json) has a `properties` prop which is itself just a propbag of stuff, one of which is `name`.
+
+The Matomo widget also shows a percentage value, so as part of preparing the data, I need to also calculate the sum of all the visit counts.  I decided to just add it as an additional prop on each data point as `valueTotal`.  Then, I can just use this as the `chartConfig.tooltip.formatter`:
+
+```js
+formatter() {
+  const percentage = Math.round(this.point.value / this.point.valueTotal * 100);
+
+  return (
+    `${this.point.properties.name}<br>
+    <strong>${this.point.value}</strong> visits<br>
+    (${percentage}%)`
+  );
+}
+```
+
+That's all well and good, but why is the color axis not being shown?  Maybe I have to explicitly specify `chartConfig.colorAxis`?  That does indeed seem to be the case.  Okay, cool.
+
+Ultimately, this ended up being my chart config:
+
+```js
+chartConfig: {
+  chart: {
+    borderWidth: 0,
+    // TODO: Drilldown.
+    map: 'custom/world',
+    backgroundColor: 'transparent',
+    spacing: [7, 0, 0, 0],
+    style: {
+      fontFamily: 'inherit',
+    },
+  },
+
+  title: { text: null },
+
+  loading: {
+    style: {
+      // Same as the background color of the container this map is sitting in.
+      backgroundColor: '#fafafa',
+    },
+  },
+
+  tooltip: {
+    formatter() {
+      const percentage = Math.round((this.point.value / this.point.valueTotal) * 100);
+
+      return (
+        `${this.point.properties.name}<br>
+        <strong>${this.point.value}</strong> visits<br>
+        (${percentage}%)`
+      );
+    },
+    shadow: false,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    style: {
+      color: 'white',
+    },
+    borderWidth: 0,
+  },
+
+  colorAxis: {
+    min: 0,
+    stops: [
+      [0, '#FAFAFA'],
+      [0.5, Highcharts.getOptions().colors[0]],
+      [1, Highcharts.Color(Highcharts.getOptions().colors[0]).brighten(-0.5).get()],
+    ],
+  },
+
+  legend: {
+    layout: 'vertical',
+    align: 'left',
+    verticalAlign: 'bottom',
+  },
+
+  series: [
+    {
+      name: 'Countries',
+      color: '#E0E0E0',
+      enableMouseTracking: false,
+      showInLegend: false,
+    },
+    {
+      // NOTE: As above, this is just visits for now,
+      // but later we'll need to select the series name based on selected prop.
+      // Maybe even just show all them as different series and toggle between them.
+      name: 'Visits',
+      data: [],
+      joinBy: ['iso-a2', 'code'],
+    },
+  ],
+}
+```

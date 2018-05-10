@@ -1,7 +1,7 @@
 Amusing Snippets
 ================
 
-Variably useful and amusing snippets of Postgres I learned about.
+Variably useful and amusing snippets of Postgres I learned about.  Some may even be applicable to MySQL.
 
 
 

@@ -116,3 +116,41 @@ SET "bar" = (
 -- NOTE: No WHERE clause here, we're touching all of "real_table".
 ;
 ```
+
+
+### Combining VALUES with Explict Types
+
+As an interesting note, since these are columns, they do need to be the same type.  Fortunately, you only need to specify types on the first row, and Postgres will try to treat the rest of the values in that column as that same type.
+
+Here's a couple of examples with `jsonb`, which is always entered as a string of course.
+
+```sql
+WITH "foo" ("id", "attrs") AS (
+	VALUES
+	(1, '{"thingy": 23}'::jsonb),
+	(2, '{"thingy": 100}'),
+	(3, '{"noThingy": true}')
+)
+SELECT ("attrs"->>'thingy')::int AS "thingy"
+FROM "foo"
+;
+
+WITH "anon_table" ("foo", "bar") AS (VALUES
+  -- NOTE: Type specified only for the first row!
+  (1, '1'::jsonb),
+  (2, '2'),
+  (3, '3')
+)
+UPDATE "real_table"
+SET "bar" = jsonb_set(
+  "real_table"."bar",
+  '{sameValue}',
+  (
+    SELECT "anon_table"."bar"
+    FROM "anon_table"
+    WHERE "anon_table"."foo" = "real_table"."foo"
+  )
+)
+WHERE "real_table"."foo" IN (SELECT "foo" FROM "anon_table")
+;
+```

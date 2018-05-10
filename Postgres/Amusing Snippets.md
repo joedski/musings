@@ -31,6 +31,7 @@ SET "attributes" = jsonb_set(
 ## Inline/Constant Tables Using VALUES
 
 - [Postgres (9.5) docs on `VALUES`](https://www.postgresql.org/docs/9.5/static/queries-values.html)
+- [Answer showing an example and pointing to (and excerpting from) the manual](https://stackoverflow.com/a/17533194/4084010)
 
 From there we see you can do things like this:
 
@@ -129,6 +130,7 @@ WITH "foo" ("id", "attrs") AS (
 	VALUES
 	(1, '{"thingy": 23}'::jsonb),
 	(2, '{"thingy": 100}'),
+  -- Does not have the prop "thingy" so instead of a number we get NULL.
 	(3, '{"noThingy": true}')
 )
 SELECT ("attrs"->>'thingy')::int AS "thingy"
@@ -153,4 +155,23 @@ SET "bar" = jsonb_set(
 )
 WHERE "real_table"."foo" IN (SELECT "foo" FROM "anon_table")
 ;
+```
+
+Of course, trying to break this causes an error:
+
+```sql
+WITH "foo" ("id", "attrs") AS (
+	VALUES
+	(1, '{"thingy": 23}'::jsonb),
+	(2, 25),
+	(3, '{"noThingy": true}')
+)
+SELECT ("attrs"->>'thingy')::int AS "thingy"
+FROM "foo"
+;
+
+-- Result:
+-- ERROR:  VALUES types jsonb and integer cannot be matched
+-- LINE 4:  (2, 25),
+--              ^
 ```

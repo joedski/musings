@@ -65,8 +65,11 @@ This in mind, we can do something like this:
 import Vue from 'vue'
 import VueHighcharts from 'vue-highcharts'
 
+import Highcharts from 'highcharts'
+// Also any extras we want...
+
 // Since this is in the module definition, it gets applied only once.
-Vue.use(VueHighcharts)
+Vue.use(VueHighcharts, { Highcharts })
 
 // ... nothing else!
 

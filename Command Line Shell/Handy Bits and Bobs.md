@@ -1,6 +1,8 @@
 Handy Bits and Bobs for the *Nix CLI with a Bias Towards Bash and Compatible Shells
 ===================================================================================
 
+A list of small snippets I've found variably useful over the years.  I've found it's helpful to both note them down just to have them and also to dissect them to learn more about the available tools.
+
 
 
 ## Find files which contain all of a number of discrete strings

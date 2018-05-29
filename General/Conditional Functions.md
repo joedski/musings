@@ -83,6 +83,13 @@ const maybeGetBarOfFoo = state => fooId => compose(
   ifNotNil(get('barId')),
   getFoo(state)
 )(fooId);
+
+// Or going full curry,
+const maybeGetBarOfFoo = state => compose(
+  ifNotNil(getBar(state)),
+  ifNotNil(get('barId')),
+  getFoo(state)
+);
 ```
 
 These are sorta treating values that might be null as a Maybe monad... Hm!

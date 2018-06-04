@@ -5,10 +5,15 @@ Basic Lessons Learned from Working On PWAs
 
 - Minimize Complexion
   - I mean, obviously, right?
-  - Don't build hard-coded combinations of functionality where they're not necessary.
+  - Don't build hard-coded combinations of functionality where they're not necessary.  That only serves to obscure what's going on.
   - Where something can be implemented in a few separate orthogonal functions and from those combined into the desired total functionality, it should be.
+- Make your code readable
+  - You spend significantly more time reading your code than you do writing it.
+  - Give meaningful names to things.
+  - If necessary, leave comments, especially when hacking around things you can't change such as other peoples' APIs.
 - Dogmatism in Moderation
   - Far better to ship and be aware of the cost than to miss out.
+  - You did file some Tech Debt issues in the tracker, didn't you?
 - Pragmatism in Moderation
   - Building things as pure functional utilities can be slow to start, but proper separation of concerns will always pay off in the long run.
 - Write Shit Down
@@ -26,8 +31,10 @@ Basic Lessons Learned from Working On PWAs
   - This is necessary for digestion of thoughts, and is especially important while learning, which you should never stop doing.
   - Even better, do something manual that doesn't require much _conscious_ thinking.
 - If You Have the Time, Do It Right
-  - As best as you can at this moment, anyway.
+  - As best as you can _at this point in time_; see also next point.
 - Decide and Commit
+  - Don't spend all your time in perpetual planning.
+  - If it's a large problem, start small explorations into it, they will help inform your remaining decisions.  You can't preplan everything, especially if there are many unknowns.
 - Use Source Control
   - Git?  SVN?  Mercurial?  Perforce?  Pick one and use it.
   - Maybe not CVS, though.  Especially not if it's the drug store.
@@ -63,10 +70,11 @@ Basic Lessons Learned from Working On PWAs
 - Schemas and Type Descriptions Are Good
   - Thinking about your data first is always good.
     - Even if you're prototyping, though you'd be forgiven for being a bit loose with it there.
-  - It takes practice, though.
+  - It takes practice, though, so do it early, do it often.
 - Unpopulated/Populated Dichotomies Should Be ~~Avoided~~ Handled With Care
   - The less you mangle/remangle your data, the better.
   - While a Populated Entity (one whose relations are reified and attached to itself) can be handy, it usually ends up being picked back apart by the various UI elements, meaning you've just undone the work you did moments ago.
+    - Even worse, you've just added another layer of computation/caching to your data-view mapping.
   - Rather, a UI element should pull what it needs from the state.  If it shows the main properties on the entity, it should pull the entity.  If it shows a list of related other entities, it should use the entity's id to get its relations and pull those rather than pulling everything.
   - All of this once again goes to one of the Golden Rules: Minimize Complexion.
 - Pure Functions are Testable
@@ -74,3 +82,12 @@ Basic Lessons Learned from Working On PWAs
 - Never Copy/Paste What Can Be Refactored
 - Write Specifically First, Abstract Later
   - Early Abstraction is a form of Early Optimization, and Early Optimization in the face of ignorance of the true Problem Domain is a Sin.
+  - Most of a view in an app should start in the `views` dir, or whatever the Actual Rendered Views part is.
+  - Then, if there are any parts that seem like they can be cleanly abstracted into separate orthogonal components, break them out into their own parts in the `components` dir and refactor the view to use them.
+- `Array#map` (React) and `v-for` (Vue (and really Angular)) is superior to any pre-complected list + list-items component.
+  - There's basically very little reason, even in specialized circumstances, to use a List component of some sort that iterates for you over a more basic machine such as `Array#map()` or `v-for/ng-for`.
+  - A pre-complected list component obscures your output, especially the more features are added to it.
+    - Further, adding all such features to one List component bloats it beyond all reason.
+    - Instead break it into a bunch of small utility components that make it obvious what each one does and can be used with `Array#map()`/`v-for`.
+  - There may very well be a reason at times to create a pre-complected List component, but it has to be very compelling to counteract the obscuring of actual output.
+  - This is a specific example of using basic tools over over-fancy tools to leave code more readable rather than more compact, as that compactness comes at the cost of increased cognative burden.

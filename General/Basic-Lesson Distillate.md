@@ -76,6 +76,7 @@ Basic Lessons Learned from Working On PWAs
   - While a Populated Entity (one whose relations are reified and attached to itself) can be handy, it usually ends up being picked back apart by the various UI elements, meaning you've just undone the work you did moments ago.
     - Even worse, you've just added another layer of computation/caching to your data-view mapping.
   - Rather, a UI element should pull what it needs from the state.  If it shows the main properties on the entity, it should pull the entity.  If it shows a list of related other entities, it should use the entity's id to get its relations and pull those rather than pulling everything.
+  - There's also another question: Where does the de-normalization end?  One relation deep?  Two?  Usually once is sufficient, but not bothering with de-normalization avoids this issue entirely.
   - All of this once again goes to one of the Golden Rules: Minimize Complexion.
 - Pure Functions are Testable
   - Side effects, not as much.

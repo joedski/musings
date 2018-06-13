@@ -3,6 +3,8 @@ Creating a Middleware for Handling the OAuth2 Three Legged Flow
 
 I decided to reimplement a middleware for handling three-legged flows just to re-up my knowledge on how it works, and some of the things I needed to do for at least semi-real-world use.
 
+A more production ready option is [grant](https://github.com/simov/grant), which not only has built in settings for a great many providers, but also has ready-made adaptors for Express, Koa, and Hapi.
+
 
 
 ## Outline of Operation
@@ -132,6 +134,13 @@ While we can certainly configure things once, we should probably allow separate 
 ### Consideration: Should This Actually Fail If There's No Session Object?
 
 Might want to at least add an option to not fail if there's no session object.  Or maybe just allow the app implementor to specify a function there?
+
+
+### Consideration: Should Getting the Session Object be Maybe-Async?
+
+Currently, I assume getting the session object could be async, and so I have to assume that getting it could take awhile, and therefore I get it just once then deal with that gotten session object.  Is this really a good way to go about it, though?  Will any such session object actually reach the middlewares/whatever before they're fully retrieved?  I don't think so.
+
+It should be fine to just make it sync, it would make things cleaner.
 
 
 ### Consideration: Refresh Tokens
@@ -291,6 +300,104 @@ function checkOrTry(checkFn, corrections) {
 }
 ```
 
-So, it's not actually that bad to implement, although in this version, outer layers end up being able to await on inner layers... We'd want to at least prevent calling `next()` more than once.  Well, actually, with `composeMiddleware`, we already have that.  Not so much with `createCondMiddleware`, though.  I guess `createCondMiddleware` depends on other things checking that.
+So, it's not actually that bad to implement, although in this version, outer layers end up being able to await on inner layers... Not sure how I feel about that.  It's probably neutral?  We'd want to at least prevent calling `next()` more than once.  Well, actually, with `composeMiddleware`, we already have that.  Not so much with `createCondMiddleware`, though.  I guess `createCondMiddleware` depends on other things checking that.
 
-How to unroll that, then?  With state tracking, because JS doesn't have tail-call optimization.  I probably won't bother since at most it's three or four cases?
+How to unroll that, then?  With state tracking like `koa-compose` does, because JS doesn't have tail-call optimization.  I probably won't bother since at most it's three or four cases?
+
+
+
+## Try 3, With Verve (or something...)
+
+- _Client_ requests _Target Resource_ on _Our Server_.
+- Is the _Target Resource_ one for which a _Valid Session_ is required?
+  - If No, respond with _Target Resource_.
+  - If Yes, continue.
+- _Our Server_ checks if _Client_ has a _Valid Session_:
+  - Does the _Client_ have any session at all?
+    - If No, fail with error: "koa-oauth-three-legged: Cannot process requests which do not have a session"
+  - Loop: Session Validation:
+    - Check: Does the _Client_ have a valid session?
+      - If Yes, break Loop and continue afterwards.
+      - If No, try next Action.
+    - Actions to Try if Check Fails:
+      - Action 1: Refresh Token
+        - Does the session include a Refresh Token?
+          - If No, recur Loop.
+          - If Yes:
+            - Try getting a new access token for Session by using Refresh Token.
+            - Recur Loop.
+      - Action 2:
+        - Check if requested resource is one we should redirect invalid requests on.
+          - If Yes:
+            - Save the path to the _Target Resource_ on the _Session_.
+            - Create a new _State_ on the _Client_'s _Session_.
+            - Redirect _Client_ to the _IDP Authorization URL_.
+            - NOTE: Another request reaching this branch will invalide a previous one!
+          - If No, Respond with 401.
+  - If Loop continued to here, continue.
+- If continued to here, respond with _Target Resource_.
+
+For handling callbacks Auth-specific calls to our API:
+
+- _Client_ requests _Authorization Callback_ on _Our Server_:
+  - Does the _Client_ have a _Session_?
+    - If No, Respond with 400 and tell the User they are a Bad Person who should Feel Bad.
+    - If Yes, continue.
+  - Does the _Request_ include a _Code_?
+    - If No, Respond with 400, Invalid Callback: Missing or Invalid Code.
+    - If Yes, continue.
+  - Does the _State_ in the Request match the _State_ expected for their _Session_?
+    - If No, Respond with 400, Invalid Callback: Missing or Invalid State.
+    - If Yes, continue.
+  - Delete the _State_ from the _Session_.
+  - Use the _Code_ to request an _Authorization Token_ using the _IDP Token URL_:
+    - If Success:
+      - Save the _Authorization Token_ on the _Session_.
+      - Continue.
+    - If Error:
+      - Respond with a 400, Invalid Callback: Invalid Code.
+  - Does the _Session_ have a saved _Target Resource_?
+    - If Yes, redirect to _Target Resource_.
+    - If No, perform _Default Valid Callback Action_.
+
+- _Client_ requests _Logout_ on _Our Server_:
+  - Delete any info we had stored on them.
+    - This probably isn't all that useful?  I think it could be exported as just another handler for the actual logout route, whatever that might be.
+
+
+### Consideration: Is the Router Necessary?
+
+Since we only have one router handler, do we really need to handle the whole router bit?  If we're going to break out the handlers, or more precisely handler creators, we might as well also break out that handler itself, let the app worry about actually placing it in a route.  Granted, that means specifing the callback route in the config, but we did remove the whole need to specify any path prefixes: just use `koa-mount`.
+
+
+### A More Modular Setup
+
+I guess it would end up being used something like this:
+
+```js
+const authMiddlewares = createOauthThreeLeggedFlow({ ... });
+
+// ...
+authRouter.get('/_auth/callback', authMiddlewares.authCallbackHandler());
+authRouter.get('/_auth/logout', function handleLogout(ctx) {
+  return Promise.all([
+    authMiddlewares.cleanUpSessionInfo(ctx),
+    deleteSessionStuff(ctx),
+  ]);
+});
+
+// ...
+appRouter.use(authMiddlewares.authCheck({
+  shouldRedirectInvalidSession: () => true,
+}));
+appRouter.get('/', views.home());
+appRouter.get('/foos', views.browseFoos());
+
+// ...
+apiRouter.use(authMiddlewares.authCheck({
+  shouldRedirectInvalidSession: () => false,
+}));
+apiRouter.get('/foos', FooController.getFoos);
+```
+
+Less prefabbed, but much nicer interface wise.

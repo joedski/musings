@@ -29,7 +29,7 @@ Before going much further, I should also do some preliminary discovery on our ex
 We created the search index as a separate materialized view because it pulled data from a few different source tables.  Basically a whole bunch of this:
 
 ```sql
-CREATE MATERIALIZED VIEW application_search_index AS (
+CREATE MATERIALIZED VIEW catalog_item_search_index AS (
     SELECT
       id,
       to_tsvector(item.name::text) AS "search_text",
@@ -56,6 +56,8 @@ CREATE MATERIALIZED VIEW application_search_index AS (
   -- ... A bunch of more selects unioned together...
 ) WITH DATA;
 ```
+
+The reason for doing it this way, I think, is to give us the ability to use more than just `tsquery`/`tsvector` based searches.  As we'll see below, this makes it quite easy to do literal-value searches, and that trying to do it purely through `tsvector` and `tsquery` is possible, but more involved.  (I never actually go to the `tsquery` part.)
 
 
 ### Querying the Search Index
@@ -115,7 +117,9 @@ function doSourceSearch(query) {
         db.pg.raw('50 AS "weight"')
       )
       .from('catalog_item_search_index')
-      .where('source', '=', 'Title').andWhere('raw_text', 'ilike', likeMatch);
+      .where('source', '=', 'Title')
+      .andWhere('raw_text', 'ilike', likeMatch)
+      ;
     });
   })
   .etc(...)
@@ -153,6 +157,85 @@ function doSourceSearch(query) {
   ;
 }
 ```
+
+Exact matches in text should probably score higher still, so let's just add another round of the same, but without the additional `%`s on it.
+
+```js
+function doSourceSearch(query) {
+  // ...
+  const likeMatch = `%${query}%`;
+
+  return knex
+  .with('search_matches', function unionFTSAndPartialMatches(withClause) {
+    return withClause.select(...)
+    .union(function addPartialTitleMatches() {
+      // ...
+    })
+    .union(function addLiteralTagMatches() {
+      this.select(
+        'catalog_item_id',
+        'source',
+        'weight'
+      )
+      .from('catalog_item_search_index')
+      .where('source', '=', 'Tags')
+      .where('raw_text', 'ilike', query)
+      ;
+    })
+    .union(function addPartialLiteralTagMatches() {
+      this.select(
+        'catalog_item_id',
+        'source',
+        'weight'
+      )
+      .from('catalog_item_search_index')
+      .where('source', '=', 'Tags')
+      .where('raw_text', 'ilike', likeMatch)
+      ;
+    })
+    ;
+  })
+  .etc(...)
+  ;
+}
+```
+
+I just now thought of another problem: If a tag has `%` in it, that gets treated as another wildcard, rather than a literal `%`.  That might be fine for titles, but not for tags.  Fortunately, those can be escaped rather easily: `queryEscaped = query.replace(/[%_]/g, '\\$&')`.  (Postgres also lets you change the escape character, but that's a bit too fancy for this.)
+
+```js
+function doSourceSearch(query) {
+  // ...
+  const queryEscaped = query.replace(/[%_]/g, '\\$&');
+  const likeMatch = `%${query}%`;
+  const likeMatchEscaped = `%${queryEscaped}%`;
+
+  return knex
+  .with('search_matches', function unionFTSAndPartialMatches(withClause) {
+    return withClause.select(...)
+    .union(function addPartialTitleMatches() {
+      // ...
+    })
+    .union(function addLiteralTagMatches() {
+      this.select(...)
+      .etc(...)
+      .where('raw_text', 'ilike', queryEscaped)
+      ;
+    })
+    .union(function addPartialLiteralTagMatches() {
+      this.select(...)
+      .etc(...)
+      .where('raw_text', 'ilike', likeMatchEscaped)
+      ;
+    })
+    ;
+  })
+  .etc(...)
+  ;
+}
+```
+
+Titles, still allowing `%` and `_` to be used there.  If people find out about that, great!  It's actually a nice feature, and `ILIKE` doesn't take so much power as to be a DOS risk.
+
 
 
 

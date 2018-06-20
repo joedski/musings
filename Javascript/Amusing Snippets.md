@@ -84,3 +84,8 @@ console.log(foo.val) // -> ':D'
 ```
 
 Can we go... farther?  Without stack-overflowing, I mean.  Hm.
+
+```js
+Function.prototype.constructor === Function
+// -> true
+```

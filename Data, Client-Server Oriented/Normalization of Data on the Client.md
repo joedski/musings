@@ -21,4 +21,4 @@ Course 2 is what I'll focus on here.
   - The schema describing the shape of the response, using `$ref`s for Normalizable Entities.
   - The path to a downloadable Definitions schema, so the Client can learn what the shape of each `$ref` is.
 - Client creates normalizer functions for each `$ref` in the Definitions schema.
-- Congratulations, you can now do what GraphQL does.
+- Congratulations, you can now do what GraphQL + (Relay|Apollo) does.

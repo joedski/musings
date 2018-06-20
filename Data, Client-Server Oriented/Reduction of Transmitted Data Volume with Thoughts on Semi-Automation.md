@@ -4,7 +4,7 @@ Reduction of Transmitted Data Volume with Thoughts on Semi-Automation
 Some immediate thoughts:
 - GraphQL already does this.  If your shop can use GraphQL then by all means do that.
 - Otherwise, reimplemented it halfassedly using standard RESTish stuff.
-- For JSON responses, [always use an outer-object envelope](https://www.owasp.org/index.php/AJAX_Security_Cheat_Sheet#Always_return_JSON_with_an_Object_on_the_outside).  A few extra characters is a small cost to close a security hole.
+- For JSON responses, [always use an outer-object envelope][owasp-json].  A few extra characters is a small cost to close a security hole.
 
 Summary:
 - [Endpoints should include some way of specifing what properties need to be included](https://www.vinaysahni.com/best-practices-for-a-pragmatic-restful-api#limiting-fields).
@@ -29,3 +29,8 @@ Other notes:
   - Things like pagination params, filter params, those should still be in the query params, as they describe which data you're getting, not the shape of it.
   - Sending the request with the query params and without the custom header should (ideally) return a sane default.  Maybe just all properties.
 - For sending pagination data back to the client, there's [RFC 5988: the Link Header](http://tools.ietf.org/html/rfc5988#page-6) for some basic info, but another header is still required for things like Total Result Count.
+  - Another thought: Since [enveloping JSON responses is required][owasp-json], adding meta to that like pagination is still an option.
+
+
+
+[owasp-json]: https://www.owasp.org/index.php/AJAX_Security_Cheat_Sheet#Always_return_JSON_with_an_Object_on_the_outside

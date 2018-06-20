@@ -60,3 +60,27 @@ function *foos() { yield 'foo'; yield 'Foo'; yield 'FOO'; }
 console.log(...foos())
 // logs: foo Foo FOO
 ```
+
+
+
+## Very New Objects
+
+I'm not sure what to do with this... probably avoiding it like the plague.
+
+```js
+class Foo extends Function {
+  constructor(val) {
+    super(`
+      this.val = arguments[0];
+    `);
+    this.prototype.val = val;
+  }
+}
+
+var foo = new new Foo(':D')('D:');
+console.log(foo.val) // -> 'D:'
+delete foo.val;
+console.log(foo.val) // -> ':D'
+```
+
+Can we go... farther?  Without stack-overflowing, I mean.  Hm.

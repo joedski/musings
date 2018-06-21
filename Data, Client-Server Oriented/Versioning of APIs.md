@@ -40,8 +40,9 @@ My first thought is this:
 
 Some results:
 - You will have a lot of swagger docs.
-- They will all be big, and only ever get bigger.
+- They will all be big, and only ever get bigger. (unless you deprecate then remove endpoints.)
   - Though, you could implement a scheme where each one describes only diffs from the previous one.  Not sure that's so good, though.  Requires some thought.
+    - Nice for highlighting changes, not so nice for local reference.  You'd need a tool to fully reify the API surface.  Then again, you already use a tool to display a pretty Swagger UI, so...
 
 
 

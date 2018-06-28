@@ -77,10 +77,14 @@ interface Reducer<T> {
   (prop: T, nextValue, argsArray): T;
 }
 
+interface FetcherGetter<> {
+  (props) => Fetcher<>;
+}
+
 type FetcherDef<> =
-  | Fetcher<>
+  | FetcherGetter<>
   | {
-    fetch: Fetcher<>;
+    fetch: FetcherGetter<>;
     reduce: Reducer<>;
   }
 ```
@@ -99,3 +103,22 @@ function r(prop, nextValue, argsArray) {
 ```
 
 In fact, probably the most common one would be that.
+
+The Fetcher Getter is of course to allow the use of props, which includes use with React-Redux.
+
+
+### Use with React-Redux
+
+Simplest solution:
+
+```js
+const connection = connect(...);
+const addAsyncDataStatus = withAsyncDataStatus(...);
+
+const EnhancedComponent = compose(
+  // Define underlying fetches here so they can dispatch, etc.
+  connection,
+  // Wrap functions here to handle async-data-status.
+  addAsyncDataStatus,
+)(BaseComponent);
+```

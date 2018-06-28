@@ -49,6 +49,36 @@ enhancedFetch(apiRequests.thingy(thingyId))
 
 ## Other Thoughts
 
-Neither implementation includes the ability to check types separately and, for the use cases I'm considering, I don't think that's really necessary.  Every case is better handled with `inst.cata()`.  (Except those better handled with `.map()`)
 
-There's also the fact that for the actual enhancer itself, I'll need to be able to determine the types of the re-wrapped functions...  Fortunately, I've since learned [how to unbox types for reboxing](./Unboxing%20Types%20From%20Parametrized%20Boxes.md).
+### Run-Time Type Checking
+
+Neither implementation includes the ability to check types separately and, for the use cases I'm considering, I don't think that's really necessary.  Every case is better handled with `inst.cata()`.  (Except those better handled with `.map()` because you only need to change the success case.)
+
+On the other hand, if I just attached the class constructors directly to `AsyncData`, then I could just define `is` on them directly, or users could just use `instanceof` to check if the types are as described.
+
+
+### The Component Enhancer
+
+There's also the fact that for the actual enhancer itself, I'll need to be able to determine the types of the re-wrapped functions...  Fortunately, I've since learned [how to unbox types for reboxing](./Unboxing%20Types%20From%20Parametrized%20Boxes.md), so that's that part under my belt.
+
+Given the need to add extra props based on inputs, it may be informative to see [how React-Redux defines their types](https://github.com/DefinitelyTyped/DefinitelyTyped/blob/master/types/react-redux/index.d.ts#L75), along with [how they specify the polymorphic interface of their enhancer](https://github.com/DefinitelyTyped/DefinitelyTyped/blob/master/types/react-redux/index.d.ts#L109).  It's a bit hairy.
+
+
+### Aside: Multiple Results, One Prop Name
+
+I noted somewhere else that if a getter fetch in this pattern can be parametrized on something, then simultaneous fetch calls will conflict.  The basic solution is to, in such cases, create a collection of item-results based on one of the parameters or the return value.  I think the easiest way to do that would be to expose the ability to specify the new-value-reduce behavior, the scanner function, basically.
+
+For full flexibility, I think you'd need to be able to map things async, so you could say do `response.json()`, so return the new prop's value in a promise.  Or, hm.  That might cause issues if you have multiple things resolve simultaneously.  That'd require a two-step thing, I guess: async-map result and sync-reduce.  Then, it'd probably be easiest to just not allow async, and require async be done as part of the fetcher itself.
+
+So, I guess the full interface would be:
+
+```js
+type FetcherDef<> =
+  | Fetcher<>
+  | {
+    fetch: Fetcher<>;
+    reduce: Reducer<>;
+  }
+```
+
+Something like that.

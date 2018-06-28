@@ -73,6 +73,10 @@ For full flexibility, I think you'd need to be able to map things async, so you 
 So, I guess the full interface would be:
 
 ```js
+interface Reducer<T> {
+  (prop: T, nextValue, argsArray): T;
+}
+
 type FetcherDef<> =
   | Fetcher<>
   | {
@@ -82,3 +86,16 @@ type FetcherDef<> =
 ```
 
 Something like that.
+
+The reducer would be called any time a status update occurs, so you can update based on that.  A common one might be:
+
+```js
+function r(prop, nextValue, argsArray) {
+  return {
+    ...r,
+    [argsArray[0]]: nextValue,
+  };
+}
+```
+
+In fact, probably the most common one would be that.

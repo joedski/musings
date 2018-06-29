@@ -96,7 +96,7 @@ The reducer would be called any time a status update occurs, so you can update b
 ```js
 function r(prop, nextValue, argsArray) {
   return {
-    ...r,
+    ...prop,
     [argsArray[0]]: nextValue,
   };
 }
@@ -105,6 +105,27 @@ function r(prop, nextValue, argsArray) {
 In fact, probably the most common one would be that.
 
 The Fetcher Getter is of course to allow the use of props, which includes use with React-Redux.
+
+And, naturally for anything reduce-ish, we need an initial value.  This brings the full definition to:
+
+```js
+withAsyncData({
+  foo: {
+    // :: (props: Props) => (...args: Args) => Promise<V>
+    getter: (props) => props.getFoo,
+    // :: (prop: PropType<Def[K]>, nextValue: V, argsArray: Args) => PropType<Def[K]>
+    reduce: (prop, nextValue, argsArray: Args) => ({
+      ...prop,
+      // Overwrite the previous value for the given sub-prop at argsArray[0].
+      [argsArray[0]]: nextValue,
+    }),
+    // :: PropType<Def[K]>
+    initialValue: {},
+  }
+})
+```
+
+It's probably fine to stipulate in the interface that if `reduce` is specified, `initialValue` is required, even if it's explicitly `undefined` or `null`.
 
 
 ### Use with React-Redux

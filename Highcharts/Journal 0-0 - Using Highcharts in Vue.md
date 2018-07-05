@@ -77,8 +77,6 @@ First, I'll need to [install the library](https://www.highcharts.com/docs/gettin
 
 The annotation animation looks like it's only going at 30fps which isn't buttery smooth.  This is something that kinda dings it compared to, well, everything else.  Most people probably won't notice, at least not enough to complain.  That said, the amount of charting prowess we get out of the box is more valuable.  I'll still want to look into if the animation can be smoothed out, they may be constrained by their wide support matrix. (Using VML rendering to target _IE6_!)
 
-To save progress, I put up [a repo](https://github.build.ge.com/502720884/test-vue-and-highcharts).
-
 
 ### First Blush
 
@@ -141,7 +139,7 @@ yAxis: {
 
 #### Adding Data Live
 
-In their [example about live data](https://www.highcharts.com/docs/working-with-data/live-data), point 3 shows how to push new data on to an exsting series using [`Series#addPoint`](https://api.highcharts.com/class-reference/Highcharts.Series#addPoint).  I decided to try this out in [a feature branch](https://github.build.ge.com/502720884/test-vue-and-highcharts/tree/feature/replacing-data-live).
+In their [example about live data](https://www.highcharts.com/docs/working-with-data/live-data), point 3 shows how to push new data on to an exsting series using [`Series#addPoint`](https://api.highcharts.com/class-reference/Highcharts.Series#addPoint).
 
 ```js
 var series = chart.series[0];

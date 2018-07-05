@@ -13,7 +13,20 @@ I wonder if there's some minimal machinery that can be added to reduce or elimin
 
 One thought is that a collection can be created that simply holds the kinds of operations in order of addition, then evaluation of the collection to an actual query occurs on `then`.
 
-So `query.select()` would add a `['select', q => q.select(...)]`, `query.from()` would add a `['from', q => q.from(...)]` etc.  Then you do `calls |> groupBy(nth(0)) |> over(map(get, keyOrder)) |> filter(Boolean) |> flatten |> reduce((q, a) => a(q), actualQuery)` and that should do everything up nice and neat.
+So `query.select()` would add a `['select', q => q.select(...)]`, `query.from()` would add a `['from', q => q.from(...)]` etc.  Then you do ...
+
+```
+keyOrder = ['where', 'select', 'from', 'join', ...]
+orderedKeyGetters = map(get, keyOrder)
+
+applyCalls = queuedCalls =>
+  queuedCalls
+    |> groupBy(nth(0))
+    |> over(orderedKeyGetters)
+    |> filter(Boolean)
+    |> flatten
+    |> reduce((q, a) => a(q), actualQuery)
+```
 
 I don't think this needs much extra checking since Knex already does so much of that itself.  It's basically just a wrapper utility around the stuff knex already does, it just enforces a standard order, which is "each call grouped by type and run in order of addition".  Things like calling `from` twice would probably only get an error from Knex itself, though, rather than this.  I mean, we could check it, but I'm not sure if we need to?
 

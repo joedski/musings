@@ -17,8 +17,18 @@ I imagine this can be easily tested like so:
   - Create files `libraries/JoeDSki_IncludeTest/JoeDSki_IncludeTest_OtherFile.{h,cpp}` with a different simple definition and implementation.
   - Try including that file, too:
     - `#include <JoeDSki_IncludeTest_OtherFile.h>`
+- Subdir Test:
+  - Create file `libraries/JoeDSki_IncludeTest/JoeDSki_LUTs/Sine.h`.
+  - Try including that file, too:
+    - `#include <JoeDSki_LUTs/Sine.h>`
 
 
 ### Results
 
-... pending!
+The _Smoke Test_ worked about as expected, no errors during compilation, although I had to restart the Arduino IDE after creating the new folder in `libraries`.  I guess it scans on startup and never rescans.
+
+The _Other Test_ also seemed to work, so it seems you can include any file in a folder within `libraries`.  Again, I had to restart the Arduino IDE, but this shouldn't be a problem unless I'm actively developing on a library.
+
+This is good for if I want to break the library up into smaller targeted file.  Of course, I should probably include an omnibus file, too.
+
+The _Subdir Test_ also works.  Excellent.  It should probably be called `sineTable.h` but whatever.

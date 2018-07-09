@@ -201,6 +201,7 @@ export interface InferableComponentEnhancerWithProps<TInjectedProps, TNeedsProps
 	(
 		component: StatelessComponent<TInjectedProps>
 	): ComponentClass<TNeedsProps> & {WrappedComponent: StatelessComponent<TInjectedProps>}
+
 	<P extends Shared<TInjectedProps, P>>(
 		component: ComponentType<P>
 	): ComponentClass<Omit<P, keyof Shared<TInjectedProps, P>> & TNeedsProps> & {WrappedComponent: ComponentType<P>}
@@ -236,3 +237,217 @@ type Shared<
 I have a feeling I'll be employing something rather like these to add my magical props.  I'll also need to create some utilities, of course, mostly `tapBefore` and `tapAfter` to handle side effects.
 
 The easiest way may be to just start writing the actual thing itself then abstracting over the possible inputs.
+
+
+
+## Digging In: Implementation First
+
+We'll start with the most explicit case: Fully Specified Config.  Everything else is just shorthands for that.
+
+
+### Exposed Interface
+
+As shown elsewhere, this will be used something like so:
+
+```js
+const enhanceWithAsyncDataStatus = withAsyncDataStatus({
+  foo: {
+    request: (ownProps) => () => ownProps.getFoo(),
+    reduce: (prevPropValue, nextResValue, ownProps) => nextResValue,
+    // NOTE: Initial value is a function which returns a new initial value when called.
+    initialValue: (ownProps) => AsyncData.NotAsked(),
+  },
+})
+
+export default enhanceWithAsyncDataStatus(BaseComponent)
+```
+
+It returns an enhancer with:
+
+```
+Enhancer<Config> =
+  (BaseComponent<OwnProps & StatusProps<Config>, OwnState>)
+    => Component<OwnProps, OwnState>
+```
+
+
+### Example Implementation
+
+Obviously, there will likely be some finessing, but this is more or less what any enhancer will look like:
+
+```js
+function withAsyncDataStatus(config) {
+  const configNormalized = normalizeConfig(config);
+
+  return function enhanceWithAsyncDataStatus(Wrapped) {
+    class WithAsyncDataStatus extends React.PureComponent {
+      // NOTE: Pretty sure this is an antipattern,
+      // but I can't think of another way off hand to solve it.
+      isMounted = true;
+
+      state = {
+        propValues: this.createInitialPropValues(),
+      };
+
+      // These are defined once.
+      requestors = this.createRequestors();
+
+      componentWillUnmount() {
+        this.isMounted = false;
+      }
+
+      createInitialPropValues() {
+        // NOTE: May have to refactor to just operate on an object
+        // rather than use map/reduce, because typescript.
+        return Object.entries(configNormalized)
+        .map(([propName, propConfig]) => [
+          propName,
+          propConfig.initialValue(),
+        ])
+        .reduce(
+          (propValues, [propName, singlePropValue]) => {
+            propValues[propName] = singlePropValue;
+            return propValues;
+          },
+          {}
+        )
+      }
+
+      createRequestors() {
+        // NOTE: May have to refactor to just operate on an object
+        // rather than use map/reduce, because typescript.
+        return Object.entries(configNormalized)
+        .map(([propName, propConfig]) => [
+          propName,
+          (...args) => {
+            this.updatePropValue(propName, AsyncData.Waiting());
+            return propConfig.request(this.props)(...args)
+            .then(res => {
+              return this.updatePropValue(propName, AsyncData.Result(res));
+            })
+            .catch(error => {
+              return this.updatePropValue(propName, AsyncData.Error(error));
+            })
+          }
+        ])
+        .reduce(
+          (requestorProps, [propName, propRequestor]) => {
+            requestorProps[propName] = propRequestor;
+            return requestorProps;
+          },
+          {}
+        )
+      }
+
+      updatePropValue(propName, nextPropValue) {
+        const propConfig = configNormalized[propName];
+
+        const calculatedNextPropValue = propConfig.reduce(
+          this.state.propValues[propName],
+          nextPropValue,
+          this.props
+        );
+
+        // We want to avoid calling setState when unmounted, but cannot preclude
+        // the possibility of a request being made just before a component is unmounted.
+        // Simply skipping the setState call should be all that is sufficient to avoid issues.
+        // NOTE: Pretty sure it's an antipattern to track the mounted status like this.
+        if (this.isMounted) {
+          this.setState({
+            propValues: Object.assign({}, this.state.propValues, {
+              [propName]: calculatedNextPropValue,
+            }),
+          });
+        }
+
+        return calculatedNextPropValue;
+      }
+
+      render() {
+        return (
+          <Wrapped
+            {...this.props}
+            {...this.requestors}
+            {...this.state.propValues}
+          />
+        );
+      }
+    }
+  }
+}
+```
+
+This is more or less a straight port of what I've written (about 4 times already) for Vue.
+
+I think that's about it, really.  The Vue implementation was fewer lines, but that's because Vue uses a MobX style interface, while React uses a state-update-enqueing interface.  It would also be shorter due to all the Typescript definitions that it does not have.
+
+It's not nearly as complicated as React-Redux Connect, mostly because it's interfacing between very complex things.  It does one thing and one thing only: Maintain a bit of state per requestor.
+
+
+### Type Spec
+
+Now the fun part.
+
+To reiterate,
+
+```js
+interface WithAsyncDataStatus {
+  <Config>(config: UnnormalizedConfig<Config>): ComponentEnhancer<Config>;
+}
+
+interface ComponentEnhancer<Config> {
+  <OwnProps extends ExtendedProps<OwnProps, Config>>(ComponentType<OwnProps>):
+    ComponentClass<Omit<OwnProps, ExtendedProps<OwnProps, Config>>> & {WrappedComponent: ComponentType<OwnProps>}
+}
+```
+
+That's not too bad, it's just a bunch of reboxing and intersection.
+
+Things to define:
+- `Omit<{}, Ks>` (just copy from Redux, they copied it from elsewhere too.)
+- `ExtendedProps<OwnProps, Config>`
+- `Config`
+- `UnnormalizedConfig<Config>`
+
+```js
+interface Config<OwnProps> {
+  <R. E, P = AsyncData<R, E>>[propName: string]:
+    FullPropConfig<OwnProps, R, E, P>;
+}
+
+interface UnnormalizedConfig<C extends Config<{}>> {
+  [K in keyof C]: AnyPropConfig<C[K]>;
+}
+
+interface FullPropConfig<OwnProps, TResult, TError, TPropValue> {
+  request: Requestor<OwnProps, TResult, TError>,
+  reduce: PropReducer<OwnProps, TResult, TError, TPropValue>,
+  initialValue: (ownProps: OwnProps) => TPropValue,
+}
+
+interface RequestorOnlyPropConfig<PC extends FullPropConfig<{}, any, any, any>> {
+
+}
+
+type AnyPropConfig<PC extends FullPropConfig<{}, any, any, any>> =
+  | PC
+  | RequestorOnlyPropConfig<PC>
+;
+```
+
+Okay, that changes what we need above a bit.
+
+```js
+interface WithAsyncDataStatus {
+  <C extends Config<{}>>(config: UnnormalizedConfig<C>): ComponentEnhancer<C>;
+}
+
+interface ComponentEnhancer<C extends Config<{}>> {
+  <OwnProps extends ExtendedProps<OwnProps, C>>(ComponentType<OwnProps>):
+    ComponentClass<Omit<OwnProps, ExtendedProps<OwnProps, C>>> & {WrappedComponent: ComponentType<OwnProps>}
+}
+```
+
+It also gives us a few more things to define:
+- `Requestor<OwnProps, R, E>`
+- `PropReducer<OwnProps, R, E, P>`

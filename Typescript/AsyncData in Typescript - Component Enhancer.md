@@ -281,6 +281,9 @@ function withAsyncDataStatus(config) {
 
   return function enhanceWithAsyncDataStatus(Wrapped) {
     class WithAsyncDataStatus extends React.PureComponent {
+      static displayName = `WithAsyncDataStatus(${getDisplayName(Wrapped)})`;
+      static WrappedComponent = Wrapped;
+
       // NOTE: Pretty sure this is an antipattern,
       // but I can't think of another way off hand to solve it.
       isMounted = true;
@@ -373,6 +376,8 @@ function withAsyncDataStatus(config) {
         );
       }
     }
+
+    return WithAsyncDataStatus;
   }
 }
 ```
@@ -425,9 +430,12 @@ interface FullPropConfig<OwnProps, TResult, TError, TPropValue> {
   initialValue: (ownProps: OwnProps) => TPropValue,
 }
 
-interface RequestorOnlyPropConfig<PC extends FullPropConfig<{}, any, any, any>> {
-
-}
+type RequestorOnlyPropConfig<PC extends FullPropConfig<{}, any, any, any>> =
+  Requestor<
+    PropConfigOwnProps<PC>,
+    PropConfigResult<PC>,
+    PropConfigError<PC>
+  >;
 
 type AnyPropConfig<PC extends FullPropConfig<{}, any, any, any>> =
   | PC
@@ -451,3 +459,11 @@ interface ComponentEnhancer<C extends Config<{}>> {
 It also gives us a few more things to define:
 - `Requestor<OwnProps, R, E>`
 - `PropReducer<OwnProps, R, E, P>`
+
+
+
+### Fresh Look
+
+I stepped away from work for a week or so and, coming back, I think that basically copy-pasting [what Redux did for their enhancer types](https://github.com/DefinitelyTyped/DefinitelyTyped/blob/master/types/react-redux/index.d.ts#L75) will work for this.  I then just need to define how the config results in the new props to inject, and their `InferableComponentEnhancerWithProps` will take care of the rest.  I don't even need the `InferableComponentEnhancer` case because I don't have a no-config case to handle.
+
+Since I still need to define the mapping between config and injected props, this doesn't obviate the majority of the work above, just removes the need to do my own `ComponentEnhancer` thingy.  Given they export the `InferableComponentEnhancerWithProps` interface, I could probably just use that directly, no need to even copy-paste.

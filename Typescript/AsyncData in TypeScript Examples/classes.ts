@@ -19,6 +19,8 @@ abstract class AsyncData<RT, ET> {
   static Error<ET>(error: ET) { return new AsyncDataError(error); }
   static Result<RT>(result: RT) { return new AsyncDataResult(result); }
 
+  // Not possible to generalize until we have variadic kinds.
+  // Which is to say, handling n-tuples rather than specific-length-tuples.
   static concat<Ra, Rb, Ea, Eb>(rds: [AsyncData<Ra, Ea>, AsyncData<Rb, Eb>]): AsyncData<[Ra, Rb], (Ea | Eb)>;
   static concat<Ra, Rb, Rc, Ea, Eb, Ec>(rds: [AsyncData<Ra, Ea>, AsyncData<Rb, Eb>, AsyncData<Rc, Ec>]): AsyncData<[Ra, Rb, Rc], (Ea | Eb | Ec)>;
   static concat(rds) {

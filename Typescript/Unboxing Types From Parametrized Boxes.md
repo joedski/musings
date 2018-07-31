@@ -283,3 +283,19 @@ rewrappedGetters.foo;
 Now we can rebox anything!  Just like chopsticks.
 
 For my next trick... component props, just like React-Redux Connect.
+
+
+
+## More Fun: Higher Order Components and Inferrence/Unboxing
+
+You can use this trick to get the inferred type of the wrapped component in a composition of HOFs... I'm not sure this is such a good idea from a documentation standpoint, but there you go.
+
+```js
+type WrappedComponentProps<THOF> =
+  THOF extends (wc: ComponentClass<infer TAllTheProps>) => ComponentClass<any>
+    ? TAllTheProps
+    : never
+    ;
+```
+
+I guess if it saves you the need to intersect all those interfaces, then... more power to you?

@@ -467,3 +467,276 @@ It also gives us a few more things to define:
 I stepped away from work for a week or so and, coming back, I think that basically copy-pasting [what Redux did for their enhancer types](https://github.com/DefinitelyTyped/DefinitelyTyped/blob/master/types/react-redux/index.d.ts#L75) will work for this.  I then just need to define how the config results in the new props to inject, and their `InferableComponentEnhancerWithProps` will take care of the rest.  I don't even need the `InferableComponentEnhancer` case because I don't have a no-config case to handle.
 
 Since I still need to define the mapping between config and injected props, this doesn't obviate the majority of the work above, just removes the need to do my own `ComponentEnhancer` thingy.  Given they export the `InferableComponentEnhancerWithProps` interface, I could probably just use that directly, no need to even copy-paste.
+
+Additionally, things can be simplified type wise if I do another thing:
+- Don't transform the functions' outputs to be our new values, rather just leave them as is and only "tap" the inputs and outputs of the functions.
+  - This prevents needing to fudge around the function types.
+  - This has the maybe-nice property of not changing what the function returns.
+
+#### Using InferableComponentEnhancerWithProps
+
+So, `InferableComponentEnhancerWithProps`:
+
+```js
+// Injects props and removes them from the prop requirements.
+// Will not pass through the injected props if they are passed in during
+// render. Also adds new prop requirements from TNeedsProps.
+export interface InferableComponentEnhancerWithProps<TInjectedProps, TNeedsProps> {
+  (
+    component: StatelessComponent<TInjectedProps>
+  ): ComponentClass<TNeedsProps> & {WrappedComponent: StatelessComponent<TInjectedProps>}
+  <P extends Shared<TInjectedProps, P>>(
+    component: ComponentType<P>
+  ): ComponentClass<Omit<P, keyof Shared<TInjectedProps, P>> & TNeedsProps> & {WrappedComponent: ComponentType<P>}
+}
+```
+
+First, we see the comment explaining what happens.  Next, by checking out the actual interfaces defined, we see that we can either
+- accept a component of only injected props and return a component of only needed props (with `WrappedComponent`)
+- accept a component of props that includes both its own props and the injected props, and returns a component of the own props and needed props, but without the injected props.
+  - And as noted in the comments, those injected props will be overwritten anyway, so we're free to ignore them.
+
+In both cases, we can see that a `ComponentClass` is always returned by the enhancer, which makes sense.
+
+If we then look at `Connect`, we see this for the most relevant interface:
+
+```js
+export interface Connect {
+  // ...
+
+  <TStateProps = {}, no_dispatch = {}, TOwnProps = {}, State = {}>(
+      mapStateToProps: MapStateToPropsParam<TStateProps, TOwnProps, State>
+  ): InferableComponentEnhancerWithProps<TStateProps & DispatchProp, TOwnProps>;
+
+  // ...
+}
+```
+
+#### Interfacing with React-Redux
+
+Our project uses React-Redux's `connect` to interface with Redux, using Redux Thunk to deal with executing fetches.  This means we need to interface with functions that are already being passed down through props.  This doesn't mean much for types, but it does affect the interface.
+
+In the base conception, it means we'll have a lot of repetition:
+
+```js
+export default compose(
+  connect(
+    mapStateToProps,
+    function mapDispatchToProps(dispatch, ownProps) {
+      return {
+        getFoo: () => fetch(metadataAPI().getFoo(ownProps.fooId)),
+      };
+    }
+  ),
+  asyncData({
+    getFoo: (props) => props.getFoo,
+  })
+)(FooPanel);
+```
+
+That's quite a bit of repetition.
+
+I don't want to tie asyncData tightly to connect, I'm still recovering from another project.
+
+The least repetitive way to do this would be to allow an array of prop names:
+
+```js
+export default compose(
+  connect(
+    mapStateToProps,
+    function mapDispatchToProps(dispatch, ownProps) {
+      return {
+        getFoo: () => fetch(metadataAPI().getFoo(ownProps.fooId)),
+      };
+    }
+  ),
+  asyncData(['getFoo'])
+  // FooPanel now has props = { getFoo, asyncData: { getFoo } }
+)(FooPanel);
+```
+
+That only repeats the same `getFoo` twice.
+
+#### More HOFs
+
+One way to eliminate this nicely would be to create another HOF that uses both React-Redux's Connect and this AsyncData HOF and wraps them up nice and neat in another one, thus making a combo rather like `mapDispatchToProps` but simultaneously adding a new `asyncData` props for each one.
+
+```js
+const connectedAsyncData = asyncDataConfig => compose(
+  connect(null, mapDispatchToPropsFromAsyncDataConfig(asyncDataConfig)),
+  asyncData(normalConfigFromConnectedConfig(asyncDataConfig))
+)
+
+// ...
+
+compose(
+  connectedAsyncData({
+    getFoo: (dispatch, props) => () => dispatch(metadataAPI().getFoo(props.fooId)),
+  })
+  // Now has { getFoo: () => Promise<Foo>, asyncData: { getFoo: AsyncData<Foo, Error> } }
+)(FooPanel)
+```
+
+#### On mapStateToProps vs asyncData
+
+While these are kind of related, they're only related in that the resolution of the fetch, the underlying fetch that is, affects the data in Redux via side effects.  This usually results in some data being discarded, especially when dealing with failures in bulk APIs.
+
+It cannot be assumed, then, that the fetch's own resolution directly affects the data coming from Redux, so asyncData cannot really care about that.
+
+I suppose if I wanted to go that far, I could do something like rather than having `(prevPropValue, nextResValue, ownProps) => nextPropValue`, instead having `(prevPropValue, nextResValue, ownProps, state) => nextPropValue`, at least for `connectedAsyncData`.
+
+Then again, it might be arguable that if an inner component is dependent on fetches, it should be the one selecting the data, but I think the UI cases are too complex to just stipulate that.
+
+I think what I'll go with is: `connectedAsyncData` is only concerned with fetches and dispatching, it doesn't care about actually getting things back out of redux.  That's for other things to do, like `connect(mapStateToProps)`.  On top of that, it should be more or less a boilerplate reduction of composing `connect` and `asyncData`.
+
+#### Composition of Connect and AsyncData
+
+So, we should be able to do something like this:
+
+```js
+connectedAsyncData({
+  getFoo: (dispatch, props) => () => dispatch(someAsyncThunkCreator(props.fooId)),
+})
+```
+
+and effectively get:
+
+```js
+compose(
+  connect(null, function mapDispatchToProps(dispatch, ownProps) {
+    return {
+      getFoo: config.getFoo(dispatch, ownProps),
+    };
+  }),
+  asyncData({
+    getFoo: (props) => props.getFoo,
+  })
+)
+```
+
+Any other options should be passed on to `asyncData`:
+
+```js
+connectedAsyncData({
+  getFoo: {
+    request: (dispatch, props) => () => dispatch(someAsyncThunkCreator(props.fooId)),
+    reduce: (prevPropValue, nextResValue, ownProps) => nextResValue,
+    initialValue: () => (ownProps) => AsyncData.NotAsked(),
+  },
+})
+```
+
+giving us...
+
+```js
+compose(
+  connect(null, function mapDispatchToProps(dispatch, ownProps) {
+    return {
+      getFoo: config.getFoo(dispatch, ownProps),
+    };
+  }),
+  asyncData({
+    getFoo: {
+      request: (props) => props.getFoo,
+      reduce: (prevPropValue, nextResValue, ownProps) => nextResValue,
+      initialValue: () => (ownProps) => AsyncData.NotAsked(),
+    },
+  })
+)
+```
+
+I could certainly come up with a clever way to integrate `mapStateToProps`, but I'm not really sure I want to.
+
+So, that seems like a good way to do it.  I think.  I'll review it tomorrow.
+
+> Aside: In Elm, these are stored in the state, because Elm has no notion of components or props!
+
+
+### Trying Types Again
+
+So, I've got those interfaces, just need to actually specify types.
+
+On our inputs, we've got a bunch of prop definitions that eventually each boil down to:
+- `(ownProps: OwnProps) => (...args) => R`
+
+On our outputs, we need to add an additional prop:
+- `asyncData: { [K in keyof C]: AsyncData<Res<C[K]>, Error> }` where `C` is the config of the props.
+
+Incidentally, we then need to be able to actually specify the `asyncData` prop for the wrapped component.  Something like...
+- `AsyncDataProps<Pick<DispatchProps, 'getFoo' | 'updateFoo'>>` assuming that each prop picked off of `DispatchProps` is in the form of `(...anyArgs: A) => Promise<R>`.  This is fine since that's what they ought to be.
+  - NOTE: `DispatchProps` is illustrative, there's no requirement this be used with React-Redux.
+  - Or, actually, now that I think about it... If `getFoo` doesn't already exist, `asyncData` adds it, and if it does exist, it replaces it.  Hmmm.
+
+#### How to Specify Required Props
+
+I think the only way to do that is to pass that in as externally facing props, because otherwise it doesn't know what all is available to it.  Just like when React Redux's Connect has to take into account OwnProps, we'll have to just explicitly include an `OwnProps` type in the type parameters of our interface.
+
+```js
+interface Connect {
+  // ... others.
+
+  <no_state = {}, TDispatchProps = {}, TOwnProps = {}>(
+    mapStateToProps: null | undefined,
+    mapDispatchToProps: MapDispatchToPropsParam<TDispatchProps, TOwnProps>
+  ): InferableComponentEnhancerWithProps<TDispatchProps, TOwnProps>;
+
+  // ... others.
+}
+```
+
+For the most part, things get inferred just by specifying `mapDispatchToProps`, which itself has to specify a type for `TOwnProps`.  In our case, we'll just have to specify the `TOwnProps` type parameter at call time to avoid referencing it every time we specify `(props) => props.getFoo`.
+
+```js
+asyncData<OwnProps>({
+  //       type now known as OwnProps.
+  getFoo: (ownProps) => ownProps.getFoo,
+})
+```
+
+Thus, we have an enhancer that can accept a `Component<OwnProps & AsyncDataProps<OwnProps, Config>>` and return a `Component<OwnProps>`.  In the case of integrating with Connect, we have something like `type ConnectedOwnProps = OwnProps & StateProps & DispatchProps`, then just use `ConnectedOwnProps` above instead of `OwnProps`.  Verbose, but oh well.
+
+Fortunately, `Config` is already just an object-map type, so I don't need to worry too much about special types there, but I will want to make that `AsyncDataProps<OwnProps, Config>` type, otherwise things will be far too annoying even for me.
+
+There is a special case, though, if all of the functions used are also functions passed in... Then, all that happens is we get `OwnProps & { asyncData: { [K in keyof OwnProps]: AsyncData<ReturnType<OwnProps[K]>, Error> } }`, nothing else added!  Hm!  Not sure if that's actually something we can use, though.  (Also have to remember to omit from `OwnProps` anything replaced by the props created from `Config`.)
+
+Looking back at `InferableComponentEnhancerWithProps<TInjectedProps, TNeedsProps>`, we have...
+- `TInjectedProps = AsyncDataProps<TOwnProps, Config>`
+- `TNeedsProps = TOwnProps`, this second one being the same as the use by `Connect`.
+
+#### AsyncDataProps
+
+Now that we know what we need from a Props stand point, we can work from there to figure everything else out.
+
+```js
+type AsyncDataProps<TOwnProps, TConfig extends AsyncDataConfig<TOwnProps>> =
+  AsyncDataPropsRequestors<TConfig>
+  & { asyncData: AsyncDataPropsValues<TOwnProps, TConfig> }
+  ;
+```
+
+That's pretty simple.  Probably.
+
+```js
+type AsyncDataPropsRequestors<TConfig> = {
+  [K in keyof TConfig]: SingleRequestorProp<TConfig[K]>;
+}
+
+type SingleRequestorProp<SinglePropConfig> = ReturnType<RequestorGetter<SinglePropConfig>>;
+```
+
+Since nothing in any of the props depends on any of the other props having the same `TOwnProps`, `AsyncDataPropsRequestors` doesn't need to parametrize on that.
+
+We may want to normalize `SinglePropConfig` before getting to SingleRequestorProp, though.  Maybe something like this:
+
+```js
+type AsyncDataProps<
+  TOwnProps,
+  TConfigRaw extends AsyncDataConfig<TOwnProps>,
+  TConfig = NormalizedAsyncDataConfig<TConfigRaw>
+> =
+  AsyncDataPropsRequestors<TConfig>
+  & { asyncData: AsyncDataPropsValues<TOwnProps, TConfig> }
+  ;
+```
+
+That makes the other two types easier, but may be too hairy itself.  A better option may be to just have `RequestorGetter<SinglePropConfig>` itself do the normalization.

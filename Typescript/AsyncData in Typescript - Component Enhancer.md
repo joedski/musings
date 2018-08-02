@@ -709,7 +709,7 @@ Now that we know what we need from a Props stand point, we can work from there t
 
 ```js
 type AsyncDataProps<TOwnProps, TConfig extends AsyncDataConfig<TOwnProps>> =
-  AsyncDataPropsRequestors<TConfig>
+  AsyncDataRequestorsProps<TConfig>
   & { asyncData: AsyncDataPropsValues<TOwnProps, TConfig> }
   ;
 ```
@@ -717,14 +717,14 @@ type AsyncDataProps<TOwnProps, TConfig extends AsyncDataConfig<TOwnProps>> =
 That's pretty simple.  Probably.
 
 ```js
-type AsyncDataPropsRequestors<TConfig> = {
+type AsyncDataRequestorsProps<TConfig> = {
   [K in keyof TConfig]: SingleRequestorProp<TConfig[K]>;
 }
 
 type SingleRequestorProp<SinglePropConfig> = ReturnType<RequestorGetter<SinglePropConfig>>;
 ```
 
-Since nothing in any of the props depends on any of the other props having the same `TOwnProps`, `AsyncDataPropsRequestors` doesn't need to parametrize on that.
+Since nothing in any of the props depends on any of the other props having the same `TOwnProps`, `AsyncDataRequestorsProps` doesn't need to parametrize on that.
 
 We may want to normalize `SinglePropConfig` before getting to SingleRequestorProp, though.  Maybe something like this:
 
@@ -734,9 +734,42 @@ type AsyncDataProps<
   TConfigRaw extends AsyncDataConfig<TOwnProps>,
   TConfig = NormalizedAsyncDataConfig<TConfigRaw>
 > =
-  AsyncDataPropsRequestors<TConfig>
+  AsyncDataRequestorsProps<TConfig>
   & { asyncData: AsyncDataPropsValues<TOwnProps, TConfig> }
   ;
 ```
 
 That makes the other two types easier, but may be too hairy itself.  A better option may be to just have `RequestorGetter<SinglePropConfig>` itself do the normalization.
+
+In the React-Redux use-case, though, I think we'll only need to deal with the `asyncData` prop, as noted in the previous section, giving us basically `OwnProps & { asyncData: ... }`, due to just reusing the Dispatch props.  This in mind, might want to create a separate type for that special case where the requestors are just being reused straight from props (and use the same names.)
+
+```js
+export type AsyncDataProps<TOwnProps, TConfig extends AsyncDataConfig<TOwnProps>> =
+  AsyncDataRequestorsProps<TConfig>
+  & AsyncDataValuesOnlyProps<TConfig>
+  ;
+
+// exported separately because sometimes it's all you need.
+export type AsyncDataValuesOnlyProps<TConfig> = {
+  asyncData: AsyncDataPropsValues<TConfig>,
+};
+
+type AsyncDataPropsValues<TConfig> = {
+  [K in keyof TConfig]: PropValueType<TConfig[K]>;
+};
+```
+
+I might want to rename `RequestorGetter<SinglePropConfig>` and `PropValueType<SinglePropConfig>`, but I think that's about right.
+
+
+
+## Type Cleanup
+
+While the implementation isn't that difficult, expressing the proper types for static typing goodness is a bit more of a challenge.  Even with all the planning, there are things which didn't work quite as I'd hoped, or which need more constraining.
+
+
+### Type of Config: Props
+
+I wanted to have the Config type guarantee the same props everywhere, but it looks like we can't do that if we want to defer the props until later.  I guess that's why React-Redux's connect had to specify `TOwnProps` at the connect-interface level rather than inside.  Bah, okay, whatever.
+
+Need to move the prop types up top.  I think it should just be `TOwnProps` and `TConfig`.  After that, we can base the exposed props on the accepted props.

@@ -291,7 +291,9 @@ For my next trick... component props, just like React-Redux Connect.
 You can use this trick to get the inferred type of the wrapped component in a composition of HOFs... I'm not sure this is such a good idea from a documentation standpoint, but there you go.
 
 ```js
-type WrappedComponentProps<THOF> =
+// Hassles the HOF for the props type of the wrapped component.
+type WrappedComponentPropsType<THOF> =
+  // NOTE: Should try for a more general type than ComponentClass.
   THOF extends (wc: ComponentClass<infer TAllTheProps>) => ComponentClass<any>
     ? TAllTheProps
     : never
@@ -299,3 +301,5 @@ type WrappedComponentProps<THOF> =
 ```
 
 I guess if it saves you the need to intersect all those interfaces, then... more power to you?
+
+Now, this would make it easier to create PoCs in TS, which is actually a pretty good win, but I'm not sure TS is what you'd use to make PoCs in the first place.  It's more for projects you intend to work on for a long time.  That said, it's here, so maybe it'll actually be more useful than I thought.

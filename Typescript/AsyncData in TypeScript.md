@@ -47,6 +47,18 @@ enhancedFetch(apiRequests.thingy(thingyId))
 
 
 
+## Try 3: Classes with Abstract Methods
+
+The idea behind this is to avoid reliance on `instanceof`, which is easily fooled.  I doubt it would be fooled in this limited case since, if you're doing tricky things, you're shooting yourself in the foot, but hey, I need to explore the possibility.
+
+Basically, instead of having the cases all shown in the base method implementations, any methods dependent on the concrete class of the instance should have their specific behavior implemented in those derivative concrete classes.  This gives us two things:
+- Specific behavior defined at the most meaningful point, at the cost of having it spread across definitions.
+- No need to manually throw errors to avoid non-exhaustive checks.  Instead, the use of abstract methods will do that for us, whether by not even implementing something or by having an error-throwinwg-method automatically created.
+
+The primary downside of this is that we have to duplicate the method type definitions for every implementation.  Very annoying.  Technically correct, but very verbose.  Not sure if that's fine or not, it does make it harder to read and update, though.
+
+
+
 ## Other Thoughts
 
 

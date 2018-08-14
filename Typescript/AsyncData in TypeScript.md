@@ -59,6 +59,14 @@ The primary downside of this is that we have to duplicate the method type defini
 
 
 
+## TS 3 Updates
+
+It seems the team has been busy tightening restrictions up.  Particularly, I'm getting errors about use of variables before they're declared.  I think this is mostly down to trying to use the concrete classes before they're created, which is a problem when defining methods on the base abstract class that depends on their existence.
+
+I ended up going whole hog on the `classes-with-abstract-methods` way, just implementing the specific behavior in each sub class and living with the (slightly) duplicated method interfaces.  This also avoids the [empty class funniness](https://github.com/Microsoft/TypeScript/wiki/FAQ#why-do-these-empty-classes-behave-strangely) that caused type-narrowing to narrow `this` to `never`.  It's ugly because the implementation of each method is spread across all the concrete case-classes, but whatever.  It works, typechecks, and is explicit so I guess that's good enough.  It makes everything look like Java, though, which skeeves me out for purely personal and irrational reasons.
+
+
+
 ## Other Thoughts
 
 

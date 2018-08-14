@@ -80,3 +80,62 @@ On the other hand, if I just attached the class constructors directly to `AsyncD
 ### The Component Enhancer
 
 This is a pretty big topic, so I've moved everything to another journal: [AsyncData in Typescript - Component Enhancer](./AsyncData%20in%20Typescript%20-%20Component%20Enhancer.md)
+
+
+### Revisiting with TS 3
+
+TS 3 has [generic rest parameters that can be inferred to tuple types as well as 0-length tuples](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-3-0.html#generic-rest-parameters).  This is part of the way to generally manipulating function argument types, with the [mapping side of the story coming soon](https://github.com/Microsoft/TypeScript/pull/26063).  I think this should be doable somewhat soonish.
+
+```ts
+type TaggedSumDefMap<T> = {
+  [K in Extract<keyof T, string>]: TaggedSumDefMapArgsTuple<T[K]>;
+};
+
+// [string, string, string] rather than ['x', 'y', 'z'].
+// This is why we need mapped tuple types.
+type TaggedSumDefMapArgsTuple<T extends any[]> = T;
+
+declare function taggedSum<
+  TRepName extends string,
+  TSumDefMap extends TaggedSumDefMap<TSumDefMap>,
+>(repName: TRepName, defMap: TSumDefMap): TaggedSum<TRepName, TaggedTypesOfDefMap<TSumDefMap>>;
+
+// We're still missing the types for each constructor's arguments.
+// How could we add that information purely through types without
+// creating actual implementation?
+```
+
+We could get around in some specific cases the lack of mapped tuple types:
+
+```ts
+type TaggedSumDefMapArgsTuple<T extends any[]> =
+  T extends [] ? [] :
+  T extends [infer A0] ? [ConstString<A0>] :
+  T extends [infer A0, infer A1] ? [ConstString<A0>, ConstString<A1>] :
+  // ... etc.
+  never;
+
+type ConstString<T> = T extends string ? T : never;
+```
+
+But then we have to do similarly to get them out.
+
+Still, I wonder if we could then do something like this:
+
+```ts
+const AsyncData = daggy.taggedSum('AsyncData', {
+  NotAsked: [],
+  Waiting: [],
+  Error: ['error'],
+  Result: ['result'],
+}) & TaggedSumMemberTypes<{
+  NotAsked: [],
+  Waiting: [],
+  Error: [unknown],
+  Result: [unknown],
+}>;
+```
+
+Not entirely sure what to do about the type parametrization...  I guess we'd say something like "This is an `AsyncData.Error<[Error]>(error)`" or the like.  Or just infer it from the call?  Hm.
+
+Obviously the `AsyncData.Error` instances would be `{ [whateverTagProp]: 'Error' } & { error: T }`, however `T` gets in there.

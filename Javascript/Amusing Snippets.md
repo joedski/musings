@@ -19,6 +19,7 @@ const arr = [...Array(100)]
 const arr = Array(...Array(10))
 
 // Or, ES5 style
+// Also useful in Typescript.
 const arr = Array.apply(null, Array(10))
 
 // This can also be done using a for-of loop.
@@ -89,3 +90,19 @@ Can we go... farther?  Without stack-overflowing, I mean.  Hm.
 Function.prototype.constructor === Function
 // -> true
 ```
+
+
+
+## Asyncifying a Function
+
+```js
+function callAsync(syncFn) {
+  return new Promise(r => r(syncFn()));
+}
+
+function asyncify(syncFn) {
+  return (...args) => callAsync(() => syncFn(...args));
+}
+```
+
+This works because throwing an error in the Promise Executor (the function you pass to the Promise Constructor) results in that Promise rejecting!  So you don't even need to write your own try/catch block in there, you can just eagerly call `resolve` and know that, should `syncFn` throw, the Promise will `reject` instead.

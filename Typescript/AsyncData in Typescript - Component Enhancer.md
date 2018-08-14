@@ -773,3 +773,143 @@ While the implementation isn't that difficult, expressing the proper types for s
 I wanted to have the Config type guarantee the same props everywhere, but it looks like we can't do that if we want to defer the props until later.  I guess that's why React-Redux's connect had to specify `TOwnProps` at the connect-interface level rather than inside.  Bah, okay, whatever.
 
 Need to move the prop types up top.  I think it should just be `TOwnProps` and `TConfig`.  After that, we can base the exposed props on the accepted props.
+
+
+### Type of Config: Each Prop's Shape
+
+Another issue that's been bugging me is that I can't seem to satisfactorily define the shape of the individual props.  Certainly I'll need to include the `TOwnProps`, but how to constrain each prop to a set of types to ensure consistency?
+
+Perhaps it's time for inferrence again.
+
+```js
+type AsyncDataConfigPropAny<TOwnProps, TConfigProp> =
+  TConfigProp extends AsyncDataConfigPropRequestorGetterOnly<TOwnProps, infer TResValue, infer TRequestor>
+  ? AsyncDataConfigPropRequestorGetterOnly<TOwnConfig, TResValue, TRequestor>
+  : TConfigProp extends AsyncDataConfigSinglePropFull<TOwnProps, infer TResValue, infer TRequestor, infer TPropValue>
+  ? AsyncDataConfigSinglePropFull<TOwnProps, TResValue, TRequestor, TPropValue>
+  : never;
+
+type AsyncDataConfig<TOwnProps> = {
+  [propName: string]: AsyncDataConfigPropAny<TOwnProps, infer TConfigProp>;
+}
+```
+
+Except that you can only `infer` on the right side of `extends` in a conditional type's condition.  Hm.  Okay, let's go back to a full definition, no splitting.
+
+```js
+interface AsyncDataConfig<TOwnProps> {
+  // putting aside for a moment that we need to not allow "asyncData"...
+  [propName: string]: (
+    // NOTE: Parens added to prevent function def from eating the union.
+    ((ownProps: TOwnProps) => (...args: any[]) => Promise<TResValue>)
+    | {
+      request: (ownProps: TOwnProps) => (...args: any[]) => Promise<TResValue>;
+      reduce: (
+        prevPropValue: TPropValue,
+        nextPropValue: AsyncData<TResValue, Error>,
+        ownProps: TOwnProps
+      ) => TPropValue;
+      initial: (ownProps: TOwnProps) => TPropValue;
+    }
+  );
+}
+```
+
+We want to have `TResValue` and `TPropValue` defined.  (and even more ideally, the args, but anyway...)  Problem is, I'm not sure where to put them that would guarantee they're all the same across a single prop but not across all props.  It doesn't matter if they differ across different props so long as each prop is consistent with itself.
+
+We can't just add type params to both of them because, while it works on the function type, it does not work on the object type:
+
+```js
+interface AsyncDataConfig<TOwnProps> {
+  // putting aside for a moment that we need to not allow "asyncData"...
+  [propName: string]: (
+    // NOTE: Parens added to prevent function def from eating the union.
+    (<TResValue>(ownProps: TOwnProps) =>
+      (...args: any[]) =>
+        Promise<TResValue>)
+    | (<TResValue, TPropValue>{ // TS expects an opening paren after the > for a function def.
+      request: (ownProps: TOwnProps) => (...args: any[]) => Promise<TResValue>;
+      reduce: (
+        prevPropValue: TPropValue,
+        nextPropValue: AsyncData<TResValue, Error>,
+        ownProps: TOwnProps
+      ) => TPropValue;
+      initial: (ownProps: TOwnProps) => TPropValue;
+    })
+  );
+}
+```
+
+Similarly, we can't just add type params to the property itself, as the same thing applies: TS expects that to apply to a function:
+
+```js
+interface AsyncDataConfig<TOwnProps> {
+  // TS expects an opening paren after the > for a function def.
+  <TResValue, TPropValue>[propName: string]: (
+    // NOTE: Parens added to prevent function def from eating the union.
+    ((ownProps: TOwnProps) => (...args: any[]) => Promise<TResValue>)
+    | {
+      request: (ownProps: TOwnProps) => (...args: any[]) => Promise<TResValue>;
+      reduce: (
+        prevPropValue: TPropValue,
+        nextPropValue: AsyncData<TResValue, Error>,
+        ownProps: TOwnProps
+      ) => TPropValue;
+      initial: (ownProps: TOwnProps) => TPropValue;
+    }
+  );
+}
+```
+
+it seems the only way to do this is to actually feed it something else.
+
+Maybe if we always do `TConfig extends AsyncDataConfig<TOwnProps, TConfig>`?
+
+```js
+// NOTE: index types only work in `type` declarations, not `interface` declarations.
+type AsyncDataConfig<TOwnProps, TConfig> = {
+  // TODO: Omit 'asyncData'?
+  [K in keyof TConfig]:
+}
+```
+
+... can a type put conditions on itself?  Can I do `type Foo<Foo extends { foo: string }>`?
+
+Hmmmm, nope, it just declares a new type var and shadows the outer one.  Bah.  (Also requiring a prop in an indexed type requires just adding that prop name specifically: `type Foo = { foo: string; [key: string]: string; }`)  This means I can only restrict things on function call (where I can grab the type of config from args).
+
+Okay, I think I'm going to restart things, typewise.  I've obviously tried to go too top-down in this.  Let's start with the implementation, which has tests to back up it's functionality, and work from there until we have types that both make TS happy _and_ make sense.
+
+
+### On Omitting Props
+
+A nifty more modern Omit implementation that I found in [this post](https://medium.com/@jrwebdev/react-higher-order-component-patterns-in-typescript-42278f7590fb):
+
+```js
+type Omit<T, K> = Pick<T, Exclude<keyof T, K>>;
+
+type Foo<T> = {
+  // [K in keyof T]: { boxed: T[K] };
+  // Doesn't work: TS expects the prop 'no', but the value type to be 'never'.
+  // [K in keyof T]: K extends 'no' ? never : { boxed: T[K] };
+  // Have to omit forbidden props before hand.
+  [K in keyof Omit<T, 'no'>]: { boxed: T[K] };
+}
+
+type FooTy = Foo<{ ty: string, no: number }>;
+// => type FooTy = { ty: { boxed: string; }; }
+// Note: no prop named "no".
+
+const footy: FooTy = {
+  ty: { boxed: 'foo' },
+  // Adding "no" causes a type error.
+  // no: 'bar',
+}
+```
+
+
+
+## Other Thoughts: Better Props
+
+In the current iteration I put the getters directly in the props and put the values as subprops on a single prop.  Maybe I should have done the same for both.
+
+Then, instead of `this.props.getFoo()` and `this.props.asyncData.getFoo: AsyncData<...>`, you'd have `this.props.getAsyncData.foo()` and `this.props.asyncData.foo: AsyncData<...>`.  That probably would've been a better interface.  Bleh.

@@ -139,3 +139,43 @@ const AsyncData = daggy.taggedSum('AsyncData', {
 Not entirely sure what to do about the type parametrization...  I guess we'd say something like "This is an `AsyncData.Error<[Error]>(error)`" or the like.  Or just infer it from the call?  Hm.
 
 Obviously the `AsyncData.Error` instances would be `{ [whateverTagProp]: 'Error' } & { error: T }`, however `T` gets in there.
+
+I suppose if you could constrain the functions like this:
+
+```ts
+type TaggedSumConstructor<TMemberNames extends any[], TMemberTypes extends any[]> =
+  TMemberTypes extends []
+  ? () => {}
+  : ZipTuplesToObject<TMemberNames, TMemberTypes> extends {
+    [infer MK0]: infer SMV0;
+  }
+  ? <MV0 extends SMV0>(mv0: MV0) => {
+    [MK0]: MV0;
+  }
+  : ZipTuplesToObject<TMemberNames, TMemberTypes> extends {
+    [infer MK0]: infer SMV0;
+    [infer MK1]: infer SMV1;
+  }
+  ? <MV0 extends SMV0, MV1 extends SMV1>(mv0: MV0, mv1: MV1) => {
+    [MK0]: MV0;
+    [MK1]: MV1;
+  }
+  // ...
+  : never
+  ;
+```
+
+Hmm.  This might have to wait for mapped tuple types.
+
+Something like this, I guess?
+
+```ts
+type TaggedSumConstructorMember<TZipped extends any[]> = {
+  [I in keyof TZipped]:
+    TZipped[I] extends [infer TKey, infer TValueType]
+    ? TKey extends string ? { [TKey]: TValueType }
+    : never : never;
+}
+```
+
+Hm.  Not quite.  What am I trying to do with that?

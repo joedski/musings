@@ -169,3 +169,29 @@ needMeSomeBaz({ foo: 2, baz: '54' });
 ```
 
 I tried that, but the function call doesn't require `baz`, and worse, TS complains that the `T` in `RequireBaz<T>` doesn't fit the constraint `{ baz: string }`, which it very well might not.  However, it believes the problem lies in the type parameter itself rather than what ever might be populating that parameter.
+
+
+
+## Local/Scoped Types
+
+You can define interfaces and type aliases local a block or function body, which is handy when you want to have type aliases for long drawn out definitions that are reused through out a function or if or loop block.
+
+```ts
+function foo<TFoo>(f: TFoo) {
+  type Boxed = { foo: TFoo };
+  return { foo: TFoo } as Boxed;
+}
+
+// Cannot find name 'Boxed'
+type b: Boxed = foo(42);
+
+for (let i = 0; i < 10; ++i) {
+  // gives { beep: number } because 'i' changes from iteration to iteration.
+  type Beep = { beep: typeof i };
+}
+
+// Cannot find name 'Beep'
+type beep: Beep = { beep: 5 };
+```
+
+While I'm not sure how useful it is in loops, it's immensely useful for DRYing types in functions.  The only time it's not useful is for specifying the return type of a function... A shame, really.

@@ -109,7 +109,7 @@ This means we can now add new files `src/stories/` and they'll be automatically 
 ## Global Setup
 
 Okay, so, two goals:
-- [ ] Add Bootstrap-Vue globals to Storybook config
+- [x] Add Bootstrap-Vue globals to Storybook config
 - [ ] Setup purely example chart as smoke test
 
 From there, I can continue to the actual main goal:
@@ -119,8 +119,8 @@ From there, I can continue to the actual main goal:
 ### Adding Bootstrap-Vue Globals
 
 I guess this is comprised of two parts:
-- [ ] Add the components to Vue
-- [ ] Add the styles
+- [x] Add the components to Vue
+- [x] Add the styles
 
 I think part of this will involve their decorator api, demoed in their [addon docs](https://storybook.js.org/addons/using-addons/), however that demo only shows usage with React.  Apparently it is [not yet documented how you do this with Vue](https://github.com/storybooks/storybook/issues/1653), meaning you have to follow [the example in that issue there](https://github.com/storybooks/storybook/issues/1653#issuecomment-373368760).  Hopefully that will be rectified sooner than later, but it's one part that seems to be lacking in their docs.  Heck, I hardly see anything about `addDecorator` itself, even for React things.
 
@@ -224,10 +224,55 @@ Uncaught TypeError: Cannot read property 'create' of undefined
 
 That's breaking because the `axios` vendored module is not exporting.  Hmmm.
 
+> I vendored a prebuilt version of axios so that we could check it for suspicious code and not have to depend on NPM for it.  Honestly, should probably do the same for Webpack in some respect, but anyway.
+
 Google Research:
 - https://github.com/webpack/webpack/issues/4817
   - Doesn't really solve the issue, other than to say that you should change `exports.default = ...` to `export default ...`.  That's annoying.
 
 Haven't really found anything else that seems relevant.  Guess I'll just remove the async plugin.  That requires requesting things, anyway.  Bah.
 
-Separating out the offending module works.  Okay, so, there's that I guess.
+Separating out the offending module works.  Okay, so, there's that I guess.  May want to figure out what's going on, though, just to fix it later.
+
+So, I can use our Bootstrap compoenents with their proper styles, but now Storybook doesn't seem to be working.  Great.  When did this happen?
+
+It looks like it's no longer updating the iframe's URL.  `git bisect` time, I guess.
+
+Okay, seems it broke when I added the decorator.
+
+- Does commenting that out of the latest commit fix this?
+  - Seems like.
+
+Strange, I don't see anything that would point to what's happening, and no error occurs in Storybook when trying to nav between pages.
+
+According to [this example kitchen sink](https://github.com/storybooks/storybook/pull/1595/files#diff-b1bf6f30346a97acbcdbeff9ea7c5170) what I did should Just Work, and indeed it does seem to work, it's just that it also kills the manager.
+
+- Maybe it's the style imports?  Let's try knocking that out.
+  - Doesn't help.  Damn.
+
+Okay, what next?  Maybe it's the decorator application methodology?  Maybe for some reason using the `story` component makes it go funky?  Even though it seems to work on initial render.  What to try instead?
+
+- Maybe try using [the `story` function](https://github.com/storybooks/storybook/pull/1595/files#diff-b1bf6f30346a97acbcdbeff9ea7c5170R120)?
+  - Well hot diggity, _it worked_.
+
+Changed this:
+
+```js
+import { configure, addDecorator } from '@storybook/vue';
+import TopLevelDecorator from '@/stories/TopLevelDecorator';
+addDecorator(() => TopLevelDecorator);
+```
+
+to this:
+
+```js
+import { configure, addDecorator } from '@storybook/vue';
+import TopLevelDecorator from '@/stories/TopLevelDecorator';
+addDecorator(story => Object.assign({}, TopLevelDecorator, {
+  components: {
+    InjectedStory: story(),
+  },
+}));
+```
+
+I guess if it works, then it works.  At least, this seems to fix the issue in `@storybook/vue@3.4.8`, anyway.

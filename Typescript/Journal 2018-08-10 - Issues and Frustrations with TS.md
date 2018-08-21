@@ -50,6 +50,40 @@ There seemed to be a few things causing these
 - **Keys of Derived Mapped Types**
   - It seems anyway that even if in the concrete, the keys-union of one map-type do equal the keys-union of another, in the abstract TS often says things like `Extract<keyof TFoo, string> cannot be used to index TBar` even though `TBar` was created from `BarOf<T> = { [K in Extract<keyof foo, string>]: ... }` using `TBar = BarOf<TFoo>`.
   - Trying to do `bar[propName as Extract<keyof TBar, string>] = barPropOfFooProp(foo[propName])` also fails because, again, `propName: Extract<keyof TFoo, string>` cannot be converted to `Extract<keyof TBar, string>`.
+  - NOTE: At least in one case, this turned out to be developer error more than anything else.  See below.
+
+##### On Solving the Non-Assignability of Keys of Derived Mapped Types
+
+At least in one case, what seemed like it should have been reasonable, turned out to be done in an incorrect way.
+
+I tried to do this:
+
+```ts
+function foo<
+  TConfig extends ConfigShape<TConfig>,
+  TDerived extends OtherConfigShape<TDerived> = OtherOfBaseConfigShape<TConfig>
+>(config: TConfig): TDerived {
+  // ... stuff!
+}
+```
+
+When I should have done this:
+
+```ts
+function foo<
+  TConfig extends ConfigShape<TConfig>,
+>(config: TConfig): OtherOfBaseConfigShape<TConfig> {
+  type TDerived = OtherOfBaseConfigShape<TConfig>;
+
+  // ... stuff!
+}
+```
+
+This is because the former is using a _type paramater default_ while the latter is _creating a new type alias_.
+
+And yes, _types are block-scoped when not at the top level_.  The only problem is that you can't use that type alias as the return type because it doesn't exist outside the function block!
+
+So there's that much, at least.
 
 #### On Stack Size Limitations in TSServer
 

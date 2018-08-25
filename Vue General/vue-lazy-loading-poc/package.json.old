@@ -1,0 +1,17 @@
+{
+  "name": "vue-lazy-loading-poc",
+  "version": "0.0.0",
+  "description": "Demo of Lazy Loading Components with Potentially Heavy Dependencies",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "vue",
+    "lazy-loading",
+    "async-components",
+    "async"
+  ],
+  "author": "Joseph Sikorski <joedski@gmail.com>",
+  "license": "ISC"
+}

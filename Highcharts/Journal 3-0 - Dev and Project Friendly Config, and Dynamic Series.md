@@ -110,3 +110,21 @@ That said, it might offer a slight performance advantage: Rather than invoking L
 This also doesn't really help with configurability: Every single config-transform must adhere to the same options shape, which doesn't make sense.  Too much risk of conflict, not flexible enough.  It adds unnecessary coupling everywhere.
 
 As shown, for simple value-creation, this pattern is too much.
+
+#### The (Slightly) Better Version
+
+At the cost of yet another layer, we can remove the dependency on the common options object:
+
+```js
+function configurableConfigFeature(options = {}) {
+  return $configurableConfigFeature(next) {
+    return $$configurableConfigFeature(config = {}) {
+      return next(merge(config, {
+        // ... stuff from options.
+      }))
+    }
+  }
+}
+```
+
+This is normally how the middleware pattern would be implemented.  However, it's still an extra layer for no gain.

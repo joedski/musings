@@ -8,7 +8,8 @@
     "start": "npm run dev",
     "dev": "npm-run-all -p dev:*",
     "dev:serve": "http-server .",
-    "dev:build": "webpack --mode development --watch"
+    "dev:build": "webpack --mode development --watch",
+    "build": "webpack --mode production"
   },
   "keywords": [
     "todomvc",

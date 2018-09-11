@@ -71,8 +71,14 @@ const actions = {
   // on the top-level element for better discrimination on just what update occurred,
   // eg created vs updated.
   getState: () => state => state,
+  // You can have an action return undefined, which will also be treated
+  // as a no-update situation.
+  // This is useful for purely-side-effect actions.
   hydrate: (stateHydration) => (state, actions) => {
     actions.todos.hydrate(stateHydration.todos)
+  },
+  persist: () => state => {
+    syncLocalStorage(state)
   },
   todos: {
     hydrate: (stateHydration) => stateHydration,
@@ -157,7 +163,14 @@ const Item = ({ item, id }) => (state, actions) => (
 )
 
 const view = (state, actions) => (
-  h('section', { class: 'todoapp', onupdate: () => syncLocalStorage(state) }, [
+  h('section', {
+    class: 'todoapp',
+    // NOTE: This lifecycle hook calls an action.
+    // That action MUST either return the state unmodified
+    // or else return undefined, otherwise the app
+    // will lock up.
+    onupdate: () => actions.persist(),
+  }, [
     h('header', { class: 'header' }, [
       h('h1', {}, 'todos'),
       h('form', {
@@ -244,7 +257,6 @@ const router = Router({
 router.init()
 
 // Local Storage integration
-// TODO!
 
 try {
   const persistedStateSerialized = localStorage.getItem('todomvc.state')

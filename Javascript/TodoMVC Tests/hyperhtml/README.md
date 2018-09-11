@@ -9,6 +9,12 @@ Aside: I also worked on learning Webpack 4 and Webpack Dev Server setup here, so
 
 
 
+## Most Streams
+
+The code interfacing between Most and this is based on their [Most + React TodoMVC example](https://github.com/briancavalier/mostcore-todomvc/blob/master/src/index.js).  Why streams?  Because ... I felt like it.
+
+
+
 ## Async Content
 
 As shown in their [documentation on content types](https://viperhtml.js.org/hyperhtml/documentation/?_sm_au_=iJVkjmLRRrNN23PR#essentials-8), they support Promises as a native content value, which means you can lazily load things right out of the box.  Create your own Async Component!  In fact, [Loading indication is already built in with the `placeholder` intent](https://viperhtml.js.org/hyperhtml/documentation/?_sm_au_=iJVkjmLRRrNN23PR#essentials-10).  This means error states are as simple as ``.catch(error => hyperHTML`<div class="error">Oh no!</div>`)``

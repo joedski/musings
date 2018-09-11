@@ -32,6 +32,13 @@ const actions = {
         i === todoId ? { ...todo, done: ! todo.done } : todo
       )),
     }),
+    toggleAllDone: () => state => ({
+      items: (
+        state.items.every(item => item.done)
+        ? state.items.map(todo => ({ ...todo, done: false }))
+        : state.items.map(todo => ({ ...todo, done: true }))
+      ),
+    }),
     beginEdit: todoId => ({ currentEditing: todoId }),
     endEdit: (nextTodo) => state => ({
       currentEditing: null,
@@ -67,10 +74,16 @@ const Item = ({ item, id }) => (state, actions) => (
       h('label', {
         ondblclick: () => actions.todos.beginEdit(id),
       }, item.task),
-      h('button', { class: 'destroy' })
+      h('button', { class: 'destroy', onclick: () => actions.todos.delete(id) })
     ]),
     h('form', {
       onsubmit: e => {
+        // There are more elegant ways to handle this,
+        // they involve keeping the state as the single source of truth
+        // rather than relying on local state.
+        // That is, when ever the input's value changes,
+        // that change should be propagated back up to the state
+        // rather than left only in the input.
         e.preventDefault()
         if (document.activeElement) document.activeElement.blur()
       },
@@ -96,6 +109,12 @@ const view = (state, actions) => (
       h('h1', {}, 'todos'),
       h('form', {
         onsubmit: (e) => {
+          // As noted in Item's form, this would be better handled
+          // in hyperapp by tracking the input's current value
+          // in the state, thus keeping that the single source of truth.
+          // That also opens up the ability for anything to trigger
+          // changes to it by calling actions rather than the ad-hoc
+          // setup created with this <form>.
           e.preventDefault()
           const newTask = e.target.elements['new-todo-task'].value
           actions.todos.add(newTask)
@@ -113,6 +132,16 @@ const view = (state, actions) => (
     h('section', {
       class: cx('main', { 'hidden': state.todos.items.length <= 0 }),
     }, [
+      h('input', {
+        id: 'toggle-all',
+        class: 'toggle-all',
+        type: 'checkbox',
+        checked: state.todos.items.every(item => item.done),
+        onclick: () => actions.todos.toggleAllDone(),
+      }),
+      h('label', {
+        for: 'toggle-all',
+      }, 'Mark all as complete'),
       h('ul', { class: 'todo-list' }, state.todos.items.map((item, id) =>
         h(Item, { item, id })
       )),

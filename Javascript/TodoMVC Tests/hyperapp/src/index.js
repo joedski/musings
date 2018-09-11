@@ -1,18 +1,55 @@
 import cx from 'classnames'
 import { h, app } from 'hyperapp'
+import { Router } from './vendor/director'
+
+function syncLocalStorage(state) {
+  // NOTE: Props overridden with `undefined` are deleted
+  // during serialization.  This is intentional.
+  const stateToPersist = {
+    todos: {
+      ...state.todos,
+      currentEditing: undefined,
+    },
+  }
+
+  const stateToPersistSerialized = JSON.stringify(stateToPersist)
+
+  try {
+    localStorage.setItem('todomvc.state', stateToPersistSerialized)
+  }
+  catch (error) {
+    console.error('Error trying to persist state to local storage:', error)
+  }
+}
 
 const state = {
   todos: {
-    items: [
-      todoItem('Foo'),
-    ],
+    // TODO: Stop using array indices as ids.
+    items: [],
     // We can only edit one thing at a time,
     // so this gets a local-top-level mutex.
     currentEditing: null,
   },
-  list: {
+  route: {
     current: 'all',
   },
+}
+
+function getTodosLeftCount(state) {
+  return state.todos.items.filter(item => ! item.done).length
+}
+
+function getCurrentListItems(state) {
+  switch (state.route.current) {
+    default:
+      return state.todos.items
+
+    case 'active':
+      return state.todos.items.filter(item => ! item.done)
+
+    case 'completed':
+      return state.todos.items.filter(item => item.done)
+  }
 }
 
 function todoItem(task) {
@@ -23,9 +60,22 @@ function todoItem(task) {
 }
 
 const actions = {
-  // As seen in their readme...
+  // As seen in their readme, actions that result in no state updates
+  // result in no redraws.  If you return the state directly,
+  // this results in no updates...
+  // This thus allows outside programs to inspect the state.
+  // You still have to engage in shenanigannery to know when a redraw occurs, though.
+  // Changing the render function (`view` in this particular case)
+  // to call a side effect when ever it's called is sufficient,
+  // if possibly fine grained.  Could also probably use the various hooks
+  // on the top-level element for better discrimination on just what update occurred,
+  // eg created vs updated.
   getState: () => state => state,
+  hydrate: (stateHydration) => (state, actions) => {
+    actions.todos.hydrate(stateHydration.todos)
+  },
   todos: {
+    hydrate: (stateHydration) => stateHydration,
     add: task => state => ({ items: [...state.items, todoItem(task)] }),
     toggleDone: todoId => state => ({
       items: state.items.map((todo, i) => (
@@ -51,9 +101,12 @@ const actions = {
     delete: todoId => state => ({
       items: state.items.filter((todo, i) => i !== todoId),
     }),
+    clearCompleted: () => state => ({
+      items: state.items.filter(todo => ! todo.done),
+    }),
   },
-  list: {
-    show: list => () => ({ current: list }),
+  route: {
+    goto: list => ({ current: list }),
   },
 }
 
@@ -104,7 +157,7 @@ const Item = ({ item, id }) => (state, actions) => (
 )
 
 const view = (state, actions) => (
-  h('section', { class: 'todoapp' }, [
+  h('section', { class: 'todoapp', onupdate: () => syncLocalStorage(state) }, [
     h('header', { class: 'header' }, [
       h('h1', {}, 'todos'),
       h('form', {
@@ -142,13 +195,69 @@ const view = (state, actions) => (
       h('label', {
         for: 'toggle-all',
       }, 'Mark all as complete'),
-      h('ul', { class: 'todo-list' }, state.todos.items.map((item, id) =>
-        h(Item, { item, id })
+      h('ul', { class: 'todo-list' }, getCurrentListItems(state).map((item, id) =>
+        h(Item, { item, id, key: `item-${id}` })
       )),
+    ]),
+    h('footer', {
+      class: cx('footer', { 'hidden': state.todos.items.length <= 0 }),
+    }, [
+      h('span', { class: 'todo-count' }, [
+        h('strong', {}, [`${getTodosLeftCount(state)}`]),
+        ` item${getTodosLeftCount(state) === 1 ? '' : 's'} left`,
+      ]),
+      h('ul', { class: 'filters' }, [
+        h('li', {}, [
+          h('a', { class: cx({ 'selected': state.route.current === 'all' }), href: '#/' }, 'All'),
+        ]),
+        h('li', {}, [
+          h('a', { class: cx({ 'selected': state.route.current === 'active' }), href: '#/active' }, 'Active'),
+        ]),
+        h('li', {}, [
+          h('a', { class: cx({ 'selected': state.route.current === 'completed' }), href: '#/completed' }, 'Completed'),
+        ]),
+      ]),
+      h('button', {
+        class: cx('clear-completed', { 'hidden': state.todos.items.filter(item => item.done).length <= 0 }),
+        onclick: () => actions.todos.clearCompleted(),
+      }, 'Clear completed'),
     ])
   ])
 )
 
 const boundActions = app(state, actions, view, document.getElementById('app'))
 
+// Router Setup
+
+const router = Router({
+  '/'() {
+    boundActions.route.goto('all')
+  },
+  '/active'() {
+    boundActions.route.goto('active')
+  },
+  '/completed'() {
+    boundActions.route.goto('completed')
+  },
+})
+
+router.init()
+
+// Local Storage integration
+// TODO!
+
+try {
+  const persistedStateSerialized = localStorage.getItem('todomvc.state')
+  const persistedState = (
+    persistedStateSerialized
+    ? JSON.parse(persistedStateSerialized)
+    : {}
+  )
+  boundActions.hydrate(persistedState)
+}
+catch (error) {
+  console.error('Error trying to hydrate state from local storage:', error)
+}
+
 window.$todo = boundActions
+window.$todoRouter = router

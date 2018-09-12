@@ -64,6 +64,23 @@ function createTodo(id, value) {
   };
 }
 
+function getCurrentListItems(state) {
+  switch (state.currentList) {
+    case 'active':
+      return state.todos.filter(todo => ! todo.completed);
+
+    case 'completed':
+      return state.todos.filter(todo => todo.completed);
+
+    default:
+      return state.todos;
+  }
+}
+
+function getTodosLeftCount(state) {
+  return state.todos.filter(item => ! item.completed).length;
+}
+
 // Model: Actions
 // Going of the most+react example, these look rather like how
 // hyperapp itself works... Albeit I removed a layer of abstraction
@@ -188,6 +205,11 @@ const actions = {
         }
         : state
     ),
+    clearCompleted: () => state => (
+      state.todos.filter(todo => todo.completed).length
+        ? { ...state, todos: state.todos.filter(todo => ! todo.completed) }
+        : state
+    ),
   },
   route: {
     goto: routeName => state => ({
@@ -239,7 +261,7 @@ const redraw = dispatch => state => {
       <ul class="todo-list">
         ${// Wiring to `dispatch` because it's an unchanging reference.
           // Should probably use something else.
-          state.todos.map(todo => hyper.wire(dispatch, `:todo-${todo.id}`)`
+          getCurrentListItems(state).map(todo => hyper.wire(dispatch, `:todo-${todo.id}`)`
           <li
             class=${cx({
               completed: todo.completed,
@@ -282,12 +304,16 @@ const redraw = dispatch => state => {
       </ul>
     </section>
     <footer class=${cx('footer', { hidden: state.todos.length <= 0 })}>
-      <span class="todo-count"><strong>${state.todos.length}</strong> item${state.todos.length === 1 ? '' : 's'} left</span>
+      <span class="todo-count"><strong>${getTodosLeftCount(state)}</strong> item${getTodosLeftCount(state) === 1 ? '' : 's'} left</span>
       <ul class="filters">
         <li><a class=${cx({ selected: state.currentList === 'all' })} href="#/">All</a></li>
         <li><a class=${cx({ selected: state.currentList === 'active' })} href="#/active">Active</a></li>
         <li><a class=${cx({ selected: state.currentList === 'completed' })} href="#/completed">Completed</a></li>
       </ul>
+      <button
+        class=${cx('clear-completed', { hidden: state.todos.filter(todo => todo.completed).length <= 0 })}
+        onclick=${() => dispatch(actions.todos.clearCompleted())}
+      >Clear completed</button>
     </footer>
   </section>`;
 

@@ -1,6 +1,7 @@
 import 'todomvc-app-css/index.css';
 import cx from 'classnames';
 import hyper from 'hyperhtml';
+import { Router } from './vendor/director'
 import { skipRepeats, scan, tap, runEffects, MulticastSource, never } from '@most/core';
 import * as most from '@most/core';
 import { newDefaultScheduler } from '@most/scheduler';
@@ -70,20 +71,16 @@ function createTodo(id, value) {
 
 const actions = {
   persistance: {
-    restore: () => state => {
-      try {
-        const localDataSerialized = localStorage.getItem('todomvc.state');
-        const localData = localDataSerialized ? JSON.parse(localDataSerialized) : {};
+    restore: partialState => state => {
+      if (partialState) {
         return {
           ...state,
-          newTodo: localData.newTodo || state.newTodo,
-          todos: localData.todos || state.todos,
+          newTodo: partialState.newTodo,
+          todos: partialState.todos,
         };
       }
-      catch (error) {
-        console.warn('Error trying to restore from localStorage:', error);
-        return state;
-      }
+
+      return state;
     },
     persist: () => state => {
       try {
@@ -192,6 +189,12 @@ const actions = {
         : state
     ),
   },
+  route: {
+    goto: routeName => state => ({
+      ...state,
+      currentList: routeName,
+    }),
+  },
 };
 
 
@@ -299,6 +302,8 @@ const redraw = dispatch => state => {
   dispatch(actions.persistance.persist());
 }
 
+
+
 // Here, instead of mapping Stream AppState to Stream Nodes,
 // we stop at Stream AppState and just treat renders as
 // a purely side-effectual.  Dirty, but eh.
@@ -313,12 +318,52 @@ const render = tap(
   )
 );
 
+
+
+const router = Router({
+  '/'() {
+    dispatch(actions.route.goto('all'))
+  },
+  '/active'() {
+    dispatch(actions.route.goto('active'))
+  },
+  '/completed'() {
+    dispatch(actions.route.goto('completed'))
+  },
+})
+
+
+
+// this has to be gotten before any renders since we tap the render to
+// update localStorage.
+const persistedState = (() => {
+  try {
+    const localDataSerialized = localStorage.getItem('todomvc.state');
+    const localData = localDataSerialized ? JSON.parse(localDataSerialized) : null;
+    return localData;
+  }
+  catch (error) {
+    console.warn('Error trying to restore from localStorage:', error);
+    return null;
+  }
+})();
+
+
+
+// Get things rolling...
+
 runEffects(render, appScheduler);
 
-dispatch(actions.persistance.restore());
+dispatch(actions.persistance.restore(persistedState));
+router.init();
+
+
+
+// Some exports...
 
 window.$todo = {
   model: appModel,
   scheduler: appScheduler,
+  router,
   most,
 };

@@ -69,6 +69,38 @@ function createTodo(id, value) {
 // for the sake of expediency (laziness).
 
 const actions = {
+  persistance: {
+    restore: () => state => {
+      try {
+        const localDataSerialized = localStorage.getItem('todomvc.state');
+        const localData = localDataSerialized ? JSON.parse(localDataSerialized) : {};
+        return {
+          ...state,
+          newTodo: localData.newTodo || state.newTodo,
+          todos: localData.todos || state.todos,
+        };
+      }
+      catch (error) {
+        console.warn('Error trying to restore from localStorage:', error);
+        return state;
+      }
+    },
+    persist: () => state => {
+      try {
+        const partialState = {
+          newTodo: state.newTodo,
+          todos: state.todos,
+        };
+        const partialStateSerialized = JSON.stringify(partialState);
+        localStorage.setItem('todomvc.state', partialStateSerialized);
+      }
+      catch (error) {
+        console.warn('Error trying to persist to localStorage:', error);
+      }
+
+      return state;
+    },
+  },
   newTodo: {
     change: value => state => ({ ...state, newTodo: { ...state.newTodo, value }}),
     add: () => state => ({
@@ -263,17 +295,27 @@ const redraw = dispatch => state => {
       editingInput.focus();
     }
   }
+
+  dispatch(actions.persistance.persist());
 }
 
 // Here, instead of mapping Stream AppState to Stream Nodes,
 // we stop at Stream AppState and just treat renders as
 // a purely side-effectual.  Dirty, but eh.
 const render = tap(
-  redraw(dispatch),
-  appModel
+  // This creates a loop.  It's only okay in this case because
+  // persist() does NOT change the state, and so skipRepeats
+  // breaks the loop.
+  () => dispatch(actions.persistance.persist()),
+  tap(
+    redraw(dispatch),
+    appModel
+  )
 );
 
 runEffects(render, appScheduler);
+
+dispatch(actions.persistance.restore());
 
 window.$todo = {
   model: appModel,

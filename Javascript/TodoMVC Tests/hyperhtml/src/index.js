@@ -95,6 +95,62 @@ const actions = {
         ))
       ),
     }),
+    // Calls save first before editing, because
+    // editing is mutex and any action that initiates an edit
+    // may have to assume that the previous edit
+    // was not finished, and edits are meant to
+    // always go through (there's currently no way to "cancel" an edit
+    // without updating the value.  Technically therefore
+    // we could just update the value directly.)
+    // NOTE: Although I don't know of any browser that emits
+    // focus on the second element before emitting blur on the first
+    // technically the order is implementation specific.
+    // (just like technically there was no defined order for
+    // keys on JS Objects, even though everyone pretty much
+    // gave them the order of "by insertion" with certain exceptions.)
+    edit: todoId => state => (
+      state = actions.todos.save()(state),
+      (state.todos.find(todo => todo.id === todoId) != null
+        ? {
+          ...state,
+          todoCurrentlyEditing: {
+            ...state.todoCurrentlyEditing,
+            id: todoId,
+            value: state.todos.find(todo => todo.id === todoId).value,
+          }
+        }
+        : state
+      )
+    ),
+    editChange: value => state => (
+      state.todoCurrentlyEditing.id != null
+        ? {
+          ...state,
+          todoCurrentlyEditing: {
+            ...state.todoCurrentlyEditing,
+            value,
+          },
+        }
+        : state
+    ),
+    // Calling save more than once is the same as calling it once,
+    // and if no edit is pending it's a no-op.
+    save: () => state => (
+      state.todoCurrentlyEditing.id != null
+        ? {
+          ...state,
+          todos: state.todos.map(todo => (
+            todo.id === state.todoCurrentlyEditing.id
+              ? { ...todo, value: state.todoCurrentlyEditing.value }
+              : todo
+          )),
+          todoCurrentlyEditing: {
+            id: null,
+            value: '',
+          },
+        }
+        : state
+    ),
   },
 };
 
@@ -147,14 +203,43 @@ const redraw = dispatch => state => {
           >
             <div class="view">
               <input type="checkbox" class="toggle" checked=${todo.completed} />
-              <label>${todo.value}</label>
-              <input type="text" class="edit" value="${state.todoCurrentlyEditing.value}" />
+              <label ondblclick=${() => dispatch(actions.todos.edit(todo.id))}>${todo.value}</label>
+              <button class="destroy"></button>
             </div>
+            <!--
+            Not sure if there's a better way to handle this, event wise.
+            Probably updating edit values on key down instead of on change
+            would simplify things ande make it less susceptible to browser weirdness.
+            The lack of lifecycle hooks makes it difficult to do things like
+            give the element focus in-line.
+            I accomplished this with a post-render check.
+            -->
+            <input
+              type="text"
+              class="edit"
+              id=${`todo-edit-input-${todo.id}`}
+              value=${state.todoCurrentlyEditing.value}
+              onchange=${(event) => dispatch(actions.todos.editChange(event.target.value))}
+              onblur="${() => dispatch(actions.todos.save())}"
+              onkeydown="${(event) => (
+                event.code === 'Enter'
+                ? event.target.blur()
+                : null
+              )}"
+            />
           </li>
         `)}
       </ul>
     </section>
   </section>`;
+
+  // update focus...
+  if (state.todoCurrentlyEditing.id != null) {
+    const editingInput = document.getElementById(`todo-edit-input-${state.todoCurrentlyEditing.id}`);
+    if (document.activeElement !== editingInput) {
+      editingInput.focus();
+    }
+  }
 }
 
 // Here, instead of mapping Stream AppState to Stream Nodes,

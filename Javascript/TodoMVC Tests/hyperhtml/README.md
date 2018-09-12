@@ -1,5 +1,5 @@
-TodoMVC Test - htmlHTML
-=======================
+TodoMVC Test - hyperHTML
+========================
 
 This view render lib has automatic bonus points due to having "Hyper" in the name not just once, but _twice_, which means it's at least twice as good as normalHTML.  Apparently some people think that's stupid, but they're themselves just too stupid to understand that more hyper is more better.
 
@@ -23,12 +23,23 @@ As shown in their [documentation on content types](https://viperhtml.js.org/hype
 
 ## Thoughts
 
+- Size of own app code before bundling: ~12k
+- Size of app code after bundling, minification: 76k
+- Size of zip of app code after minification: 24k
+
+This is quite a bit bigger (about 3x) compared to the full bundle from, say, hyperapp.  However, to be fair, I also included the `most` stream library here, which probably added quite a bit, meaning _this isn't a very good size comparison_.  Something like Redux, which is just a few functions, might be smaller.
+
+
+### Templates
+
+I find the templates to be more readable than hypescript-style helper functions, but that may be due to being more used to HTML than said helper functions.  The extra bits of the helper function, the string quotes, etc, all make it a bit noisier.
+
 
 ### Immutable Data
 
 hyperHTML's wire function doesn't work well with immutable data: It expects to be wired to an object and assumes an object with a different identity, even if given the same id argument, must necessarily lead to a different node.  This is perhaps to be expected given how it's stated to work, but never the less caught me off guard.
 
-A way around this then is to use a Custom Element that can be cached per item to act as the fixed instance.  For now, I just used something that doesn't change over the lifetime of the app and use different id args to distinguish between actual items, but I don't think this is a good way to go about it.
+A way around this then is to use a Custom Element that can be cached per item to act as the fixed instance.  For now, I just used something that doesn't change over the lifetime of the app and use different id args to distinguish between actual items, but I don't think this is a good way to go about it.  Maybe just pass the item's id itself as the first arg?
 
 
 ### Imperative Updates

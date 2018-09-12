@@ -95,6 +95,14 @@ const actions = {
         ))
       ),
     }),
+    toggle: todoId => state => ({
+      ...state,
+      todos: state.todos.map(todo => (
+        todo.id === todoId
+          ? { ...todo, completed: ! todo.completed }
+          : todo
+      )),
+    }),
     // Calls save first before editing, because
     // editing is mutex and any action that initiates an edit
     // may have to assume that the previous edit
@@ -194,7 +202,9 @@ const redraw = dispatch => state => {
       />
       <label for="toggle-all">Mark all as complete</label>
       <ul class="todo-list">
-        ${state.todos.map(todo => hyper.wire(todo, `:todo-${todo.id}`)`
+        ${// Wiring to `dispatch` because it's an unchanging reference.
+          // Should probably use something else.
+          state.todos.map(todo => hyper.wire(dispatch, `:todo-${todo.id}`)`
           <li
             class=${cx({
               completed: todo.completed,
@@ -202,17 +212,22 @@ const redraw = dispatch => state => {
             })}
           >
             <div class="view">
-              <input type="checkbox" class="toggle" checked=${todo.completed} />
+              <input
+                type="checkbox"
+                class="toggle"
+                checked=${todo.completed}
+                onclick=${() => dispatch(actions.todos.toggle(todo.id))}
+              />
               <label ondblclick=${() => dispatch(actions.todos.edit(todo.id))}>${todo.value}</label>
               <button class="destroy"></button>
             </div>
             <!--
-            Not sure if there's a better way to handle this, event wise.
-            Probably updating edit values on key down instead of on change
-            would simplify things ande make it less susceptible to browser weirdness.
-            The lack of lifecycle hooks makes it difficult to do things like
-            give the element focus in-line.
-            I accomplished this with a post-render check.
+              Not sure if there's a better way to handle this, event wise.
+              Probably updating edit values on key down instead of on change
+              would simplify things ande make it less susceptible to browser weirdness.
+              The lack of lifecycle hooks makes it difficult to do things like
+              give the element focus in-line.
+              I accomplished this with a post-render check.
             -->
             <input
               type="text"
@@ -231,6 +246,14 @@ const redraw = dispatch => state => {
         `)}
       </ul>
     </section>
+    <footer class=${cx('footer', { hidden: state.todos.length <= 0 })}>
+      <span class="todo-count"><strong>${state.todos.length}</strong> item${state.todos.length === 1 ? '' : 's'} left</span>
+      <ul class="filters">
+        <li><a class=${cx({ selected: state.currentList === 'all' })} href="#/">All</a></li>
+        <li><a class=${cx({ selected: state.currentList === 'active' })} href="#/active">Active</a></li>
+        <li><a class=${cx({ selected: state.currentList === 'completed' })} href="#/completed">Completed</a></li>
+      </ul>
+    </footer>
   </section>`;
 
   // update focus...

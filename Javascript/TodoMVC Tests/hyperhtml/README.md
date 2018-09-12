@@ -24,10 +24,17 @@ As shown in their [documentation on content types](https://viperhtml.js.org/hype
 ## Thoughts
 
 
+### Immutable Data
+
+hyperHTML's wire function doesn't work well with immutable data: It expects to be wired to an object and assumes an object with a different identity, even if given the same id argument, must necessarily lead to a different node.  This is perhaps to be expected given how it's stated to work, but never the less caught me off guard.
+
+A way around this then is to use a Custom Element that can be cached per item to act as the fixed instance.  For now, I just used something that doesn't change over the lifetime of the app and use different id args to distinguish between actual items, but I don't think this is a good way to go about it.
+
+
 ### Imperative Updates
 
 By which I mean things like "give this element focus".
 
 I imagine this could be handled by some sort of formalized "Effects" handling system, by which a render update could trigger queue up some "effect" to run post-render.  Renders are, as far as I know, synchronous, excepting where Promises are used of course.
 
-Then again, maybe I should just shove such things into Actions, and just make them taps; that is, they perform some side effect then return the state unmodified.
+Then again, maybe I should just shove such things into Actions, and just make them taps; that is, they perform some side effect then return the state unmodified.  Either that or wrap any such things in a Web Component.

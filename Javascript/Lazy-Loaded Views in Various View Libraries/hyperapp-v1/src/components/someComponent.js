@@ -1,7 +1,5 @@
 import { h } from 'hyperapp'
-import {
-  AsyncComponent,
-} from '../asyncComponentUtils'
+import { AsyncComponent } from '../asyncComponentUtils'
 
 export default AsyncComponent(
   'SomeComponent',

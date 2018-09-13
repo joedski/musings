@@ -1,5 +1,4 @@
 export const STATE_KEY = '$$asyncComponents'
-export const STATE_ACTIVE_REQUESTS_KEY = '$$activeRequests'
 
 export const COMPONENT_STATUS = {
   NOT_ASKED: 'NOT_ASKED',
@@ -11,7 +10,8 @@ export const COMPONENT_STATUS = {
 export function initState() {
   return {
     // This is mutable shared state!
-    [STATE_ACTIVE_REQUESTS_KEY]: new Map(),
+    activeRequests: new Map(),
+    components: {},
   }
 }
 
@@ -29,8 +29,12 @@ export function initComponentState(overrides) {
 // Getters local to our state slice.
 // Used internally.
 
+function localGetComponentState(componentKey, localState) {
+  return localState.components[componentKey]
+}
+
 function localGetComponentStatus(componentKey, localState) {
-  const componentState = localState[componentKey]
+  const componentState = localGetComponentState(componentKey, localState)
 
   if (componentState == null) {
     return COMPONENT_STATUS.NOT_ASKED
@@ -42,6 +46,12 @@ function localGetComponentStatus(componentKey, localState) {
 // Getters used on global state.
 // Used in components, etc.
 
+export function getComponentState(componentKey) {
+  return function $getComponentState(state) {
+    return localGetComponentState(componentKey, state[STATE_KEY])
+  }
+}
+
 export function getComponentStatus(componentKey) {
   return function $getComponentStatus(state) {
     return localGetComponentStatus(componentKey, state[STATE_KEY])
@@ -49,9 +59,12 @@ export function getComponentStatus(componentKey) {
 }
 
 export function getComponentRenderer(componentKey) {
+  const $getComponentState = getComponentState(componentKey)
+  const $getComponentStatus = getComponentStatus(componentKey)
+
   return function $getComponentRenderer(state) {
-    const status = getComponentStatus(componentKey)(state)
-    const componentState = state[STATE_KEY][componentKey]
+    const status = $getComponentStatus(state)
+    const componentState = $getComponentState(state)
     switch (status) {
       case COMPONENT_STATUS.SUCCESS:
         return componentState.render
@@ -63,20 +76,24 @@ export function getComponentRenderer(componentKey) {
 }
 
 export function getComponentError(componentKey) {
+  const $getComponentState = getComponentState(componentKey)
   return function $getComponentError(state) {
-    return (state[STATE_KEY][componentKey] || {}).error || null
-}
+    const error = ($getComponentState(state) || {}).error
+    if (!error) return null
+    return error
+  }
 }
 
 export function getComponentIsLoading(componentKey) {
   return function $getComponentIsLoading(state) {
-    return state[STATE_KEY][STATE_ACTIVE_REQUESTS_KEY].has(componentKey)
+    return state[STATE_KEY].activeRequests.has(componentKey)
   }
 }
 
 export function getComponentShouldShowLoading(componentKey) {
+  const $getComponentState = getComponentState(componentKey)
   return function $getComponentShouldShowLoading(state) {
-    return Boolean((state[STATE_KEY][componentKey] || {}).showLoading)
+    return Boolean(($getComponentState(state) || {}).showLoading)
   }
 }
 
@@ -150,33 +167,45 @@ export const actions = {
       actions.error({ key, error })
     })
     .then(() => {
-      state[STATE_ACTIVE_REQUESTS_KEY].delete(key)
+      state.activeRequests.delete(key)
     })
 
-    state[STATE_ACTIVE_REQUESTS_KEY].set(key, p)
+    state.activeRequests.set(key, p)
   },
-  await: ({ key, showLoading }) => ({
-    [key]: initComponentState({ showLoading })
+  await: ({ key, showLoading }) => (state) => ({
+    components: {
+      ...state.components,
+      [key]: initComponentState({ showLoading }),
+    },
   }),
-  showLoading: ({ key }) => state => ({
-    [key]: {
-      ...state[key],
-      showLoading: true,
-    }
+  showLoading: ({ key }) => (state) => ({
+    components: {
+      ...state.components,
+      [key]: {
+        ...state.components[key],
+        showLoading: true,
+      },
+    },
   }),
   succeed: ({ key, render }) => (state) => ({
-    [key]: {
-      ...state[key],
-      status: COMPONENT_STATUS.SUCCESS,
-      render,
-    },
+    components: {
+      ...state.components,
+      [key]: {
+        ...state.components[key],
+        status: COMPONENT_STATUS.SUCCESS,
+        render,
+      },
+    }
   }),
   error: ({ key, error }) => (state) => ({
-    [key]: {
-      ...state[key],
-      status: COMPONENT_STATUS.ERROR,
-      error,
-    },
+    components: {
+      ...state.components,
+      [key]: {
+        ...state.components[key],
+        status: COMPONENT_STATUS.ERROR,
+        error,
+      },
+    }
   }),
 }
 

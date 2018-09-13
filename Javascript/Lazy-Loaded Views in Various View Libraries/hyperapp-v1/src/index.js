@@ -7,6 +7,7 @@ const state = {
 }
 
 const actions = {
+  getState: () => state => state,
   [asyncComponentUtils.STATE_KEY]: asyncComponentUtils.actions,
 }
 

@@ -49,3 +49,28 @@ To keep track of an active request to a given component, I added a mutable `Map`
 > Why stick mutable shared state on the immutable state atom?  Because I don't want to use a global cache if I don't have to.  I'd prefer this cache be local to a given app, even if the chances of conflict across apps is vanishingly small.
 
 Since the render pass is what actually triggers a call to `load`, I put the conditional action call in there, leaving the conditionals out of the actions themselves.  That should make any additional extension, if necessary, easier to do.
+
+#### Never the Less, It Works
+
+It was simple enough to implement in a few hours.  From there, the usage is also [pretty simple](./src/components/someComponent.js):
+
+```js
+import { h } from 'hyperapp'
+import { AsyncComponent } from '../asyncComponentUtils'
+
+export default AsyncComponent(
+  'SomeComponent',
+  () => import(/* webpackChunkName: "someComponent" */ './someComponent.impl'),
+  {
+    renderLoading: () => h('div', { class: '--loading' }, '(loading our component...)'),
+    renderError: (error) => (
+      h('div', { class: '--error' }, [
+        'Error! ',
+        error.message,
+      ])
+    ),
+  }
+)
+```
+
+Note that the underlying component is actually implemented in `someComponent.impl.js` while the publicly facing async component is at `someComponent.js`.

@@ -77,6 +77,7 @@ export function getComponentRenderer(componentKey) {
 
 export function getComponentError(componentKey) {
   const $getComponentState = getComponentState(componentKey)
+
   return function $getComponentError(state) {
     const error = ($getComponentState(state) || {}).error
     if (!error) return null
@@ -92,6 +93,7 @@ export function getComponentIsLoading(componentKey) {
 
 export function getComponentShouldShowLoading(componentKey) {
   const $getComponentState = getComponentState(componentKey)
+
   return function $getComponentShouldShowLoading(state) {
     return Boolean(($getComponentState(state) || {}).showLoading)
   }
@@ -120,7 +122,7 @@ function execLoadEffect(key, load, { delay, timeout, onDelayElapse }) {
     })
     // eslint-disable-next-line no-unused-vars
     const delayPromise = (
-      (delay > 0 && Number.isFinite(delay))
+      (Number.isFinite(delay) && delay >= 0)
       ? sleep(delay).then(() => {
         if (! isSettled) onDelayElapse()
       })
@@ -128,7 +130,7 @@ function execLoadEffect(key, load, { delay, timeout, onDelayElapse }) {
     )
     // eslint-disable-next-line no-unused-vars
     const errorPromise = (
-      (timeout > 0 && Number.isFinite(timeout))
+      (Number.isFinite(timeout) && timeout > 0)
       ? sleep(timeout).then(() => {
         if (! isSettled) reject(new Error(`Async component ${key} timed out`))
       })

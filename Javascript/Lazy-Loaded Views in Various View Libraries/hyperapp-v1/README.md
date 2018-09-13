@@ -74,3 +74,9 @@ export default AsyncComponent(
 ```
 
 Note that the underlying component is actually implemented in `someComponent.impl.js` while the publicly facing async component is at `someComponent.js`.
+
+#### What Could Be Better
+
+I feel like the `showLoading` thing is a bit weird.  It's sorta random, really.  Given that component definitions are more or less static, though, I'm not sure what to do about that.  Certainly this that the behavior is undefined if multiple Async Components use the same Key but different Delays.  Of course, if they use the same Key, you're also saying they have the same Render function, which may not be what you're thinking...
+
+Also, currently, delay is always at least 1 microtask long.  Not sure if that's ideal or not.

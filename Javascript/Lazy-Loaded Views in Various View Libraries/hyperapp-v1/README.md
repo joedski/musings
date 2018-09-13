@@ -80,3 +80,15 @@ Note that the underlying component is actually implemented in `someComponent.imp
 I feel like the `showLoading` thing is a bit weird.  It's sorta random, really.  Given that component definitions are more or less static, though, I'm not sure what to do about that.  Certainly this that the behavior is undefined if multiple Async Components use the same Key but different Delays.  Of course, if they use the same Key, you're also saying they have the same Render function, which may not be what you're thinking...
 
 Also, currently, delay is always at least 1 microtask long.  Not sure if that's ideal or not.
+
+Then, there's rather obviously the use of shared mutable state (which is embedded _within_ the immutable state!), and the dependence on that updating immediately and imperatively.  That's proooobably not going to lead to any sort of hard to debug issues.  Probably.
+
+The main blocker, I think, is just the initial triggering of the loading.  After that, as long as calling any of our main actions (`load`, `await`, `showLoading`, `succeed`, `error`) with the same args results in the same next state, it should be fine to hammer on them.  That said, some of the utilities in Hyperapp V2 may make this nicer, mostly thinking of `debounce`.  Granted, I would need an argument-sensitive debounce, but anyway.
+
+The easiest way to do this would, of course, be to have the async-loads tied to route changes, as that's probably the main use case for Async Components.  That makes it much less generalized, but much more purifiable.
+
+#### What Did Work
+
+As noted above, the actual definition of an Async Component is very short, no weirdness for the End User aside from one additional key on the State and Actions.  After that, the components are used just like any other Lazy Component: `h(SomeAsyncComponent, { ... })`.  Don't think I took Children into account since usually any Async Component will have its own children, and those Children are the entire reason it's being made an Async Component in the first place.  Still, passing down any Children might be a nice thing to do.
+
+The fact that this is a general solution that can be used anywhere makes its adoption into projects and libraries very simple.  Add to that how its state is in the global state atom and you get to see the status for each component.  Nice.

@@ -47,3 +47,5 @@ Since multiple action calls in the same render pass are isolated and do not get 
 To keep track of an active request to a given component, I added a mutable `Map` on the state slice.  It's placed on a special key that will hopefully never conflict.  (That can be solved of course by using Symbols, but then state object updates become an issue...)
 
 > Why stick mutable shared state on the immutable state atom?  Because I don't want to use a global cache if I don't have to.  I'd prefer this cache be local to a given app, even if the chances of conflict across apps is vanishingly small.
+
+Since the render pass is what actually triggers a call to `load`, I put the conditional action call in there, leaving the conditionals out of the actions themselves.  That should make any additional extension, if necessary, easier to do.

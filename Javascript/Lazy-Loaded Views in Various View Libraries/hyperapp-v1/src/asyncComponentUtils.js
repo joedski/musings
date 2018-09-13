@@ -39,22 +39,6 @@ function localGetComponentStatus(componentKey, localState) {
   return componentState.status
 }
 
-function localGetComponentRenderer(componentKey, localState) {
-  const status = localGetComponentStatus(componentKey, localState)
-  const componentState = localState[componentKey]
-  switch (status) {
-    case COMPONENT_STATUS.SUCCESS:
-      return componentState.render
-
-    default:
-      return null
-  }
-}
-
-function localGetComponentError(componentKey, localState) {
-  return (localState[componentKey] || {}).error || null
-}
-
 // Getters used on global state.
 // Used in components, etc.
 
@@ -66,14 +50,22 @@ export function getComponentStatus(componentKey) {
 
 export function getComponentRenderer(componentKey) {
   return function $getComponentRenderer(state) {
-    return localGetComponentRenderer(componentKey, state[STATE_KEY])
+    const status = getComponentStatus(componentKey)(state)
+    const componentState = state[STATE_KEY][componentKey]
+    switch (status) {
+      case COMPONENT_STATUS.SUCCESS:
+        return componentState.render
+
+      default:
+        return null
+    }
   }
 }
 
 export function getComponentError(componentKey) {
   return function $getComponentError(state) {
-    return localGetComponentError(componentKey, state[STATE_KEY])
-  }
+    return (state[STATE_KEY][componentKey] || {}).error || null
+}
 }
 
 export function getComponentIsLoading(componentKey) {
@@ -110,13 +102,21 @@ function execLoadEffect(key, load, { delay, timeout, onDelayElapse }) {
       if (! isSettled) resolve(l)
     })
     // eslint-disable-next-line no-unused-vars
-    const delayPromise = sleep(delay).then(() => {
-      if (! isSettled) onDelayElapse()
-    })
+    const delayPromise = (
+      (delay > 0 && Number.isFinite(delay))
+      ? sleep(delay).then(() => {
+        if (! isSettled) onDelayElapse()
+      })
+      : null
+    )
     // eslint-disable-next-line no-unused-vars
-    const errorPromise = sleep(timeout).then(() => {
-      if (! isSettled) reject(new Error(`Async component ${key} timed out`))
-    })
+    const errorPromise = (
+      (timeout > 0 && Number.isFinite(timeout))
+      ? sleep(timeout).then(() => {
+        if (! isSettled) reject(new Error(`Async component ${key} timed out`))
+      })
+      : null
+    )
   })
 }
 

@@ -92,3 +92,107 @@ The easiest way to do this would, of course, be to have the async-loads tied to 
 As noted above, the actual definition of an Async Component is very short, no weirdness for the End User aside from one additional key on the State and Actions.  After that, the components are used just like any other Lazy Component: `h(SomeAsyncComponent, { ... })`.  Don't think I took Children into account since usually any Async Component will have its own children, and those Children are the entire reason it's being made an Async Component in the first place.  Still, passing down any Children might be a nice thing to do.
 
 The fact that this is a general solution that can be used anywhere makes its adoption into projects and libraries very simple.  Add to that how its state is in the global state atom and you get to see the status for each component.  Nice.
+
+
+### Considering The Above: The Shared Mutable State
+
+One thing I never checked, and was the entire reason for adding that Mutable Map, was whether or not the state was actually updated after an action call; that is, by the time the next Bound Action is called, is the state already updated even if a Redraw has not yet occurred?  That would seem to make sense, but I never tried it.
+
+To rectify this, I can poke around with [their v1 counter example](https://codepen.io/jorgebucaran/pen/zNxZLP?editors=0010).
+
+Since my thing triggered an action on render, I'll just do that: trigger one action twice per render.  In the action body, it will report the current state it receives, then return an incremented state value if the value is odd. (`v % 2 === 1`)  This should prevent runaway render loops.
+
+```js
+const state = {
+  count: 0,
+  other: 0,
+}
+
+const actions = {
+  down: value => state => ({ count: state.count - value }),
+  up: value => state => ({
+    count: state.count + value,
+    other: state.other + 1,
+  }),
+  upOther: value => state => {
+    console.log(state)
+    if (state.other % 2 === 1)
+      return { other: state.other + 1 }
+    return state
+  },
+}
+
+const view = (state, actions) => (
+  actions.upOther(),
+  actions.upOther(),
+  <main>
+    <h1>{state.count}</h1>
+    <button onclick={() => actions.down(1)} disabled={state.count <= 0}>ー</button>
+    <button onclick={() => actions.up(1)}>＋</button>
+  </main>
+)
+```
+
+The comma operator strikes again.
+
+In the console, I see this on initial draw:
+
+```
+Object {
+  count: 0,
+  other: 0
+}
+Object {
+  count: 0,
+  other: 0
+}
+```
+
+When I click on the `+` button, this happens:
+
+```
+Object {
+  count: 1,
+  other: 1
+}
+Object {
+  count: 1,
+  other: 2
+}
+Object {
+  count: 1,
+  other: 2
+}
+Object {
+  count: 1,
+  other: 2
+}
+```
+
+Since each up is called twice, there's 4 calls total because the first render pass calls it two times, and then as state did chance, the second pass calls it two more times.  At that point, however, the state has settled and so the render thrashing stops.
+
+Notice that only the first state object is different, though, while the other three are the same.  This tells me that the state atom is updated internally immediately, such that the sequencing of actions is important, and that actions themselves do always receive the most up to date state.  This means the mutable map is unnecessary!
+
+I can refactor to not use that, then.  I'm not sure if this is actually intended or just an implementation detail, but it makes a certain amount of sense.
+
+
+### Considering the Above: Calling Actions on Render
+
+I'm not sure this is entirely avoidable, since basically I have to trigger some sort of action in reaction to rendering itself.  Maybe there's a cleaner way to couch it, but as of now I can't think of anything that doesn't ultimately boil back down to "call action then return view"  I suppose theoretically a view could be wrapped to be allowed to return an array of items or something, and any arrays-of-functions left over would be considered collections of effects to call.  Hm.  Tricky because arrays are already allowed as non-top-level things, and functions are probably likely to be treated as Lazy Components by the default renderer.
+
+Still, if I managed that somehow, that would make things more debuggable:
+- All On-Render Effects would be collected at the top level and run in sequence there.
+  - Order is technically completely deterministic, but it may be easier to just assume only local order is deterministic.
+- Because they're collected at the top, they can then be easily inspected at the top.
+
+A compromise would be easier to implement, though:
+- Views can, on render, call an Action to schedule an Effect.
+  - This adds an Effect to the Effect Queue.
+- Doing this at least once also schedules an Effect Execution Pass, to be run after rendering is completed.
+  - This is done by using Next Tick or Next Micro Task (Promise Resolution.)
+  - The downside is that it means they may run after changes are actually flushed to the DOM, but I'm pretty sure that's happening already.
+
+This would at least make things more debuggable:
+- Wrap `app()` to wrap all `actions` in loggers before handing them off to `app()` itself.
+
+Whereas the current methodology of directly calling actions means we just have to trust that they'll work, and state is actually being updated part way through a render pass, potentially multiple times.  Granted, this does not affect the render pass itself due to using immutable behavior for the state atom, but it's still kinda weird.

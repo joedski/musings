@@ -76,6 +76,34 @@ Neither implementation includes the ability to check types separately and, for t
 
 On the other hand, if I just attached the class constructors directly to `AsyncData`, then I could just define `is` on them directly, or users could just use `instanceof` to check if the types are as described.
 
+#### A Case For Run-Time Checking
+
+Currently, things like `map` (really `fmap`) only deal with the Result case since that's the most common.  However, we might want to, say, specify which things are loading exactly.  In this case, type checking is actually handy since we can then say things like:
+
+```js
+const itemsWaitingOn = Object.entries({ dataFoo, dataBar, dataBaz })
+.filter(([, data]) => AsyncData.Waiting.is(data))
+.map(([key]) => key)
+
+console.log('Still waiting on', itemsWaitingOn.join(', '))
+// => e.g. "Still waiting on dataFoo, dataBaz"
+```
+
+Writing that out with cata, while certainly doable and technically correct, is annoying:
+
+```js
+const itemsWaitingOn = Object.entries({ dataFoo, dataBar, dataBaz })
+.filter(([, data]) => data.cata({
+  NotAsked: () => false,
+  Waiting: () => true, // this one.
+  Error: () => false,
+  Result: () => false,
+}))
+.map(([key]) => key)
+```
+
+Still, `cata` is the recommended function while rendering.
+
 
 ### The Component Enhancer
 

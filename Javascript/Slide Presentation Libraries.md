@@ -11,6 +11,7 @@ Always check the commit date on this for when it was last updated!
   - Slide based, but more HTML driven.
   - Can accept Markdown as an input, though.
   - Demo is more showoffy than remark's.
+  - Supports broadcasting to multiple clients, say to peoples' phones, using a websockets server.
 - [impress.js](https://github.com/impress/impress.js/)
   - Uses a prezi-style infinite canvas.
   - It's a little ostentatious for me.

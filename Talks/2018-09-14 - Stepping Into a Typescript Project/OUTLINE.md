@@ -1,0 +1,134 @@
+Stepping Into a Typescript Project - Presestation Outline
+=========================================================
+
+## Draft 1
+
+> This is originally a bit vague, so I think I'll narrow this down to the gotchas and caveats I ran into.
+
+- Intro: What this talk is about.
+  - Title: Problems I Encountered Stepping Into a Typescript Project; Learning in Anger on the Job
+    - Many of them of my own making.
+  - These apply to TS broadly, and don't really have much to do with the specific project.
+- Problem: Crashing TSServer
+  - It turns out that combining mapped-object types and conditional types is a good way to crash the TSServer, especially when using constraints.
+  - This was an issue that Redux ran into, and that I than ran into myself.
+  - (picture of stack trace from `tsserver.log`)
+  - I even asked the internet if I was doing something wrong (I was, but it wasn't directly related to the crash itself) and it ended up being filed as a bug and getting fixed!
+- Problem: Non-Assignability of Derived Mapped Types and Misunderstanding Parameter Type Defaults
+  - A problem largely of my own creation:
+    - I was using default-type-assignment of type parameters as a way to name types specific to a given invocation of some function, but TS was giving me Non-Assignability errors.
+    - This doesn't work: The caller could supply a different type.
+  - (partial) solution: Block-Scoped Types.
+    - Works well in the function body, but they're not available to use for the function's return type.  Disappointment.
+- Problem: Circular Constraints
+  - A teething issue for me: A conditional type cannot also be a type parameter constraint.
+    - That is, if some type is in the form of `type Foo<T> = T extends ...` then you cannot use it like `function funcky<T extends Foo<T>>(t: T) {...}`: TS will complain about a circular constraint.
+  - Getting this error probably means you're overconstraining things.
+    - That was certainly the case for me.
+  - Note that the `T extends Foo<T>` constraint pattern is useful when dealing with interfaces or mapped types.
+- Problem: Type Parameter Constraint Pollution
+  - A problem purely of my own making: I had a constellation of types to deal with config props, and had constraints on all the type parameters.
+    - While it may be correct, it's also noisy and ultimately unnecessary.
+      - Especially on the noise front: Including them at any level in the constellation results in needing to add them to every level.
+    - Usually when actually using these types at some specific piece of code, the instantiated/parametrized types are already sufficiently constrained to ensure correctness.
+      - Where by "correctness" I mean "tsserver gives VSCode correct type information".
+  - Removing these also had the benefit of reducing the probability of killing TSServer.
+- Seeming Oddity: Promises Only Have a Type for Resolution, Not Rejection
+  - I understand their reasoning, which is that a Rejection can result from anything `throw`n, which in JS can be literally anything.  Yes, you can `throw undefined`.  No, you shouldn't do it.
+  - It's still kind of annoying, but that's what you get for JSing.
+- Seeming Oddity: Empty Interfaces and Classes
+  - Typescript does not engage in nominal typing anywhere, only structural typing, and this includes with Classes and Interfaces.
+  - Things like the following will typecheck due because TS knows JS will autobox primitives to let you call methods on them:
+    - `let foo: {} = 4; console.log(foo.toString())`
+  - This is why `{}` is used as a least-common-denominator type, and what you often get if the type-inferrence machinery can't guess anything better.
+- Problem: TS and Typical Functional-Style Patterns in JS
+  - Even though TS has quite a bit of impressive ways to type an impressive array of JS patterns, some things in the more functional patterns of JS are still not yet generalizable in TS.
+    - For things like `compose()` or `pipe()` you end up having to write a number of overloads based on the maximum number of arguments you might pass to them.
+  - Even worse, TS's type inferrence machinery doesn't always give you good results when using these things, even with the overloads, meaning you often have to pass the type parameters when calling them, anyway, which makes things even noiser.
+- Problem: I Ended Up Writing Unit Tests Anyway
+  - All the previous problems resulted in something that took 3 days to implement and test taking a whole sprint to make ready to merge.
+    - And even then, I ended up leaving most of the internal parts of that code essentially untyped.
+  - To compensate for the lack of typing inside, I wrote unit tests.  Well, more than may have been necessary, anyway.
+- Conclusion:
+  - I don't want those things to give the impression I hate TS.  On the contrary, I actually rather like it.
+    - For one thing, you get very nice things usually more associated with C++ or Java projects like intellisense and rename symbol.
+    - The integration with VSCode is great, as is VSCode itself, although being an MS thing related to Visual Studio, this is maybe to be expected.
+    - TSServer seems faster than Flow's server, at least the last time I ran Flow typing.  Admittedly, that was quite awhile back.
+  - Although it doesn't seem to try as hard inferrence wise, there are some parts I think are more descriptive than Flowtype, such as mapped types.
+
+## Draft 0
+
+> Current thoughts: This outline actually looks pretty long.  Hm.
+
+- Intro: What this talk is about.
+  - Mostly about my experience stepping into a Typescript project part way through, and learning some of the ideosyncracies of TS as it's still being improved upon.
+- Preface:
+  - Prior experience: Flowtype, Elm, a tiny bit of C++; distant past: ActionScript 3, a Tiny Bit of Java.  Perl was also a thing.
+  - Records are alright, although they don't make up for the lack of Tagged Types, and that makes me sad.
+- Conditional Types and Unboxing
+  - One of the first things I wanted to learn about; very important to creating derived types.
+  - Ah ha moment came from studying the types that come with TS, specifically `ReturnType<T>`.
+- Typing Prop Configuration: Mapped Types
+  - Problem:
+    - Want to configure a component enhancer (`withAsyncData`) by letting you specify config specific to each prop.
+    - Each prop should be both consistent with itself as well as using the same `OwnProps` as every other prop in the config.
+  - Solution:
+    - Specify Config as Mapped type, parametrized on `OwnProps`, with each prop itself being inferred as either a Prop Config type of some sort or `never`.
+- Issue: TSServer Crashing
+  - It turns out that combining mapped-object and conditional types is a good way to crash the TSServer.
+  - This was an issue that Redux ran into, and that I than ran into myself.
+  - (picture of stack trace from `tsserver.log`)
+  - I even asked the internet if I was doing something wrong (I was, but it wasn't directly related to the crash itself) and it ended up being filed as a bug and getting fixed!
+- Issue: Non-Assignability of Derived Mapped Types
+  - An issue that arose due to a minunderstanding in how things work: Default Values in Type Parameters are just that, Defaults.
+    - Specifically, the call site could decide to actually specify something else in place of the default.
+  - I got stuck on a particular train of thought and forgot the actual behavior.  But TSServer didn't forget.
+  - I also learned about another interesting feature in TS: Block-Scoped Types.  (sadly, they cannot be used in a function body to define the return type...)
+- Issue: Circular Constraint
+  - This happens when being to `extends` happy.  Consider lightening up a bit.
+  - `extends` can appear it two contexts:
+    - When adding constraints to a type parameter: `function foo<T extends unknown[]>(...args: T) {...}`
+    - When creating conditional types: `type Foo<T> = T extends Fooish<any> ? T : never`
+  - Trying to combine these two results in the "Circular Constraint" error:
+    - `function foo<T extends Foo<T>>(...) { ... }`
+    - And yes, `T extends Foo<T>` can be a useful constraint when dealing with mapped types, but otherwise means you might be trying to overconstrain things.
+- Issue: Added Too Many Constraints
+  - When creating derived types to pick out specific types from the prior mentioned config props, I often found myself having to unnecessarily duplicate type constraints across all of them just to make sure they were satisfied when calling each other.
+  - I say unnecessarily because I still got type correctness after removing them.
+  - I also killed tsserver processes less often after removing them.
+- Issue: I ended up writing unit tests anyway
+  - While facing the above issues, I ended up taking a whole sprint hammering away at things (I mean, Learning In Anger) to specify what was functionally complete in 3 days.
+  - I ultimately left the outside facing parts somewhat typed, the internals mostly untyped, and just wrote unit tests to ensure that things actually worked as expected.
+  - Aside: Although React's rendering process is async, and the component I was testing was also async-based, testing wasn't really that difficult, just tedious.  Simply remembering that promise settlement is always async is enough to fix any timing issues.
+- Issue: Promises only have Resolution Type, no Error Type
+  - I understand [their reasoning](https://github.com/Microsoft/TypeScript/issues/6283#issuecomment-240804072), but it's still kind of annoying.  Alas, that's what you get for JSing.
+    - Also a good argument for lifting known errors into explicit Error Case Values.
+- Issue: Empty Classes/Interfaces
+  - Since TS is structural as opposed to nominal, you can't depend on it to tell instances of different empty classes apart.
+  - Since even primitive types in JS can be boxed up for method calls... you can assign them to variables using empty class/interface types.
+    - `let foo: {} = 4; console.log(foo.toString())`
+- Issue: TS3 and Functional Style Programming in JS
+  - I really like functional style programming: Mere data and transformations thereupon is a very nice way to frame things.  Plain functions are fun.
+  - Issues arise however when trying to take advantage of things like `compose`, higher order functions, and other such things, especially when arguments are dynamic.
+    - Specifically:
+      - TS doesn't seem to be as good at automatically inferring typs as Flow seemed to be. (I could be wrong, but this is just gut feeling right now)
+      - TS couldn't map tuple types until TS3.1, which went into RC on Thurs, Sep 13, 2018.
+    - Especially the latter meant for very dynamic behavior you usually wound up writing a number of overloads for the number of arguments you expected you might handle.
+  - Still can't implement a type-specified general `compose`, though: each pair of arguments shares a type, and mapped types don't help with that.
+    - Need to be able to handle `(a0: (A0) => R, a1: (A1) => A0, a2: (A2) => A1, ...) => (An) => R`
+      - Aside: The reason actual FP languages tend not to have trouble typing that is because they don't no n-arity composition, they do only binary composition with an infixed 2-argument compose.  They only need to handle `(a0: (A0) => R, a1: (A1) => A0) => (A1) => R`
+- Issue: Client-Server Communication
+  - NOTE: Maybe don't include this?  This is more opinion/polemic than anything.
+  - This wasn't a TS specific thing, but more of a Project Specific thing.
+  - The Server was using an `openapi.yml` file to state their interface.
+  - What I think we should have done on the client was use that to codegen an API Interface that has type definitions for promises built in.
+  - It should also generate schema checks because `openapi.yml` uses JSONSchema, and that can be (more or less) shoved straight into things like AJV to get validators.
+  - This would let us catch malformed or misstated responses from the server, as well as get actual type safety rather than just a bunch of `any`s that we by fiat declare to be correct.
+    - And it might have annoyed the backend folks more, but hey, they're the ones saying this is their interface... ;)
+- And that's it.
+  - I rather like TS, despite some of my complaints about it: static typing gives you access to the sorts of tooling that C++ and Java devs have, especially things like intellisense and symbol renaming.  The integration in VSCode is great, as should be expected from any Visual Studio related thing.  TSserver was certainly faster than the Flow server on the same hardware when I last used Flow.
+  - There are parts that I feel are more descriptive than Flow, especially mapped types.
+  - At the same time, if you're going to go to the trouble of Typescript, maybe try something like Purescript or Bucklescript...? (I still haven't really _really_ tried them, but I've been looking at them.)
+    - Granted, Bucklescript would allow more pragmatism, but Purescript has an easier FFI story, what with being a To-JS language first, rather than being OCaml.  At the same time, Purescript means any side-effect things become funkier.
+  - It doesn't have plain tagged types like OCaml, Elm, and Haskell do, and that makes me sad.
+- Questions, comments?

@@ -2,31 +2,175 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Stepping Into a Typescript Project</title>
+    <title>Stepping Into a TypeScript Project</title>
+    <link rel="stylesheet" href="./css/reveal.css">
     <link rel="stylesheet" href="./css/reveal.css">
     <link rel="stylesheet" href="./css/black.css">
     <link rel="stylesheet" href="./css/gruvbox-dark.css">
+    <link rel="stylesheet" href="./css/league-gothic/league-gothic.css">
+    <link rel="stylesheet" href="./css/source-sans-pro/source-sans-pro.css">
+    <script src="js/head.min.js"></script>
     <script src="js/reveal.js"></script>
     <script src="js/highlight.pack.js"></script>
   </head>
   <body>
     <div class="reveal">
       <div class="slides">
-        <section>Slide 1</section>
-        <section>Slide 2</section>
+        <section>
+          <h2>Things I Encountered Learning TypeScript</H2>
+          <h3>While Stepping Into a Project Mid Way</h3>
+          <aside class="notes">
+            <p>There are no notes here.</p>
+          </aside>
+        </section>
+
+        <section>
+          <h3>I Crashed the TSServer</h3>
+          <h4>A Lot</h4>
+
+          <ul>
+            <li>Combination of Mapped-Object Types, Conditional Types, Overconstraining</li>
+            <li>Asked Internet about my specific case and part of it eventually turned into a bug on the TypeScript project that got fixed</li>
+          </ul>
+        </section>
+
         <section>
           <section>
-            Slide with Vertical Slides
+            <h3>Issues With Non-Assignability</h3>
+            <p>My Fault</p>
+          </section>
+          <section data-transition="slide-in fade-out">
+            <p>What I did:</p>
+<pre><code class="language-typescript" data-noescape>function doTheThing<
+  TFoo extends FooShape&lt;TFoo&gt;,
+  TBar = BarOfFoo&lt;TFoo&gt;
+>(foo: TFoo) {
+  // ...
+}</code></pre>
+          </section>
+          <section data-transition="fade">
+            <p>What I should have done:</p>
+<pre><code class="language-typescript" data-noescape>function doTheThing<
+  TFoo extends FooShape&lt;TFoo&gt;
+>(foo: TFoo) {
+  // TypeScript supports block-scoped types
+  type TBar = BarOfFoo&lt;TFoo&gt;;
+  // ...
+}</code></pre>
+          </section>
+        </section>
+
+        <section>
+          <h3>Circular Constraint Errors</h3>
+
+          <p>Don't do this:</p>
+<pre><code class="language-typescript" data-noescape>type Foo&lt;T&gt; = T extends ...;
+function thing&lt;T extends Foo&lt;T&gt;&gt;(t: T) {
+  // ...
+}</code></pre>
+
+          <aside class="notes">
+            <ul>
+              <li>If you're doing this, you're probably overconstraining</li>
+            </ul>
+          </aside>
+        </section>
+
+        <section>
+          <section>
+            <h3>Type Parameter Constraint Kudzu</h3>
+
+            <ul>
+              <li>Another My-Bad</li>
+              <li>Had a set of related types for working with config object</li>
+              <li>Constraining some parameters eventually led to needed to constrain those same parameters elsewhere</li>
+            </ul>
           </section>
           <section>
-            A vertical slide! :O
+            <h3>Type Parameter Constraint Kudzu</h3>
+
+            <ul>
+              <li>The constraints were ultimately unnecessary for type safety, and so were useless</li>
+              <li>They also bogged down TSServer and sometimes crashed it</li>
+            </ul>
           </section>
+        </section>
+
+        <section>
+          <section>
+            <h3>Seeming Oddity:<br>Promise Typing</h3>
+            <p>Expectation:</p>
+<pre><code class="language-typescript" data-noescape>type Promise&lt;TResolution, TRejection&gt; = ...</code></pre>
+            <p>Actual:</p>
+<pre><code class="language-typescript" data-noescape>type Promise&lt;TResolution&gt; = ...</code></pre>
+          </section>
+          <section>
+            <h3>Seeming Oddity:<br>Promise Typing</h3>
+            <p>Why?  Because you can throw anything:</p>
+<pre><code class="language-typescript" data-noescape>try {
+  throw undefined;
+}
+catch (error) {
+  // logs "undefined":
+  console.log(error);
+}</code></pre>
+          </section>
+        </section>
+
+        <section>
+          <h3>Seeming Oddity: Empty Classes/Interfaces Can Be Anything</h3>
+          <p>TypeScript is always Structurally Typed, never Nominally Typed</p>
+<pre><code class="language-typescript" data-noescape>const foo: {} = 4; // no error.</code></pre>
+        </section>
+
+        <section>
+          <h3>Friction With FP-Style Javascript</h3>
+          <ul>
+            <li>Issues with inferrence: Lots of <code>{}</code></li>
+            <li>Issues with <code>compose()</code>: Overloads and lots of <code>{}</code></li>
+          </ul>
+        </section>
+
+        <section>
+          <h3>Wrote Unit Tests Instead</h3>
+
+          <ul>
+            <li>A feature took 3 days to test and implement</li>
+            <li>Took whole sprint to write incomplete types</li>
+            <li>Wrote unit tests to determine functioning instead</li>
+            <li>I learned a lot about TS though so yay?</li>
+          </ul>
+        </section>
+
+        <section>
+          <h3>Conclusion</h3>
+
+          <ul>
+            <li>TypeScript is nice</li>
+            <li>Intellisense and Rename Symbol are nice</li>
+            <li>VSCode is nice</li>
+            <li>I may still learn Purescript or Reason instead</li>
+          </ul>
         </section>
       </div>
     </div>
 
     <script>
-      Reveal.initialize();
+      Reveal.initialize({
+        dependencies: [
+          {
+            src: 'js/plugin/highlight/highlight.js',
+            async: true,
+            callback: function () {
+              hljs.initHighlightingOnLoad();
+            },
+          },
+          {
+            src: 'js/plugin/notes/notes.js',
+            async: true,
+          },
+        ],
+      });
     </script>
   </body>
 </html>

@@ -7,8 +7,6 @@ const FILES_PATH = path.resolve(PROJECT_ROOT_PATH, 'dist');
 const DEST_PATH = path.resolve(PROJECT_ROOT_PATH, '..', '..', 'docs', 'talks', '2018-09-14-stepping-into-ts-project');
 
 exports.task = function () {
-  require('./build.js').task();
-
   if (! sh.test('-d', FILES_PATH)) {
     throw new Error(`No dist/ folder detected; check that the project was built`);
   }

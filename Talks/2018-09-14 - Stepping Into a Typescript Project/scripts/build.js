@@ -10,14 +10,26 @@ const DEST_PATH = path.resolve(PROJECT_ROOT_PATH, 'dist');
 const DEST_JS_PATH = path.resolve(DEST_PATH, 'js');
 const DEST_CSS_PATH = path.resolve(DEST_PATH, 'css');
 
+function copyFiles(destBase, srcList) {
+  sh.mkdir('-p', destBase);
+  srcList.forEach(src => {
+    if (Array.isArray(src)) {
+      sh.cp('-r', src[0], path.join(destBase, src[1]));
+    }
+    else {
+      sh.cp('-r', src, destBase);
+    }
+  });
+}
+
 exports.task = function () {
   sh.rm('-rf', DEST_PATH);
-  sh.mkdir('-p', DEST_PATH);
 
-  sh.mkdir('-p', DEST_CSS_PATH);
-  sh.cp(REVEAL_PATH('css/reveal.css'), DEST_CSS_PATH);
-  sh.cp(REVEAL_PATH('css/theme/black.css'), DEST_CSS_PATH);
-  sh.cp(HIGHLIGHT_PATH('styles/gruvbox-dark.css'), DEST_CSS_PATH);
+  copyFiles(DEST_CSS_PATH, [
+    REVEAL_PATH('css/reveal.css'),
+    REVEAL_PATH('css/theme/black.css'),
+    HIGHLIGHT_PATH('styles/gruvbox-dark.css'),
+  ]);
 
   // Fonts are a bit trickier...
   function copyRevealFont(fontCss) {
@@ -25,18 +37,21 @@ exports.task = function () {
     const fontDirPath = path.dirname(fontCssPath);
     const fontDirName = path.basename(fontDirPath);
     const fontDestDirPath = path.join(DEST_CSS_PATH, fontDirName);
+    const fontFilesGlob = path.join(fontDirPath, '*');
 
-    sh.mkdir(fontDestDirPath);
-    sh.cp(path.join(fontDirPath, '*'), fontDestDirPath);
+    copyFiles(fontDestDirPath, [
+      fontFilesGlob,
+    ]);
   }
 
   copyRevealFont('league-gothic/league-gothic.css');
   copyRevealFont('source-sans-pro/source-sans-pro.css');
 
-  sh.mkdir('-p', DEST_JS_PATH);
-  sh.cp(REVEAL_PATH('js/reveal.js'), DEST_JS_PATH);
-  sh.cp(REVEAL_PATH('lib/js/head.min.js'), DEST_JS_PATH);
-  sh.cp(path.join(PROJECT_ROOT_PATH, 'vendor', 'highlight.pack.js'), DEST_JS_PATH);
+  copyFiles(DEST_JS_PATH, [
+    REVEAL_PATH('js/reveal.js'),
+    REVEAL_PATH('lib/js/head.min.js'),
+    path.join(PROJECT_ROOT_PATH, 'vendor', 'highlight.pack.js'),
+  ]);
 
   function copyRevealPlugin(pluginFile, destPath) {
     const pluginFilePath = REVEAL_PATH(`plugin/${pluginFile}`);
@@ -48,8 +63,9 @@ exports.task = function () {
       : path.join(DEST_JS_PATH, 'plugin', pluginDirName)
     );
 
-    sh.mkdir('-p', pluginDestDirPath);
-    sh.cp(pluginFilePath, pluginDestDirPath);
+    copyFiles(pluginDestDirPath, [
+      pluginFilePath,
+    ]);
   }
 
   copyRevealPlugin('highlight/highlight.js');

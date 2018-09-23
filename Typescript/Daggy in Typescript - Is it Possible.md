@@ -437,3 +437,30 @@ interface Tag<T> {
   [K in keyof T]: T[K];
 }
 ```
+
+
+
+## Try Again, This Time with Mapped Tuples?
+
+In TS 3.1, it's going to [treat tuples and arrays more ideomatically when it comes to mapped types](https://blogs.msdn.microsoft.com/typescript/2018/09/13/announcing-typescript-3-1-rc/).  Combine that with [better tuple handling in TS 3.0](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-3-0.html) and maybe we have something to finally make this not so obnoxious...
+
+To start, we have this for that Tuple utility function from before, which is much nicer:
+
+```typescript
+function tuple<T extends any[]>(...values: T) {
+    return values
+}
+
+// This gives [string, string, string] rather than string[] now.
+const t = tuple('foo', 'bar', 'baz');
+
+// We could also use a specific type if we wanted,
+// though we could also just use that type directly.
+type T1 = [string, number, string];
+const t1 = tuple<T1>('beep', 42, 'boop');
+const t2: T1 = ['zip', 1, 'zop'];
+```
+
+However, there's a slight problem in that, for the Daggy case, we really need each thing to extend string.  With mapped types, we can now do that.
+
+> TODO: setup a small TS project to test this out with TS3.1 RC.

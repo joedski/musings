@@ -294,3 +294,4 @@ I think we might be able to just punt that to HyperHTML:
     - A new key means a new instance.
     - A key not found in the new list means an instance is going away.
   - We can thus use this to track object identity for HyperHTML.
+  - We don't care about order, only identity.  HyerHTML takes care of actual ordering.

@@ -92,7 +92,7 @@ try {
 }
 catch (error) {
   // logs "undefined":
-  console.log(undefined);
+  console.log(error);
 }
 ```
 

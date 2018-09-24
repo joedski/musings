@@ -64,8 +64,8 @@
           <h3>Circular Constraint Errors</h3>
 
           <p>Don't do this:</p>
-<pre><code class="language-typescript" data-noescape>type Foo&lt;T&gt; = T extends ...;
-function thing&lt;T extends Foo&lt;T&gt;&gt;(t: T) {
+<pre><code class="language-typescript" data-noescape>type <span class="fragment grow-shrink">Foo&lt;T&gt; = T extends</span> ...;
+function thing&lt;<span class="fragment grow-shrink">T extends Foo&lt;T&gt;</span>&gt;(t: T) {
   // ...
 }</code></pre>
 

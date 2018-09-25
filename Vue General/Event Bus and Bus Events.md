@@ -131,6 +131,8 @@ class EventBusInterconnect {
         callback,
       }
     );
+
+    return boundCallback;
   }
 
   /**
@@ -152,6 +154,8 @@ class EventBusInterconnect {
         callback,
       }
     );
+
+    return boundCallback;
   }
 
   /**
@@ -297,3 +301,5 @@ export default {
   },
 }
 ```
+
+Looks pretty good, probably some bugs to work out, but I think it expresses things pretty well.  One thing it could probably do with is some extra input validation, namely checking that you actually handed it a function or a valid method name.

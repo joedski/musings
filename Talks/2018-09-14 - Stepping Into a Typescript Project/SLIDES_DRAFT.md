@@ -132,4 +132,4 @@ Even though `compose()` has correct interfaces written, still have to write all 
 - TypeScript is nice
 - Intellisense and Rename Symbol are nice
 - VSCode is nice
-- I may still learn Purescript or Reason instead
+- The TypeScript devs are responsive

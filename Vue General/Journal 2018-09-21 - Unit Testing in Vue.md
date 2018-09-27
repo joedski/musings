@@ -75,6 +75,8 @@ module.exports = {
 }
 ```
 
+> NOTE: I eventually moved this to a separate test config so I didn't need to set `NODE_ENV=test`.
+
 Of course, that changes the test command to `NODE_ENV=test npm run unit` but that can be fixed.
 
 That gives us a new error:
@@ -174,3 +176,15 @@ Eeeeh, right, we're using Chai, not Jest.  Change that to `expect(vm).to.exist`.
 PhantomJS 2.1.1 (Mac OS X 0.0.0): Executed 1 of 1 SUCCESS (0.218 secs / 0.035 secs)
 TOTAL: 1 SUCCESS
 ```
+
+
+
+## Some Time Passed: Now Things Are Broken Again
+
+I came back today and ... unit testing is broken again?
+
+Okay, enough swearing, what happened?  Nothing intentional, I'm betting, but first I was getting a bunch of Less-Loader errors, and now it's complaining about `const` not being an expected token again.
+
+Looks like a related project being included as a dependency isn't committed with transpiled artifacts, and this kills Karma/PhantomJS.  Welp.  Pass that one through Babel too.
+
+Okay, tests work now.  Not sure what the Less loader thing was about, but it's gone now, so yay?

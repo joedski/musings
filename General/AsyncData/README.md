@@ -67,28 +67,70 @@ flatMap = join . map
 
 ### Coalesce
 
-This is an opinionated way to merge N AsyncData instances in a manner that is most suitable to UI rendering.  Note that they must already have their results wrapped in lists/arrays.
+This is an opinionated way to combine 2 AsyncData instances in a manner that is most suitable to UI rendering.  It prioritizes cases in the following manner, as it seems to be the most common order of precedence:
+
+1. Error
+2. Waiting
+3. NotAsked
+4. Result
 
 ```
-:: (AsyncData [ra] ea) (AsyncData [rb] eb) -> (AsyncData [ra rb] ea|eb)
-coalesce2 a b = match a:
-  | Result ras -> match b:
-    | Result rbs -> Result (concat ras rbs)
-    | Error eb -> Error eb
-    | Waiting -> Waiting
-    | NotAsked -> NotAsked
-  | Error ea -> Error ea
+coalesce :: (ra -> rb -> rc) (Maybe ea -> Maybe eb -> ec) (AsyncData ra ea) (AsyncData rb eb) -> (AsyncData rc ec)
+coalesce mergeReses mergeErrors a b = match a:
+| Result ra -> match b:
+  | Result rb -> Result (mergeReses ra rb)
+  | Error eb -> Error eb
+  | Waiting -> Waiting
+  | NotAsked -> NotAsked
+| Error ea -> match b:
+  | Result _ -> Error ea
+  | Error eb -> Error (mergeErrors ea eb)
+  | Waiting -> Error ea
+  | NotAsked -> Error ea
+| Waiting -> match b:
+  | Result _ -> Waiting
+  | Error eb -> Error eb
+  | Waiting -> Waiting
+  | NotAsked -> Waiting
+| NotAsked -> match b:
+  | Result _ -> NotAsked
+  | Error eb -> Error eb
   | Waiting -> Waiting
   | NotAsked -> NotAsked
 ```
 
-To facilitate this, then, I usually define the actual `coalesce` in terms of a sequence type:
+In more dynamic languages, this is easily implemented with the following behavior:
+
+```js
+if (AsyncData.Error.is(a) && AsyncData.Error.is(b))
+  return AsyncData.Error(mergeErrors(a, b))
+
+if (AsyncData.Error.is(a)) return a
+if (AsyncData.Error.is(b)) return b
+
+if (AsyncData.Waiting.is(a)) return a
+if (AsyncData.Waiting.is(b)) return b
+
+if (AsyncData.NotAsked.is(a)) return a
+if (AsyncData.NotAsked.is(b)) return b
+
+return a.map(ra => b.map(rb => mergeReses(ra, rb))).flatten()
+```
+
+
+### All
+
+The `coalesce` function can be used to reduce a list of AsyncDatas an ideomatic way.
 
 ```
-coalesce ads = match ads:
-  | a:rs -> coalesce2 (map (a -> [a]) a) (coalesce rs)
-  | a:[] -> (map (a -> [a]) a)
-  | [] -> Not Allowed
+-- Just keep the first one...
+allMergeErrors ea _ = ea
+
+:: List a -> a -> List a
+allMergeResults ra rb = append ra rb
+
+:: List (AsyncData a e) -> AsyncData (List a) e
+all datas = reduce (coalesce allMergeResults allMergeErrors) (AsyncData.Result []) datas
 ```
 
-Obviously that last case makes it problematic to use in strict languages, as it means you must require it be called only on N >= 1 AsyncDatas, but in general it's a very useful way to combine things.
+While the defined behavior is to discard any errors after the first (imitative of JS's Promise.all), it's unlikely in such a case you would not have access to those errors, and if there are specific errors messages, they should be rendered based on the specific errors, not from an aggergate.

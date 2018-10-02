@@ -91,3 +91,9 @@ export default compose(
   // ... more enhancers.
 )(BaseMapChartComponent);
 ```
+
+
+
+## softMax Doing Nothing
+
+I ran into an issue recently where, when a data series is all 0 on the y values, `softMax` would have no effect.  It seems [as of 2018-10-01, this is still a known issue](https://github.com/highcharts/highcharts/issues/6894), with the work around being to use `softThreshold: false` on any series being used in the given chart.

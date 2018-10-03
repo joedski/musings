@@ -77,26 +77,26 @@ This is an opinionated way to combine 2 AsyncData instances in a manner that is 
 ```
 coalesce :: (ra -> rb -> rc) (Maybe ea -> Maybe eb -> ec) (AsyncData ra ea) (AsyncData rb eb) -> (AsyncData rc ec)
 coalesce mergeReses mergeErrors a b = match a:
-| Result ra -> match b:
-  | Result rb -> Result (mergeReses ra rb)
-  | Error eb -> Error eb
-  | Waiting -> Waiting
-  | NotAsked -> NotAsked
-| Error ea -> match b:
-  | Result _ -> Error ea
-  | Error eb -> Error (mergeErrors ea eb)
-  | Waiting -> Error ea
-  | NotAsked -> Error ea
-| Waiting -> match b:
-  | Result _ -> Waiting
-  | Error eb -> Error eb
-  | Waiting -> Waiting
-  | NotAsked -> Waiting
-| NotAsked -> match b:
-  | Result _ -> NotAsked
-  | Error eb -> Error eb
-  | Waiting -> Waiting
-  | NotAsked -> NotAsked
+  Result ra -> match b:
+    Result rb -> Result (mergeReses ra rb)
+    Error eb -> Error eb
+    Waiting -> Waiting
+    NotAsked -> NotAsked
+  Error ea -> match b:
+    Result _ -> Error ea
+    Error eb -> Error (mergeErrors ea eb)
+    Waiting -> Error ea
+    NotAsked -> Error ea
+  Waiting -> match b:
+    Result _ -> Waiting
+    Error eb -> Error eb
+    Waiting -> Waiting
+    NotAsked -> Waiting
+  NotAsked -> match b:
+    Result _ -> NotAsked
+    Error eb -> Error eb
+    Waiting -> Waiting
+    NotAsked -> NotAsked
 ```
 
 In more dynamic languages, this is easily implemented with the following behavior:
@@ -116,6 +116,8 @@ if (AsyncData.NotAsked.is(b)) return b
 
 return a.map(ra => b.map(rb => mergeReses(ra, rb))).flatten()
 ```
+
+Now, I only specified that there's a `mergeErrors` to handle the case of both values being Error cases, but what we probably need is both `mergeErrors` and `mapError`.  The formmer would still only be called if both values are Error cases, but the latter ensures we're able to render any errors into a consistent shape.  We don't need a separate `mapReses` because unlike the error cases, we only have one case where we deal with any reses at all: when both values are Result cases.
 
 
 ### All

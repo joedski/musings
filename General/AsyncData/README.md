@@ -55,6 +55,33 @@ join :: (AsyncData (AsyncData a e) e) -> AsyncData a e
 joinError :: (AsyncData a (AsyncData a e)) -> AsyncData a e
 ```
 
+Usually I only implement the first one, though the latter is theoretically possible.  I've not yet encountered it in a production app, though.
+
+In JS, I usually implement it thus:
+
+```js
+function AsyncData$flatten() {
+  return this.cata({
+    NotAsked: () => this,
+    Waiting: () => this,
+    Error: () => this,
+    Result: result => (
+      AsyncData.is(result)
+        ? result
+        : this
+    )
+  })
+}
+```
+
+Though it could also be done thusly in my usual implementations:
+
+```js
+function AsyncData$flatten() {
+  return this.map(a => (AsyncData.Result.is(a) ? a.result : a))
+}
+```
+
 
 ### Flat Map
 
@@ -122,7 +149,7 @@ Now, I only specified that there's a `mergeErrors` to handle the case of both va
 
 ### All
 
-The `coalesce` function can be used to reduce a list of AsyncDatas an ideomatic way.
+The `all` function uses `coalesce` to reduce a list of AsyncDatas an ideomatic way.
 
 ```
 -- Just keep the first one...

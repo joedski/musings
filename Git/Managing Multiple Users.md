@@ -89,12 +89,12 @@ fi
 
 if [[ -f ~/.gituserlist.local ]]; then
   USER_LIST=$(
-    diff <(sort ~/.gituserlist) <(sort ~/.gituserlist.local) \
+    diff <(sort ~/.gituserlist | grep .) <(sort ~/.gituserlist.local | grep .) \
       | grep -E '^[><] ' \
       | sed -E 's/^[><] //'
   )
 else
-  USER_LIST=$(sort ~/.gituserlist)
+  USER_LIST=$(sort ~/.gituserlist | grep '.')
 fi
 
 if [[ "$INPUT" = '--list' || "$INPUT" = '-l' ]]; then
@@ -130,3 +130,35 @@ echo 'done!'
 ```
 
 Also echoing out the actual commands used because, well, why not?
+
+
+
+## Eliminating that File Test
+
+Honestly the file test is sorta meh.  We can do better!
+
+`sort` will error if the file isn't found, so we can just pipe 2 to `/dev/null` and diff will receive no input for that side, the same as an empty file.
+
+Thus, this if statement:
+
+```sh
+if [[ -f ~/.gituserlist.local ]]; then
+  USER_LIST=$(
+    diff <(sort ~/.gituserlist | grep .) <(sort ~/.gituserlist.local | grep .) \
+      | grep -E '^[><] ' \
+      | sed -E 's/^[><] //'
+  )
+else
+  USER_LIST=$(sort ~/.gituserlist | grep '.')
+fi
+```
+
+becomes this simple assignment:
+
+```sh
+USER_LIST=$(
+  diff <(sort ~/.gituserlist | grep .) <(sort ~/.gituserlist.local 2>/dev/null | grep .) \
+    | grep -E '^[><] ' \
+    | sed -E 's/^[><] //'
+)
+```

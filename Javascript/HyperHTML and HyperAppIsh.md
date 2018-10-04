@@ -94,7 +94,7 @@ There's also a big problem: Promises... (And they're probably also a good argume
 
 #### Thought 1: Just Props: Arrays?
 
-While I don't think we need to deal with the order of elements in Arrays, we do still need to worry about the existence of them.  `key`s will still help, here.
+While I don't think we need to deal with the order of elements in Arrays, we do still need to worry about the existence of them.  `key`s will still help, here.  However, if you don't specify keys, then they'll keyed by index, I guess.
 
 #### Thought 1: Just Props: Actual Implementation
 
@@ -181,6 +181,7 @@ componentRender = {
   oncreate(node) {},
   onupdate(node) {},
   // not sure how to implement done offhand.
+  // { html: Promise<null>, placeholder: oldContent }?
   onremove(node) {},
   ondestroy(node) {},
   content: {
@@ -295,3 +296,27 @@ I think we might be able to just punt that to HyperHTML:
     - A key not found in the new list means an instance is going away.
   - We can thus use this to track object identity for HyperHTML.
   - We don't care about order, only identity.  HyerHTML takes care of actual ordering.
+
+
+
+## Implementation
+
+So!  Creating vnodes is easy, now the hard part:
+- Patching the DOM by calling HyperHTML's `bind` and `wire`.  Mostly the latter, but the former gets called once at the root.
+- Converting the entire tree to plain objects (unthunking things, basically)
+- Calling hooks and such
+
+
+### Patch Inputs
+
+To patch a tree, we need access to a few things:
+- The DOM Element to bind to
+- The next Root Vnode
+- The next State
+- The next Actions
+
+The DOM Element, well, nothing much to talk about there.  `document.getElementById('app')` or whatever.  Go wild.
+
+The Root Vnode, however, is a good question.  I think they should have the following type signatures:
+- Props-Only Components: `html => (props, children) => {...}`
+- State-Connected Components: `html => (props, children) => (state, actions) => {...}`

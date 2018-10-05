@@ -298,6 +298,62 @@ I think we might be able to just punt that to HyperHTML:
   - We don't care about order, only identity.  HyerHTML takes care of actual ordering.
 
 
+### Using Other Components
+
+Given the interface of a component here, `html => (props, children) => {...}` (optionally with `state, actions` in there...) we can just render down to vnodes and spit those out directly.  If we wanted to be fancy, we could use `html(SomeComponent, { ...props }, children)` but I'm not sure that's necessary.
+
+If we take into account the simplification below of just importing `html` everywhere, we get `(props, children) => ({...} | (state, actions) => {...})`.  Since components are just functions here, we can call them directly.
+
+Thus:
+
+```js
+import html from 'hyperactivehyperhtml'
+import cx from 'classnames'
+
+const navItem = (props, children) => html`
+  <a href="${props.href}" class="${cx('nav-item', { 'nav-item--current': props.isCurrent })}">
+    ${children}
+  </a>
+`
+
+const nav = (props, children) => html`
+  <div class="nav-container">
+    <h1 class="nav-title">App</h1>
+    <nav class="nav">
+      ${props.navItems.map(item => navItem(item, item.label))}
+    </nav>
+  </div>
+`
+```
+
+
+### Statefulness: What About HyperHTML Components?
+
+Another option which might be something to consider: can we thread HyperHTML Components into this for ease of extension and familiarity?  My main complaint about them is that they're still very manual, having to handle all their children and such.  It may be performant, but it's also tedius and annoying, and I'm easily bored.  Er, I mean, I think such low level twiddling should be left to trying to optimize things.
+
+I have to deal with an instance anyway, and that could give an easy way to interface with things that's (probably) familiar to people using HyperHTML.  I don't think I would use them by default, but having them or some variation of them as the stateful interface might be worthwhile...
+
+There's also custom elements, but I feel those are better suited to encapsulating integrations.  They seem to me to be more annoying than not for managing component trees.
+
+I think they would go something like this:
+- Rather than HyperHTML's `html`, they receive my `html`.
+- `render()` returns something using `this.html`.
+- `update(props, state, actions)` handles, well, updates.
+- Actually, probably just have support for all the hooks,
+  - `mounted(props, children, state, actions)`, and the guarantee that `this.$el` (or `this.$els`?) exists.
+  - `update(props, children, state, actions)`
+  - `willUnmount(props, children, state, actions)`
+  - `unmounted(props, children, state, actions)`
+
+I guess that's basically making HyperHTML into SortaReact.  Heh.
+
+As for special treatment, I guess you'd pass the Component Constructor first to the Main Interface before passing any props.  So, ``return html(MyComponent, { key: 'blah' })`...`;`` then just check if `MyComponent.prototype instanceof BaseComponent`.  That doesn't quite make sense, though, since `MyComponent` has a `render()` function.  So, we should probably just say `html(MyComponent, { key: 'blah', ... })` instead.
+
+So many interfaces.  Bleh.
+
+I guess another good question is: Does this actually add anything that the hooks themselves don't?
+
+
 
 ## Implementation
 
@@ -305,6 +361,8 @@ So!  Creating vnodes is easy, now the hard part:
 - Patching the DOM by calling HyperHTML's `bind` and `wire`.  Mostly the latter, but the former gets called once at the root.
 - Converting the entire tree to plain objects (unthunking things, basically)
 - Calling hooks and such
+
+Internally, we keep track of a tree of Representative Nodes, which represent the final "rendered" tree of Vnodes.  They are used to track actual instances, array children, etc.
 
 
 ### Patch Inputs
@@ -317,6 +375,83 @@ To patch a tree, we need access to a few things:
 
 The DOM Element, well, nothing much to talk about there.  `document.getElementById('app')` or whatever.  Go wild.
 
-The Root Vnode, however, is a good question.  I think they should have the following type signatures:
+#### On the Root Vnode
+
+The Root Vnode, however, is a good question.  I think it should have one of the following type signatures:
 - Props-Only Components: `html => (props, children) => {...}`
 - State-Connected Components: `html => (props, children) => (state, actions) => {...}`
+
+Which is basically this:
+- `html => (props, children) => ({...} | (state, actions) => {...})`
+
+The use of `html` as the first argument, while interesting, doesn't make sense in the HyperHTML Components view of things.  Maybe we should just import that, same as everyone else does.
+
+That simplifies the type down to:
+- `(props, children) => ({...} | (state, actions) => {...})`
+
+Theoretically, with Components, we could have something like
+- `(props, children) => ({ component?: C, ...} | (state, actions) => { component?: C, ...})`
+
+Which means that the vnodes we have to deal with will be of this type:
+- `{ component?: C, ...} | (state, actions) => { component?: C, ...}`
+
+Updates then would be simplified: You essentially write `mapStateToProps` and `mapDispatchToProps`, and the Component doesn't worry about those extra arguments.  Nice.
+
+So, we'd normalize the given vnode input down to an actual vnode object, then do Patch Vnode.
+
+#### Patching a Single Vnode
+
+Here, we have this:
+- `(state, actions, prevVnode, nextVnode) => HyperHTMLNodes`
+
+We don't need to return anything else because after the full patch, we replace the prev vnode tree with the next one.
+
+The simplest cases are when either prevVnode or nextVnode are nullish: This is node creation or destruction.
+
+What's more interesting is when both are actual vnodes.
+
+Then, we do this:
+- Are the Vnodes considered Different Types? (TODO: Different Type Determination?)
+  - If so, treat this as two operations:
+    - Removal of the Previous Vnode followed by the Insertion of the Next Vnode.
+  - Otherwise, continue.
+- For each (Previous Value, Next Value) pair in the Zip of (Previous Vnode Values, Next Vnode Values):
+  - Patch the Previous Value and Next Value in the context of the Previous Vnode and Next Vnode.
+
+To Patch a Previous Value and a Next Value in the context of the Previous Vnode and Next Vnode:
+- If the Previous Value and Next Value are both Arrays, assume they are iteration results and perform a Key Aware Array Patch in teh context of the Previous Vnode and the Next Vnode.
+- Else, If the Previous Value and Next Value are both Vnodes, merely patch them.
+- Else,
+  - For the Previous Value:
+    - If the Previous Value is a Vnode, perform Removal of it.
+  - For the Next Value:
+    - If the Next Value is a Vnode, perform Insertion of it.
+
+To perform a Key Aware Array Patch of the Previous Value and Next Value in the Context of the Previous Vnode and Next Vnode:
+- Collect what Children will be Removed, Patched, and Inserted:
+  - Mark all Children in the Previous Value for Removal.
+  - Mark all Children in the Next Value based on their presence in the Previous Value:
+    - If a Child in the Next Value was marked for Removal, change that mark to Patch.
+    - Else, mark that Child for Insertion.
+- Update Children and Next Vnode.
+
+Vnode Difference Determination:
+- If Vnodes are both primitive, they are different if they are not identical.  Mostly we don't care, though, because they get flushed straight to HyperHTML.
+- Complex Types:
+  - A Vnode is an Object Node if it has a Strings array and a Values array.
+    - If two Vnodes are Object Nodes, they are the same if their Strings arrays are identical in memory.
+  - ... others?  Probably not yet.
+
+
+
+## Other thoughts: Do We Need State/Actions?
+
+I wonder if I could get around obligatory State/Actions?  Tangential, I wonder how a Context API might work.
+
+
+### On Context
+
+- Vue just lets you directly access `$parent` and `$root`.
+- React has `ContextProvider` and `ContextConsumer` to abstract around things.
+
+I think that something Vueish would be more in line with HyperHTML, but what determines `$parent` and `$root`?  Given I'm focusing mostly on functions with optional components, that might not be a good move; Something like the React model is much better (easier) to implement.  I'll worry about that in r1 I guess.

@@ -351,7 +351,7 @@ As for special treatment, I guess you'd pass the Component Constructor first to 
 
 So many interfaces.  Bleh.
 
-I guess another good question is: Does this actually add anything that the hooks themselves don't?
+I guess another good question is: Does this actually add anything that the hooks themselves don't?  If not, why go to the trouble?
 
 
 
@@ -455,3 +455,11 @@ I wonder if I could get around obligatory State/Actions?  Tangential, I wonder h
 - React has `ContextProvider` and `ContextConsumer` to abstract around things.
 
 I think that something Vueish would be more in line with HyperHTML, but what determines `$parent` and `$root`?  Given I'm focusing mostly on functions with optional components, that might not be a good move; Something like the React model is much better (easier) to implement.  I'll worry about that in r1 I guess.
+
+Providing `context` next to `state` and `actions` is probably the best way to go there.
+
+
+
+## On "Free" Optimizations: Memoization?
+
+I wonder if there's any way to efficiently memoize things we know won't change... Not really sure, without going full global memoization.

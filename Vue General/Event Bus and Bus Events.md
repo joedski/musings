@@ -303,3 +303,11 @@ export default {
 ```
 
 Looks pretty good, probably some bugs to work out, but I think it expresses things pretty well.  One thing it could probably do with is some extra input validation, namely checking that you actually handed it a function or a valid method name.
+
+
+
+## A Better Implementation by Tagging Callbacks?
+
+I had another thought: we can simply tag a callback with what VM it originated from before setting it as a listener on the Global Event Bus.  Then we can simply remove only those listeners for this callback...
+
+Hm.  That depends on actually tracking them at the top level, which presumes knowledge of how the events are stored.  Although we technically know that events are stored on the `_event` instance property, that's an internal prop subject to change.  We'll need a wrapper somewhere that tracks callbacks in a way we control.  That means either something at the top level or else something at each component instance, which is back to the above.  In that case, I'm not sure the global manager is better than the local one.

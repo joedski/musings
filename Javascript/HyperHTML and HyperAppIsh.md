@@ -444,6 +444,50 @@ Vnode Difference Determination:
 
 
 
+## Patch r0 Try 2
+
+Okay, let's try this again.
+
+We have the following features:
+- State + Actions
+- Components that are either Objects or Functions in the form of `(state, actions) => Vnode`
+  - I'm taking inspiration from HyperApp v1, so the render functions aren't going to be completely pure.
+
+We'll have a few different major types to worry about:
+- Vnode: These are what all our component code and, ultimately, what our `html` function renders.
+- RepNode: These are internal objects that enable stateful behavior:
+  - Diffing of Vnodes
+  - Stateful Integrations ala Mithril
+
+
+### Vnode Types
+
+Vnodes as we encounter them can take a few forms:
+- Plain `Vnode` Object
+- Injection Point Function: `(state, actions) => Vnode`
+- Primitive Values
+
+After Normalization, we have only two forms:
+- Plain `Vnode` Object
+- Primitive Values
+
+
+### RepNodes
+
+RepNodes are constructed and modified behind the scenes to enable diffing and stateful behavior.  Vnodes of different Vnode Types will in turn have different RepNodes, even if they're in the same place.  Vnodes of the same Vnode Type will have the same Rep Node, even if their contents change.
+
+A couple notes:
+- Vnodes with different Keys are considered Different regardless of if they're the same Vnode Type.
+- Primitive Values do not have RepNodes.
+
+Naturally, RepNodes must track some things to support all this:
+- The current Vnode
+- The current RepNodeState
+- Child RepNodes by Key
+  - Note that Child RepNodes could be in the Content Values itself, but are more likely to be in a Sub-Array within the Content Values.
+
+
+
 ## Other thoughts: Do We Need State/Actions?
 
 I wonder if I could get around obligatory State/Actions?  Tangential, I wonder how a Context API might work.

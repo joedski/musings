@@ -37,13 +37,7 @@ const $elMeta = new WeakMap()
 function getElMeta(el) {
   if (! $elMeta.has(el)) {
     $elMeta.set(el, {
-      rootVnode: {
-        // It's fine to always create a new array since
-        // that will guarantee it's different from any
-        // interned template-strings array.
-        strings: [],
-        values: [],
-      }
+      rootRepNode: null,
     })
   }
 

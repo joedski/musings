@@ -7,8 +7,9 @@ This causes, shall we say, issues, trying to babel-webpack these files.  It also
 
 The best option would be for this oversight to be rectified in the source library: Since their library is full of untranspiled Vue components, just leave the Utils also untranspiled and let each project use their own transpilation settings.  It's either that or they transpile everything down to the lowest common denominator.
 
-Second best would be to fork the repo, something I may consider bringing up as a possibility to the rest of the team.  This however has a couple issues:
+Second best would be to fork the repo, something I may consider bringing up as a possibility to the rest of the team.  This however has a few issues:
 - It exacerbates the polyforkosis of the library, leading to even less incentive to maintain it
+- We can't do searches within forks on our Corporate GitHub instance
 - It doesn't solve it at the main library everyone knows about
 
 In the mean time, I'm going to look for less intrusive options.  For this reason, I'm ruling out things like:

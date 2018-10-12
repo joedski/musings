@@ -82,6 +82,8 @@ function AsyncData$flatten() {
 }
 ```
 
+This is technically different than the interface I specified, but I usually do it like this due to JS's non-strictness.
+
 
 ### Flat Map
 

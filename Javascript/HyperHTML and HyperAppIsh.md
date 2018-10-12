@@ -495,17 +495,28 @@ However, there's also this to consider: In HyperHTML, all items in an Array must
 
 ### RepNodes
 
-RepNodes are constructed and modified behind the scenes to enable diffing and stateful behavior.  Vnodes of different Vnode Types will in turn have different RepNodes, even if they're in the same place.  Vnodes of the same Vnode Type will have the same Rep Node, even if their contents change.
+RepNodes are constructed and modified behind the scenes to enable diffing and, once supported, stateful behavior.  Vnodes of different Vnode Types will in turn have different RepNodes, even if they're in the same place.  Vnodes of the same Vnode Type will have the same Rep Node, even if their contents change.
 
 A couple notes:
 - Vnodes with different Keys are considered Different regardless of if they're the same Vnode Type.
 - Primitive Values do not have RepNodes.
+- RepNodes are either mutated, or have a persistent object that acts as a memory-unique ID.  This is necessary for HyperHTML to not thrash the DOM.
 
 Naturally, RepNodes must track some things to support all this:
 - The current Vnode
-- The current RepNodeState
-- Child RepNodes by Key
-  - Note that Child RepNodes could be in the Content Values itself, but are more likely to be in a Sub-Array within the Content Values.
+- The current DOM nodes
+- As of Yet Unsupported Features:
+  - The current RepNodeState
+  - Child RepNodes by Key
+    - Note that Child RepNodes could be in the Content Values itself, but are more likely to be in a Sub-Array within the Content Values.
+
+
+
+## Implementation of r0.1
+
+At the top level, we have `patch` which takes the target DOM element, a Vnode tree, a State, and Actions.
+
+The very first patch
 
 
 

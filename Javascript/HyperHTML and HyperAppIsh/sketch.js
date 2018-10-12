@@ -12,7 +12,7 @@ function vnode(strings, values, props) {
 }
 
 // Main interface.
-function html(...args) {
+export default function html(...args) {
   if (Array.isArray(args[0])) {
     return vnode(args[0], args[1])
   }

@@ -282,3 +282,5 @@ new webpack.NormalModuleReplacementPlugin(
 I suppose it could be argued that the context check is fragile even with the OS-independent path checking, though, and that making such an adjustment (deleting file extensions) is a noop on our own imports since we don't include file extensions.
 
 I haven't checked if a Full Request's `resource.request` prop is also in OS-dependent form, but it may very well be, which could be why that first undocumented experiment failed in the target environment.
+
+That also makes me wonder what that first regex operates on, the `rawRequest` or something else?

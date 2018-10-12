@@ -189,7 +189,7 @@ Thus our project's own utils are filtered out from consideration.  I think that'
 
 ## Actual Rewrites
 
-I know from a prior undocumented experiment that overwriting the full request didn't seem to work, so instead I'll try this:
+It seemed to me from a prior undocumented experiment that overwriting the full request didn't seem to work, so instead I'll try this:
 - Add `.es6.js` before `.js` in the `resolve.extensions` Webpack option.
 - Delete recognized file extensions off of any file requests in Initial Requests.
 
@@ -280,7 +280,7 @@ new webpack.NormalModuleReplacementPlugin(
 ),
 ```
 
-I suppose it could be argued that the context check is fragile even with the OS-independent path checking, though, and that making such an adjustment (deleting file extensions) is a noop on our own imports since we don't include file extensions.
+I suppose it could be argued that the context check is fragile even with the OS-independent path checking, though, and that making such an adjustment (deleting file extensions) is a noop on our own imports since we don't include file extensions, and that I should thus remove the context check and delete all file extensions everywhere.  I think though that I'd prefer to restrict the scope as much as possible to prevent running into more surprises.
 
 I haven't checked if a Full Request's `resource.request` prop is also in OS-dependent form, but it may very well be, which could be why that first undocumented experiment failed in the target environment.
 

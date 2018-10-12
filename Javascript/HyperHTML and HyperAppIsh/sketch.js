@@ -1,12 +1,20 @@
 import hh from 'hyperhtml'
 
+const VNODE = Symbol('vnode')
+
+function vnode(strings, values, props) {
+  return ({
+    props,
+    strings,
+    values,
+    [VNODE]: true,
+  })
+}
+
 // Main interface.
 function html(...args) {
   if (Array.isArray(args[0])) {
-    return {
-      strings: args[0],
-      values: args[1]
-    }
+    return vnode(args[0], args[1])
   }
 
   const props = (
@@ -15,21 +23,9 @@ function html(...args) {
       : {}
   )
 
-  return (strings, ...values) => ({
-    ...props,
-    strings,
-    values,
-  })
+  return (strings, ...values) => vnode(strings, values, props)
 }
 
-function isContent(obj) {
-  return (
-    obj
-    && (typeof obj === 'object')
-    && Array.isArray(obj.strings)
-    && ('values' in obj)
-  )
-}
 
 // We don't want to pollute the node itself, so we use a map.
 const $elMeta = new WeakMap()
@@ -50,14 +46,36 @@ function getElMeta(el) {
 // ----------
 
 function normalizeVnode(vnode, state, actions) {
-  // ??
+  // nullish values are allowed for representing nothing.
+  if (vnode == null) return vnode
 
-  // if (typeof vnode === 'function') {
-  //   return vnode(state, actions)
-  // }
+  // functions are used as injection points for state/actions.
+  if (typeof vnode === 'function') {
+    return normalizeVnode(vnode(state, actions))
+  }
+
+  if (Array.isArray(vnode)) {
+    throw new Error('Arrays are not an acceptable Vnode type')
+  }
+
+  if (typeof vnode === 'boolean') {
+    return null
+  }
+
+  if (
+    typeof vnode === 'string'
+    || typeof vnode === 'number'
+    // Covers both Intent Objects and Vnode Objects.
+    || typeof vnode === 'object'
+  ) {
+    return vnode
+  }
+
+  console.error('Unrecognized Vnode Type:', vnode)
+  throw new Error('Unrecognized Vnode Type')
 }
 
 function patch(el, rootVnode, state, actions) {
   const elMeta = getElMeta(el)
-  const actualRootVnode = normalizeVnode(rootVnode, state, actions)
+  const normalizedRootVnode = normalizeVnode(rootVnode, state, actions)
 }

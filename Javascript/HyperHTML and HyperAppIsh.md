@@ -460,16 +460,37 @@ We'll have a few different major types to worry about:
   - Stateful Integrations ala Mithril
 
 
+### Unsupported Features in r0
+
+- Keyed Children.
+  - While I have some ideas on how to deal with this drafted above, I'm going to leave support for keys out of the initial sketch to simplify implementation.
+- Lifecycle Hooks, although at least a bit of thought will go into how to support them.
+  - RepNodes are part of this.
+- Context.
+- Class Components.
+
+
 ### Vnode Types
 
 Vnodes as we encounter them can take a few forms:
 - Plain `Vnode` Object
 - Injection Point Function: `(state, actions) => Vnode`
+- Plain Intent Object
+  - This is any Object which is not a Vnode Object.
+- Primitive Values:
+  - Strings are inserted as text.
+  - Numbers are stringified and inserted as text.
+
+After Normalization, we have only three forms:
+- Plain `Vnode` Object
+- Plain Intent Object
 - Primitive Values
 
-After Normalization, we have only two forms:
-- Plain `Vnode` Object
-- Primitive Values
+#### Consideration: Unsafe Text
+
+In HyperHTML, a String in an Array is considered an HTML Opt-In.  I think for us, though, it may be better to require any such HTML be more explicit, especially since we're having somewhat different behavior around arrays.  I'll probably require `{ html: '<strong>this is html!</strong>' }` for unsafe injection.
+
+However, there's also this to consider: In HyperHTML, all items in an Array must be of the same Type.  It would be highly unusual for us to have an array of heterogeneous elements, so this may not be a real concern.  I'll just go ahead with current plans and circle back around later.
 
 
 ### RepNodes

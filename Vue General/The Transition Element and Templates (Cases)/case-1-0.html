@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>The Transition Element and Templates</title>
+    <script type="text/javascript" src="https://vuejs.org/js/vue.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/javascript">
+      var $vm = new Vue({
+        name: 'TransitionOfTemplateTest',
+
+        selectionOptions: [
+          { label: 'Single Element', value: 'single' },
+          { label: 'Many Elements', value: 'many' },
+        ],
+
+        data() {
+          return {
+            current: 'single',
+          }
+        },
+
+        el: document.getElementById('root'),
+
+        template: (`
+          <div class="transition-of-template-test">
+            <div class="selection">
+              <div v-for="option in $options.selectionOptions" :key="option.value">
+                <label :for="'current-view__' + option.value">
+                  <input
+                    type="radio"
+                    name="current-view"
+                    :id="'current-view__' + option.value"
+                    :value="option.value"
+                    :checked="current === option.value"
+                    @change="current = option.value"
+                  />
+                  &nbsp;
+                  {{ option.label }}
+                </label>
+              </div>
+            </div>
+            <transition
+              tag="div"
+              class="transitioned-contents"
+            >
+              <template v-if="current === 'many'">
+                <div key="many-first">
+                  First item!
+                </div>
+                <div key="many-second">
+                  Second item!
+                </div>
+              </template>
+              <div v-else key="single">
+                Single element!
+              </div>
+            </transition>
+          </div>
+        `),
+      })
+    </script>
+  </body>
+</html>

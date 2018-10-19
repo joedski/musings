@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Case 1 - Reactive Updates on Sub-Props and Sub-Elements of Computed Properties</title>
+    <script type="text/javascript" src="https://vuejs.org/js/vue.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/javascript">
+      const $vm = new Vue({
+        data() {
+          return {
+            settings: [
+              { name: 'foo', value: '' },
+              { name: 'bar', value: 'barbar' },
+            ],
+            defaultSettings: [
+              { name: 'foo', value: 'FOO' },
+              { name: 'bar', value: 'BAR' },
+              { name: 'baz', value: 'BAZ' },
+            ],
+          }
+        },
+
+        computed: {
+          coalescedSettings: {
+            get() {
+              console.log('computed(coalescedSettings) get()')
+              return this.defaultSettings.map(defaultItem => {
+                const setItem = this.settings.find(item => item.name === defaultItem.name)
+                // NOTE: For the sake of example, purposefully creating
+                // new objects to prevent automatic updates.
+                if (setItem) return { ...defaultItem, value: setItem.value }
+                return { ...defaultItem }
+              })
+            },
+            set(next) {
+              console.log('computed(coalescedSettings) set()')
+              this.settings = next.filter(nextItem => {
+                const defaultItem = this.defaultSettings.find(item => item.name === nextItem.name)
+                if (nextItem.value === defaultItem.value) return false
+                return true
+              })
+            },
+          }
+        },
+
+        watch: {
+          coalescedSettings: {
+            deep: true,
+            handler(next) {
+              console.log('watch(coalescedSettings)')
+              // Substituent was updated rather than self.
+              if (next === this.coalescedSettings) {
+                // Copy so we don't infinite-loop.
+                this.coalescedSettings = next.slice()
+              }
+            },
+          }
+        },
+
+        el: document.getElementById('root'),
+
+        template: `
+          <div class="test-component">
+            <ul>
+              <li v-for="setting in coalescedSettings" :key="setting.name">
+                <div>{{ setting.name }}: <strong>{{ setting.value }}</strong></div>
+                <div>
+                  <input
+                    type="text"
+                    v-model="setting.value"
+                  />
+                </div>
+              </li>
+            </ul>
+          </div>
+        `,
+      })
+    </script>
+  </body>
+</html>

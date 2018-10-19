@@ -1,7 +1,7 @@
 AsyncData
 =========
 
-Place for thoughts on AsyncData related things, regardless of language, where AsyncData here speaks specifically about a representation of asynchronous data and its various result states.
+Place for thoughts on [AsyncData](https://medium.com/javascript-inside/slaying-a-ui-antipattern-in-react-64a3b98242c) related things, regardless of language, where AsyncData here speaks specifically about a representation of asynchronous data and its various result states.
 
 > NOTE: Examples written in a mishmash of pseudo-Haskell/Elm/Whatever.
 

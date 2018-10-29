@@ -10,3 +10,10 @@ insert_final_newline = true
 
 [*.md]
 trim_trailing_whitespace = false
+# NOTE: CommonMark requires an indent of at least 3 spaces for sub ordered lists to work,
+# even though it only seems to require an indent of 2 spaces for sub unordered lists.
+# Setting this to 4 because 3 just seems weird.
+# Note that files created before this change will all have an indent of 2.  Oh well.
+# Maybe I'll create a thing to reindent all the lists of all my markdown files some day.
+# GitHub uses CommonMark plus GFM extensions.
+indent_size = 4

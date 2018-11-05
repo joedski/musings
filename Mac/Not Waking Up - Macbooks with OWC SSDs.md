@@ -51,3 +51,7 @@ $ sudo -k
 Well, yeah, I'd suppose they won't.  Still, I'll have to try to keep this in mind.
 
 Anyawy, I guess we'll see what happens.
+
+#### Results
+
+Seems to have worked.  Asleep for 8 hours, my MBA went from 100% to 86% while asleep, an expenditure of 14%.  That's fine for me, since basically any time it's at rest it's plugged in.  It does make it a bit less convenient on the go, of course, but nothing too terrible.  It is unfortunate however that I can't correct the root cause, whatever it might be.

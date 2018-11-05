@@ -10,7 +10,7 @@ Variably useful and amusing snippets of Postgres I learned about.  Some may even
 I mean, okay, JSONB actually means JSON(Binary), but it is actually Better too because Postgres comes with some extra functionality around it that lets you treat your database a little more document-store-ish.  I mean, you shouldn't abandon all schemas, but you can at least store and interact with JSON in a pretty sane way provided you can learn the operators/functions.
 
 
-### Updating JSON
+### Updating JSONB
 
 You can't actually update JSON in place in Postgres.  Fortunately, working with immutable data has made the process here pretty intuitive for me: You simply create a new value based on the old one, then replace the old one.
 
@@ -25,6 +25,45 @@ SET "attributes" = jsonb_set(
 )
 ;
 ```
+
+Though using `ARRAY[]` notation might be less confusing:
+
+```sql
+UPDATE "foo"
+SET "attributes" = jsonb_set(
+  "attributes",
+  ARRAY['thingy'],
+  '"very thingish"'::jsonb
+)
+;
+```
+
+
+### Deleting Fields from JSONB
+
+The `-` operator creates a new JSONB from the JSONB on the left by omitting the field name on the right from the source JSONB.  So, `'{"foo":"FOO","bar":"BAR"}'::jsonb - 'bar'` yields `'{"foo":"FOO"}'`.  This can be chained like numeric subtraction to remove multiple fields.  Alternatively, you can also just do `someJsonbColumn - ARRAY['foo', 'bar']` to omit multiple fields.
+
+A targeted removal of a single prop might look something like this:
+
+```sql
+UPDATE target_table
+SET some_jsonb_column = some_jsonb_column - 'foo'
+WHERE some_jsonb_column ? 'foo'
+;
+```
+
+While a targeted removal of many props might look something like this:
+
+```sql
+UPDATE target_table
+SET some_jsonb_column = some_jsonb_column - ARRAY['foo', 'bar', 'otherProp']
+WHERE some_jsonb_column ?| ARRAY['foo', 'bar', 'otherProp']
+;
+```
+
+Where the `?|` operator checks if any of the field names in the Text Array on the right exist on the JSONB on the left.  `?&` is similar, but checks if _all_ the field names are present.
+
+I don't know if the `WHERE` clause here actually makes things faster or not, but usually updates are slower than selects, so probably?  I'd have to actually test.
 
 
 

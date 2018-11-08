@@ -47,7 +47,10 @@ One answer was simply to [write a utility function to do `Iterable<E> -> Collect
 
 ## On Spring and JPA Repositories
 
-The quickest option for basic queries is to just [write it out as the method name of your repo interface](https://docs.spring.io/spring-data/jpa/docs/current/reference/html/#jpa.query-methods), and the framework parses the name into its intermediate SQL, which then gets translated into the target native SQL.
+
+### Query Methods
+
+The quickest option for basic queries is to just [write it out as the method name of your repo interface](https://docs.spring.io/spring-data/jpa/docs/current/reference/html/#jpa.query-methods), and the framework [parses the name](https://docs.spring.io/spring-data/jpa/docs/current/reference/html/#repository-query-keywords) into its intermediate SQL, which then gets translated into the target native SQL.
 
 Feels very JS-like, all this name-based automagic.
 
@@ -75,3 +78,73 @@ interface FooRepo extends CrudRepository<Foo, String> {
     public List<Foo> findByBarAndBaz(Bar bar, Boolean baz);
 }
 ```
+
+One advantage of the latter is that it doesn't presuppose not wanting to check against null values.  A service might switch behaviors, null omitting or null checking, depending on various conditions.
+
+Of course, one could argue that Optional clearly signals this, too.
+
+
+### Optional Lists
+
+Spring's query-from-method-name builder already supports the `IN` operator, but the problem is that its default behavior is to treat an empty list as an Always False.  That is, a an empty list selects nothing.  As [noted here, under the hood Spring creates `criteriaBuilder.disjunction()` for an empty list](https://rzymek.github.io/post/jpa-empty-in/), [which its query builder treats as `FALSE`](https://docs.oracle.com/javaee/6/api/javax/persistence/criteria/CriteriaBuilder.html#disjunction()).
+
+The solution of course is to use the same query building machinery to specify the desired behavior, in our case to treat empty lists as "Ignore this filter":
+
+```java
+// Note the second base, JpaSpecificationExecutor
+interface FooRepo extends CrudRepository<Foo, String>, JpaSpecificationExecutor<Sample> {
+    // `default` lets you specify a default implementation in an interface.
+    default List<Foo> findFoosBy(
+            List<Bar> bar,
+            // Why baz?  Could be tristate: true, false, null.
+            List<Boolean> baz) {
+        return findAll((root, criteriaQuery, criteriaBuilder) -> {
+            // Give us an `AND`-bunch.
+            // Empty conjunction becomes a `TRUE`.
+            Predicate predicate = criteriaBuilder.conjunction();
+
+            if (!bar.isEmpty()) {
+                predicate = criteriaBuilder.and(predicate,
+                    root.get("bar").in(bar));
+            }
+            if (!baz.isEmpty()) {
+                predicate = criteriaBuilder.and(predicate,
+                    root.get("baz").in(baz));
+            }
+
+            return criteriaQuery.where(predicate);
+        });
+    }
+}
+```
+
+It feels almost like JS.
+
+Of course, you could go Full Java and put everything in constants-classes and query objects.
+
+```java
+import com.example.ex.constants.Foo_;
+import com.example.ex.representation.FoosSearchQuery;
+
+interface FooRepo extends CrudRepository<Foo, String>, JpaSpecificationExecutor<Sample> {
+    default List<Foo> findFoosBy(
+            FoosSearchQuery searchQuery) {
+        return findAll((root, criteriaQuery, criteriaBuilder) -> {
+            Predicate predicate = criteriaBuilder.conjunction();
+
+            if (!searchQuery.getBars()) {
+                predicate = criteriaBuilder.and(predicate,
+                    root.get(Foo_.BAR).in(searchQuery.getBars()));
+            }
+            if (!searchQuery.getBazzes()) {
+                predicate = criteriaBuilder.and(predicate,
+                    root.get(Foo_.BAZ).in(searchQuery.getBazzes()));
+            }
+
+            return criteriaQuery.where(predicate);
+        });
+    }
+}
+```
+
+On the one hand, verbosity.  On the other hand, documented interfaces.

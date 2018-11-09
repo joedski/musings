@@ -112,7 +112,7 @@ interface FooRepo extends CrudRepository<Foo, String>, JpaSpecificationExecutor<
                     root.get("baz").in(baz));
             }
 
-            return criteriaQuery.where(predicate);
+            return predicate;
         });
     }
 }
@@ -132,19 +132,60 @@ interface FooRepo extends CrudRepository<Foo, String>, JpaSpecificationExecutor<
         return findAll((root, criteriaQuery, criteriaBuilder) -> {
             Predicate predicate = criteriaBuilder.conjunction();
 
-            if (!searchQuery.getBars()) {
+            if (!searchQuery.getBars().isEmpty()) {
                 predicate = criteriaBuilder.and(predicate,
                     root.get(Foo_.BAR).in(searchQuery.getBars()));
             }
-            if (!searchQuery.getBazzes()) {
+            if (!searchQuery.getBazzes().isEmpty()) {
                 predicate = criteriaBuilder.and(predicate,
                     root.get(Foo_.BAZ).in(searchQuery.getBazzes()));
             }
 
-            return criteriaQuery.where(predicate);
+            return predicate;
         });
     }
 }
 ```
 
 On the one hand, verbosity.  On the other hand, documented interfaces.
+
+It also means we don't need to expand the `findFoosBy` interface to add more items:
+
+```java
+import com.example.ex.constants.Foo_;
+import com.example.ex.representation.FoosSearchQuery;
+
+interface FooRepo extends CrudRepository<Foo, String>, JpaSpecificationExecutor<Sample> {
+    default List<Foo> findFoosBy(
+            FoosSearchQuery searchQuery) {
+        return findAll((root, criteriaQuery, criteriaBuilder) -> {
+            Predicate predicate = criteriaBuilder.conjunction();
+
+            if (!searchQuery.getBars().isEmpty()) {
+                predicate = criteriaBuilder.and(predicate,
+                    root.get(Foo_.BAR).in(searchQuery.getBars()));
+            }
+            if (!searchQuery.getBazzes().isEmpty()) {
+                predicate = criteriaBuilder.and(predicate,
+                    root.get(Foo_.BAZ).in(searchQuery.getBazzes()));
+            }
+            // scalar filter
+            if (searchQuery.getIsFrangible() != null) {
+                predicate = criteriaBuilder.and(predicate,
+                    criteriaBuilder.equal(root.get(Foo_.IS_FRANGIBLE), searchQuery.getIsFrangible()));
+            }
+            // list where null is a valid element
+            if (!searchQuery.getListWithNulls().isEmpty()) {
+                // NOTE: Usually NULL in a list is ignored by SQL,
+                // not sure if that's the case with JPA or not when building a Postgres query.
+                predicate = criteriaBuilder.and(predicate,
+                    criteriaBuilder.or(
+                        criteriaBuilder.isNull(root.get(Foo_.LIST_WITH_NULLS)),
+                        root.get(Foo_.LIST_WITH_NULLS).in(searchQuery.getListWithNulls())));
+            }
+
+            return predicate;
+        });
+    }
+}
+```

@@ -178,9 +178,21 @@ interface FooRepo extends CrudRepository<Foo, String>, JpaSpecificationExecutor<
             if (!searchQuery.getListWithNulls().isEmpty()) {
                 // NOTE: Usually NULL in a list is ignored by SQL,
                 // not sure if that's the case with JPA or not when building a Postgres query.
+
+                // Another way to do this in more complicated cases is basically the same
+                // as the way we build the main predicate: Have a local predicate var
+                // that we replace with more built upon predicates as certain conditions
+                // are checked.
+                // For single cases, though, a simple ternary expressing is okay.
+                Predicate isNullPredicate = searchQuery.getListWithNulls().stream()
+                    .anyMatch(el -> el == null)
+                    ? criteriaBuilder.isNull(root.get(Foo_.LIST_WITH_NULLS))
+                    : criteriaBuilder.disjunction()
+                    ;
+
                 predicate = criteriaBuilder.and(predicate,
                     criteriaBuilder.or(
-                        criteriaBuilder.isNull(root.get(Foo_.LIST_WITH_NULLS)),
+                        isNullPredicate,
                         root.get(Foo_.LIST_WITH_NULLS).in(searchQuery.getListWithNulls())));
             }
 

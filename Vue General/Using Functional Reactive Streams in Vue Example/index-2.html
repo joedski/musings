@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title>Using Functional Reactive Streams in Vue: Whack 2</title>
+    <script type="text/javascript" src="https://unpkg.com/vue@2.5.17/dist/vue.js"></script>
+    <script src="https://unpkg.com/flyd@0.2.8/flyd.js" charset="utf-8"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="text/javascript">
+      function StreamsManager(vm) {
+        const config = vm.$options.streams
+        return {
+          $sources: {},
+          $sinks: null,
+
+          $createSource(
+            name,
+            watchBinding = name,
+            watchHandler = stream => next => stream(next)
+          ) {
+            if (this.$sources[name]) return this.$sources[name]
+            const sourceStream = this[name] = this.$sources[name] = Object.assign(flyd.stream(), {
+              $watch() {
+                // If the name doesn't exist as a prop, don't watch it.
+                // TODO: Support path names?
+                if (typeof watchBinding === 'string' && ! (watchBinding in vm)) {
+                  return
+                }
+                // Allow simple opt-out of automatic behavior.
+                if (typeof watchBinding === 'boolean' && ! watchBinding) {
+                  return
+                }
+                vm.$watch(
+                  // NOTE: When the watchBinding is a function, it's called
+                  // with the vm as the context.
+                  watchBinding,
+                  watchHandler(sourceStream),
+                  { immediate: true }
+                )
+              }
+            })
+            return this.$sources[name]
+          },
+
+          $data() {
+            this.$sinks = config
+              ? config.call(vm, (name, watchBinding, watchHandler) => this.$createSource(name, watchBinding, watchHandler))
+              : {}
+
+            return Object.keys(this.$sinks).reduce(
+              // Initialize to undefined, but the prop is defined on the object,
+              // so there's that.
+              (acc, key) => (acc[key] = undefined, acc),
+              {}
+            )
+          },
+
+          $watch() {
+            Object.keys(this.$sources).forEach(key => this.$sources[key].$watch())
+            Object.keys(this.$sinks).forEach(key => {
+              this.$sinks[key].pipe(flyd.map(v => {
+                vm[key] = v
+              }))
+            })
+          },
+
+          $end() {
+            Object.keys(this.$sources).forEach(key => this.$sources[key].end(true))
+          },
+        }
+      }
+
+      const StreamsMixin = {
+        beforeCreate() {
+          this.$streams = StreamsManager(this)
+        },
+
+        data() {
+          return this.$streams.$data()
+        },
+
+        created() {
+          this.$streams.$watch()
+        },
+
+
+        beforeDestroy() {
+          this.$streams.$end()
+        },
+      }
+
+      const app = new Vue({
+        name: 'StreamsExample',
+        el: document.getElementById('app'),
+        mixins: [StreamsMixin],
+        streams(source) {
+          const clicks$ = source('clicks')
+          const resetClicks$ = source('resetClicks')
+          const allClickEvents$ = flyd.merge(
+            flyd.map(() => ['incr', 1], clicks$),
+            flyd.map(() => ['reset', 0], resetClicks$)
+          )
+          const clickCount$ = allClickEvents$.pipe(flyd.scan(
+            (acc, clickEvent) => {
+              switch (clickEvent[0]) {
+                case 'incr': return acc + clickEvent[1]
+                case 'reset': return clickEvent[1]
+                default: return acc
+              }
+            },
+            0
+          ))
+          return {
+            clickCount: clickCount$,
+          }
+        },
+        computed: {
+          // Plays nice with computed props, though if you're using streams... why?
+          // I suppose you could argue that it can keep formatting steps out of the streams.
+          clickCountPretty() {
+            return [
+              String(this.clickCount),
+              (this.clickCount === 1
+                ? 'click'
+                : 'clicks'),
+            ].join(' ')
+          },
+        },
+        template: `
+          <div class="app">
+            <h1>Streams in Vue Example</h1>
+            <div class="controls">
+              <button @click="$streams.clicks">Click me!</button>
+              <button @click="$streams.resetClicks">Reset!</button>
+            </div>
+            <div class="result">
+              {{ this.clickCountPretty }}
+            </div>
+          </div>
+        `,
+      })
+    </script>
+  </body>
+</html>

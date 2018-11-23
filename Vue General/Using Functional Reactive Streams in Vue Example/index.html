@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title>Using Functional Reactive Streams in Vue</title>
+    <script type="text/javascript" src="https://unpkg.com/vue@2.5.17/dist/vue.js"></script>
+    <script src="https://unpkg.com/flyd@0.2.8/flyd.js" charset="utf-8"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="text/javascript">
+      function StreamsManager(vm) {
+        const config = vm.$options.streams
+        return {
+          sources: {},
+          sinks: null,
+
+          source(name) {
+            if (! this.sources[name]) {
+              throw new Error(`StreamsManager: ${name} is not a defined source`)
+            }
+            return this.sources[name]
+          },
+
+          createSource(name, watchBinding = name, watchHandler = next => this.sources[name](next)) {
+            this.sources[name] = Object.assign(flyd.stream(), {
+              $watch() {
+                // If the name doesn't exist as a prop, don't watch it.
+                // TODO: Support path names?
+                if (typeof watchBinding === 'string' && ! (watchBinding in vm)) {
+                  return
+                }
+                // Allow simple opt-out of automatic behavior.
+                if (typeof watchBinding === 'boolean' && ! watchBinding) {
+                  return
+                }
+                vm.$watch(
+                  // NOTE: When the watchBinding is a function, it's called
+                  // with the vm as the context.
+                  watchBinding,
+                  watchHandler,
+                  { immediate: true }
+                )
+              }
+            })
+            return this.sources[name]
+          },
+
+          data() {
+            this.sinks = config
+              ? config((name, watchBinding) => this.createSource(name, watchBinding))
+              : {}
+
+            return Object.keys(this.sinks).reduce(
+              (acc, key) => (acc[key] = undefined, acc),
+              {}
+            )
+          },
+
+          watch() {
+            Object.keys(this.sources).forEach(key => this.sources[key].$watch())
+            Object.keys(this.sinks).forEach(key => {
+              this.sinks[key].pipe(flyd.map(v => {
+                vm[key] = v
+              }))
+            })
+          }
+        }
+      }
+
+      const StreamsMixin = {
+        beforeCreate() {
+          this.$streams = StreamsManager(this)
+        },
+
+        data() {
+          return this.$streams.data()
+        },
+
+        created() {
+          this.$streams.watch()
+        }
+      }
+
+      const app = new Vue({
+        name: 'StreamsExample',
+        el: document.getElementById('app'),
+        mixins: [StreamsMixin],
+        streams(source) {
+          const clicks$ = source('clicks')
+          const clickCount$ = clicks$.pipe(flyd.scan(
+            (acc, click) => acc + 1,
+            0
+          ))
+          const clickCountPretty$ = clickCount$.pipe(flyd.map(
+            count => [
+              String(count),
+              (count === 1
+                ? 'click'
+                : 'clicks'),
+            ].join(' ')
+          ))
+          return {
+            clickCount: clickCount$,
+            clickCountPretty: clickCountPretty$,
+          }
+        },
+        template: `
+          <div class="app">
+            <h1>Streams in Vue Example</h1>
+            <div class="controls">
+              <button @click="$streams.source('clicks')($event)">Click me!</button>
+            </div>
+            <div class="result">
+              {{ this.clickCountPretty }}
+            </div>
+          </div>
+        `,
+      })
+    </script>
+  </body>
+</html>

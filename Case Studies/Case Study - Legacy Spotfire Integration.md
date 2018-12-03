@@ -107,6 +107,8 @@ The first time around, I'd gotten everything into an event-driven imperative mes
 
 Given how complex this was, I really needed to separate out the actual work from the over all narrative; break the work piece into one part which manages the whole story, and the adjunct pieces that actually carry out the actions.  A separation of coordination and execution, if you will.  That way, the main narrative code would more resemble the outline above, rather than ... well, not.
 
+Here's a draft of a method as might be used on a Vue component:
+
 ```js
 function initializeSpotfireDocument() {
     try {

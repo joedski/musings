@@ -71,8 +71,9 @@ So, after all that, our nice simple list of steps from above is bloated into thi
 2. Try to show the Document within a given timeout (15 seconds or so):
     1. Ensure the Spotfire Iframe is loaded. (this is the easiest part!)
     2. Load the Spotfire WebPlayer API Script in the Iframe.
-        1. If the Script errors while trying to load, try one more time; otherwise, fail with that error.
-        2. Otherwise, the Spotfire WebPlayer API is theoretically ready to use.
+        1. If the given timeout elapses, try this step again, freshly loading the iframe.
+        2. If the Script errors while trying to load, try one more time; otherwise, fail with that error.
+        3. Otherwise, the Spotfire WebPlayer API is theoretically ready to use.
     3. Create an Application and try to open a Document.
         1. If there's `ErrorOpen` error, try this step one more time; otherwise, fail with that error.
             1. That includes creating a new Application, at least in our current code.  It seemed to work, so I didn't feel like knocking it.
@@ -107,47 +108,72 @@ The first time around, I'd gotten everything into an event-driven imperative mes
 Given how complex this was, I really needed to separate out the actual work from the over all narrative; break the work piece into one part which manages the whole story, and the adjunct pieces that actually carry out the actions.  A separation of coordination and execution, if you will.  That way, the main narrative code would more resemble the outline above, rather than ... well, not.
 
 ```js
-function * narrative(ctx) {
-    yield this.waitOurTurn()
-
-    let attempt = 0
-
+function initializeSpotfireDocument() {
     try {
-        while (true) try {
-            this.emit('load:begin', { attempt })
+        this.initializationAttempt = 0
+        this.setDocumentInitializationTimeout()
+        this.$emit('load:begin')
 
-            const timeoutId = yield this.throwOnTimeout(
-                ctx.timeout,
-                () => Object.assign(new Error('DocumentTimeout: Document Load Timeout Expired'), {
-                    errorCode: 'DocumentTimeout',
-                })
-            )
-
+        const { spotfire, spotfireContainerId } = await (async () => {
             while (true) try {
-                const { spotfire, spotfireContainerId } = yield this.loadSpotfireScript({
-                    spotfireUrl: ctx.spotfireUrl,
+                return await this.loadIframe({
+                    initializationAttempt: this.initializationAttempt,
                 })
             }
             catch (error) {
-                if (error.errorCode === 'DocumentTimeout') throw error
-                if (attempt + 1 >= ctx.maxAttempts) throw error
-                ++attempt
-                continue
+                if (this.initializationAttempt + 1 < this.maxInitializationAttempts) {
+                    if (error.errorCode === 'ErrorDocumentInitializationTimeout') {
+                        this.setDocumentInitializationTimeout()
+                    }
+                    this.initializationAttempt += 1
+                    continue
+                }
+                throw error
             }
+        })()
 
-            const { spotfireApp, analysisDocument } = yield // ... TODO!
-        }
-        catch (error) {
-            clearTimeout(timeoutId)
-            if (attempt + 1 >= ctx.maxAttempts) throw error
-            ++attempt
-            continue
+        const { app, analysisDocument } = await (async () => {
+            while (true) try {
+                return await getDocument(ctx, {
+                    initializationAttempt: this.initializationAttempt,
+                    spotfire,
+                    spotfireContainerId,
+                })
+            }
+            catch (error) {
+                if (this.initializationAttempt + 1 < this.maxInitializationAttempts) {
+                    if (error.errorCode === 'ErrorDocumentInitializationTimeout') {
+                        this.setDocumentInitializationTimeout()
+                    }
+                    this.initializationAttempt += 1
+                    continue
+                }
+                throw error
+            }
+        })()
+
+        this.$emit('load:success', {
+            initializationAttempt: this.initializationAttempt,
+            spotfire,
+            app,
+            analysisDocument
+        })
+
+        return {
+            spotfire,
+            app,
+            analysisDocument
         }
     }
     catch (error) {
-        this.emit('load:error', error)
+        this.$emit('load:error', { error })
     }
-
-    return
+    finally {
+        this.clearDocumentInitializationTimeout()
+    }
 }
 ```
+
+This worked quite well, but the implementation `loadIframe` and `getDocument` were a bit hairy.
+
+Theoretically, both of those `while (true) try {...}` loops could be made into the same function, but I didn't want to just in case they were only incidentally identical for now.

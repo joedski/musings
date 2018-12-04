@@ -66,6 +66,8 @@ All that's just to get the document open and ready for interaction!  I'm not eve
 
 Points 2 through 4 require just a bunch of checking and reinitializing, but point 1 requires a bit bigger of a change.  After a few hours of tooling around with ideas, I finally came to the only solution that worked: More Iframes.  Basically, if we can't separate the Spotfire WebPlayer APIs because they all assume `window.spotfire` is theirs to manipulate, just give them all their own `window`s!  Sure, they can't directly talk to each other, but our app is already handling that anyway.
 
+> TODO: Redo this outline to better match implementation.
+
 So, after all that, our nice simple list of steps from above is bloated into this:
 1. Wait for our turn to load our Document.
 2. Try to show the Document within a given timeout (15 seconds or so):
@@ -110,72 +112,235 @@ Given how complex this was, I really needed to separate out the actual work from
 Here's a draft of a method as might be used on a Vue component:
 
 ```js
-function initializeSpotfireDocument() {
-    try {
-        this.initializationAttempt = 0
-        this.setDocumentInitializationTimeout()
-        this.$emit('load:begin')
+export default {
+    name: 'SpotfireDocument',
 
-        const { spotfire, spotfireContainerId } = await (async () => {
-            while (true) try {
-                return await this.loadIframe({
-                    initializationAttempt: this.initializationAttempt,
-                })
-            }
-            catch (error) {
-                if (this.initializationAttempt + 1 < this.maxInitializationAttempts) {
-                    if (error.errorCode === 'ErrorDocumentInitializationTimeout') {
-                        this.setDocumentInitializationTimeout()
+    methods: {
+        initializeSpotfireDocument() {
+            try {
+                this.initializationAttempt = 0
+                this.setDocumentInitializationTimeout()
+                this.$emit('load:begin')
+
+                const { spotfire, spotfireContainerId } = await (async () => {
+                    while (true) try {
+                        return await this.loadIframe({
+                            initializationAttempt: this.initializationAttempt,
+                        })
                     }
-                    this.initializationAttempt += 1
-                    continue
-                }
-                throw error
-            }
-        })()
+                    catch (error) {
+                        if (this.initializationAttempt + 1 < this.maxInitializationAttempts) {
+                            if (error.errorCode === 'ErrorDocumentInitializationTimeout') {
+                                this.setDocumentInitializationTimeout()
+                            }
+                            this.initializationAttempt += 1
+                            continue
+                        }
+                        throw error
+                    }
+                })()
 
-        const { app, analysisDocument } = await (async () => {
-            while (true) try {
-                return await getDocument(ctx, {
+                const { app, analysisDocument } = await (async () => {
+                    while (true) try {
+                        return await getDocument(ctx, {
+                            initializationAttempt: this.initializationAttempt,
+                            spotfire,
+                            spotfireContainerId,
+                        })
+                    }
+                    catch (error) {
+                        if (this.initializationAttempt + 1 < this.maxInitializationAttempts) {
+                            if (error.errorCode === 'ErrorDocumentInitializationTimeout') {
+                                this.setDocumentInitializationTimeout()
+                            }
+                            this.initializationAttempt += 1
+                            continue
+                        }
+                        throw error
+                    }
+                })()
+
+                this.$emit('load:success', {
                     initializationAttempt: this.initializationAttempt,
                     spotfire,
-                    spotfireContainerId,
+                    app,
+                    analysisDocument
                 })
+
+                return {
+                    spotfire,
+                    app,
+                    analysisDocument
+                }
             }
             catch (error) {
-                if (this.initializationAttempt + 1 < this.maxInitializationAttempts) {
-                    if (error.errorCode === 'ErrorDocumentInitializationTimeout') {
-                        this.setDocumentInitializationTimeout()
-                    }
-                    this.initializationAttempt += 1
-                    continue
-                }
-                throw error
+                this.$emit('load:error', { error })
             }
-        })()
-
-        this.$emit('load:success', {
-            initializationAttempt: this.initializationAttempt,
-            spotfire,
-            app,
-            analysisDocument
-        })
-
-        return {
-            spotfire,
-            app,
-            analysisDocument
-        }
-    }
-    catch (error) {
-        this.$emit('load:error', { error })
-    }
-    finally {
-        this.clearDocumentInitializationTimeout()
-    }
+            finally {
+                this.clearDocumentInitializationTimeout()
+            }
+        },
+    },
 }
 ```
+
+Only took me a few (more than a few) tries to arrive at that.
 
 This worked quite well, but the implementation `loadIframe` and `getDocument` were a bit hairy.
 
 Theoretically, both of those `while (true) try {...}` loops could be made into the same function, but I didn't want to just in case they were only incidentally identical for now.
+
+The rest of the component methods then just have to wrap all their processes in Promises.
+
+
+### The Steps Themselves
+
+Before I show this, I should preface this by saying that I wrapped the Spotfire API Iframe itself in another component that simply loads the iframe and emits an event when that's done, or an error event if anything along the way errors.
+
+This component then listens for those events from the Iframe component and emits its own events: `iframe:load:error` and `iframe:load:success`, with the same payloads.  These events are used below to determine when the iframe has loaded.
+
+```js
+export default {
+    // ...
+    methods: {
+        // ...
+        loadIframe({ initializationAttempt }) {
+            return new Promise((resolve, reject) => {
+                const $$off = () => {
+                    this.$off('iframe:load:success', handleSuccess)
+                    this.$off('iframe:load:error', handleError)
+                    this.$off('document:timeout', handleError)
+                }
+
+                const handleSuccess = (payload) => {
+                    $$off()
+                    resolve(payload)
+                }
+
+                const handleError = ({ error }) => {
+                    $$off()
+                    reject(error)
+                }
+
+                this.shouldShowIframe = true
+
+                if (initializationAttempt > 0) {
+                    // This is used for a :key="" binding on the iframe,
+                    // as an easy way to force a complete reload.
+                    this.iframeKey += 1
+                }
+
+                this.$on('iframe:load:success', handleSuccess)
+                this.$on('iframe:load:error', handleError)
+                this.$on('document:timeout', handleError)
+            })
+        },
+    },
+}
+```
+
+The `getDocument` method itself is split into a few pieces:
+- Creating the App.
+- Opening the Document.
+- Verifying it's open to the correct page.
+
+```js
+export default {
+    // ...
+    methods: {
+        async getDocument({ initializationAttempt, spotfire, spotfireContainerId }) {
+            const app = this.createApp({ spotfire, spotfireContainerId })
+            const analysisDocument = await this.openAnalysisDocumentWithApp({
+                initializationAttempt,
+                spotfireContainerId,
+                app,
+            })
+            await this.verifyDocumentPage({ analysisDocument })
+        },
+
+        createApp({ spotfire, spotfireContainerId }) {
+            return new spotfire.webPlayer.Application(
+                this.spotfireUrl,
+                this.getFullSpotfireCustomization(spotfire),
+                this.appPath
+            )
+        },
+
+        openAnalysisDocumentWithApp({ initializationAttempt, spotfireContainerId, app }) {
+            return new Promise((resolve, reject) => {
+                const $$off = () => {
+                    this.$off('document:timeout', handleTimeout)
+                    // This is fine to do because Application#onWhatever() just overwrites
+                    // the previous callback with the new one.
+                    app.onOpened(() => {})
+                    app.onError(() => {})
+                }
+
+                const handleTimeout = ({ error }) => {
+                    $$off()
+                    // Just in case, don't do anything if we're not in the corerct attempt.
+                    if (initializationAttempt !== this.initializationAttempt) return
+                    reject(error)
+                }
+
+                app.onOpened((analysisDocument) => {
+                    $$off()
+                    if (initializationAttempt !== this.initializationAttempt) return
+                    resolve(analysisDocument)
+                })
+
+                app.onError((errorCode, description) => {
+                    $$off()
+                    if (initializationAttempt !== this.initializationAttempt) return
+                    reject(Object.assign(new Error(`${errorCode}: ${description}`), {
+                        errorCode,
+                        description,
+                    }))
+                })
+
+                this.$on('document:timeout', handleTimeout)
+
+                app.openDocument(
+                    spotfireContainerId,
+                    // index of the page we want to show.
+                    this.activePage,
+                )
+            })
+        },
+
+        verifyDocumentPage({ analysisDocument }) {
+            return new Promise((resolve, reject) => {
+                let didTimeout = false
+
+                const $$off = () => {
+                    didTimeout = true
+                    this.$off('document:timeout', handleTimeout)
+                }
+
+                const handleTimeout = ({ error }) => {
+                    $$off()
+                    reject(error)
+                }
+
+                this.$on('document:timeout', handleTimeout)
+
+                analysisDocument.getActivePage(pageState => {
+                    if (didTimeout) return
+
+                    $$off()
+
+                    if (pageState.index !== this.activePage) {
+                        reject(Object.assign(new Error(`ErrorDocumentPageIndex: Document did not open to correct page.`), {
+                            errorCode: 'ErrorDocumentPageIndex',
+                            description: 'Document did not open to correct page.',
+                        }))
+                    }
+                    else {
+                        resolve()
+                    }
+                })
+            })
+        },
+    },
+}
+```

@@ -140,6 +140,9 @@ export default {
                     }
                 })()
 
+                this.clearDocumentInitializationTimeout()
+                this.setDocumentInitializationTimeout()
+
                 const { app, analysisDocument } = await (async () => {
                     while (true) try {
                         return await getDocument(ctx, {
@@ -174,6 +177,8 @@ export default {
                 }
             }
             catch (error) {
+                this.shouldShowIframe = false
+                this.ifraemKey += 1
                 this.$emit('load:error', { error })
             }
             finally {

@@ -31,6 +31,15 @@ So, I know this much:
     - Especially the source code may be very educational for seeing how he added React Hook style things, since I'm pretty sure that would cover what I wanted to do with my HyperHyperHTML. (That was also before I meditated more on how HyperHTML actually works.)
 
 
+### Some Compiled Thoughts
+
+- More fully working things like Neverland wrap the base functions as well as provide `stardust` to lift a render function into a "component" with hooks.
+    - The only bad thing is that it doesn't take advantage of the EventListener interface.  However, that's only a problem with the examples; in principle, there's no reason we couldn't create one using another hook.
+- This suggests that, while for barebones things, HyperHTML by itself is fine, if we want to build something larger, then we should probably wrap it.
+    - On the other hand, if we only need something that's pretty statically defined, we have that too, free of any extra behavior.
+    - In other words, before jumping into trying to abstract around component handling, try implement it manually.  Once again, concrete, then abstract.
+
+
 
 ## Work Throughs
 

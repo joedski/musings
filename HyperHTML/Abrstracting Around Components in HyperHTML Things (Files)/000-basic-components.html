@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title>Basic Manual Components</title>
+    <script src="https://unpkg.com/hyperhtml@2.20.2/min.js" charset="utf-8"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script>
+    function Counter(inst) {
+      const html = hyperHTML.wire(inst)
+      return html`
+      <div class="counter">
+        <span class="counter-value">${inst.state.value}</span>
+        <button data-action="increment" onclick="${inst}">Incr</button>
+      </div>
+      `
+    }
+
+    Counter.create = function Counter$create({
+      value = 1,
+      increment = 1,
+    } = {}) {
+      const inst = {
+        state: {
+          value,
+          increment,
+        },
+
+        handleEvent(event) {
+          inst[`on${event.type}`](event)
+          Counter(inst)
+        },
+        onclick(event) {
+          const { action } = event.target.dataset
+          switch (action) {
+            case 'increment':
+            inst.state.value += 1
+            break;
+
+            default: break;
+          }
+        },
+      }
+
+      return inst
+    }
+
+
+    function App(inst) {
+      const html = hyperHTML.wire(inst)
+      return html`
+      <h1>Counters!</h1>
+      <div class="counters">
+        ${inst.state.counters.map(Counter)}
+      </div>
+      <button data-action="add-counter" onclick=${state}>Add Counter</button>
+      `
+    }
+
+    App.creatae = function App$create({
+      // :: Array<{ value: number, increment: number, handleEvent: (Event) => void }>
+      counters = [],
+    } = {}) {
+      const inst = {
+        state: {
+          counters,
+        },
+
+        handleEvent(event) {
+          inst[`on${event.type}`](event)
+          // kinda mithril 0.x esque.
+          App(inst)
+        },
+        onclick(event) {
+          const { action } = event.target.dataset
+          switch (action) {
+            case 'add-counter':
+            inst.state.counters.push(Counter.create())
+            break;
+
+            case 'remove-counter':
+            // Just remove the last one.
+            // When it's removed, it eventually gets collected,
+            // and thus falls out as a weakmap key,
+            // putting the value itself also up for collection.
+            inst.state.counters.pop()
+            break;
+
+            default: break;
+          }
+        },
+      }
+
+      return inst
+    }
+
+
+    function createApp(rootEl, rootInst = App.create()) {
+      const html = hyperHTML.bind(rootEl)
+      function render() {
+        return html`${App(rootInst)}`
+      }
+      render.rootInst = rootInst
+      render.rootEl = rootEl
+      return render
+    }
+
+    const rootEl = document.getElementById('app')
+    window.render = createApp(rootEl)
+    window.render()
+    </script>
+  </body>
+</html>

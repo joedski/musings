@@ -324,7 +324,7 @@ React Hooks are as of writing (2018-12-11) the New Hotness.  Support for that ki
 So, can I write a longhand form of a thing which:
 - Deals with a Component Instance Tree
     - Reconciles render updates with the current Instances
-        - Creates Instances as needed
+        - Creates and drops Instances as needed
 - Allows Component Definitions to specify interaction with the Instance Data
 - Deals with a Context
     - Creates the Context for each Instance
@@ -338,3 +338,16 @@ My own component model then will have some ... things.
 - Template Strings
 - Raw Template Interpolation Values (the ones the component's render function returns)
 - Processed Template Interpolation Values (all component stand-ins replaced with content renderable by HyperHTML)
+
+The render process itself deals with a few steps, then:
+- Render Local Root
+    - Render Template + Children
+        - This yields Primitives, DOM Nodes, and Component VNodes.
+    - Reconcile Children with previous Children Instances
+        - Apply changes to the instances based on the difference between the previous and next Component VNodes.
+- Flush Local Root Changes to DOM
+    - Render Children Instances to DOM Mutations
+
+I kind of want to preserve the local-render-ability-ness of HyperHTML, though.  Are these two steps necessarily separate?  Or can they be run both at once, more or less?  Does one way or the other make sense or no sense?
+
+Keeping them combined might be the only way it actually does make sense, at least in as much as calling `this.html` on a template actually triggers a redraw.  Hm.

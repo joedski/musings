@@ -110,7 +110,8 @@ function renderApp(el) {
     props: {
       title: 'Counters!',
     },
-    html: repHtml
+    html: repHtml,
+    wire: hyperHTML.wire(),
   }
   const nextTemplateThings = (function App() {
     return this.html`

@@ -319,7 +319,8 @@ Turns out [`Element#matches(sel)`](https://developer.mozilla.org/en-US/docs/Web/
 React Hooks are as of writing (2018-12-11) the New Hotness.  Support for that kind of API could probably be made, I'd have to think about it, but it's not a focus right now.  It would allow for a more function-centric style, though, which would make me somewhat happy, as well as explicitly stating opt-in to whatever features are so hooked.
 
 
-### Whack at This?
+
+## Whack at This?
 
 So, can I write a longhand form of a thing which:
 - Deals with a Component Instance Tree
@@ -351,3 +352,19 @@ The render process itself deals with a few steps, then:
 I kind of want to preserve the local-render-ability-ness of HyperHTML, though.  Are these two steps necessarily separate?  Or can they be run both at once, more or less?  Does one way or the other make sense or no sense?
 
 Keeping them combined might be the only way it actually does make sense, at least in as much as calling `this.html` on a template actually triggers a redraw.  Hm.
+
+
+### Paring Back Initial Workout
+
+I think I'll try to break this down into a few different cases:
+- Initial Patch
+    - This will be all instantiations
+- Update Patch: Update Props
+    - A queued render, basically.
+    - This will be all updates to props.
+- Update Patch: Adding a Counter
+- Update Patch: Removing a Counter
+- Update Patch: Counter Increment Click
+    - This might need to be two different models:
+        1. Model where Current Counter Value is held exclusively internally to the Counter Component Instance.
+        2. Model where Current Counter Value is held exclusively by the parent App Component Instance.

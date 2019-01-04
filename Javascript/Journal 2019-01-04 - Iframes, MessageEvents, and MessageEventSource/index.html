@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title>Outer Page</title>
+  </head>
+  <body>
+    <iframe id="the-iframe" src="inner.html"></iframe>
+    <script type="text/javascript">
+      window.addEventListener('message', event => {
+        console.log('Event Data:', event.data)
+        console.log(
+          'Is the event source our iframe?',
+          event.source === document.getElementById('the-iframe').contentWindow
+        )
+      })
+    </script>
+  </body>
+</html>

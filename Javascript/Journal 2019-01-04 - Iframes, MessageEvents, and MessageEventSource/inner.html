@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title>Inner Page!</title>
+  </head>
+  <body>
+    <h1>Inner!</h1>
+    <script type="text/javascript">
+      function sendMessage() {
+        window.parent.postMessage('hello!', document.location.origin)
+      }
+    </script>
+    <button onclick="sendMessage()">Send Message!</button>
+  </body>
+</html>

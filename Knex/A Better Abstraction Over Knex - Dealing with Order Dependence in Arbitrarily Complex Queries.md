@@ -1,6 +1,8 @@
 A Better Abstraction Over Knex: Dealing with Order Dependence in Arbitrarily Complex Queries
 ============================================================================================
 
+> NOTE: While I'd like less order dependence, and a more functional interface like proposed here, a lot can be accomplished by using `QueryBuilder#modify(fn, ...fnArgs)`.
+
 An issue that seems to arise even in Knex is the order of query construction.  It does mitigate things to a degree, but it still has some ideosyncratic behavior if trying to call things out of order.
 
 > TODO: Find some examples.

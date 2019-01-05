@@ -1,9 +1,9 @@
 HyperHTML with Flyd
 ===================
 
-Stepping aside from more componenty things for a moment, can we do stuff with just HyperHTML and Flyde?
+Stepping aside from more componenty things for a moment, can we do stuff with just HyperHTML and Flyd?
 
-Right off, I imagine some of this will follow a similar trajectory to HyperHTML itself: Utility methods that use WeakMap to to cache instances by parent.  It then becomes about using those to map Flyde streams into our VM, effectively.
+Right off, I imagine some of this will follow a similar trajectory to HyperHTML itself: Utility methods that use WeakMap to to cache instances by parent.  It then becomes about using those to map Flyd streams into our VM, effectively.
 
 What might that look like?
 
@@ -213,6 +213,7 @@ Now, obviously, dropping the global WeakMap means that actually calling the func
 Also, I think I could simplify things a bit more, too.  Since we're wrapping a call to `stream.pipe`, and we have to call `pipe` to use it... why not just return the function returned by `flyd.map`?  Well, actually, that would change things, operationally.  It would only create one store per call to `memoizedSpread(keyFn)` rather than one store per call to `stream.pipe(memoizedSpread(keyFn))`.  Not what we want.
 
 ```js
+// NOTE: Below I say this should be changed to memoizedSpreadOf
 function memoizedSpread(keyFn = (elem, index) => index) {
     return function $memoizedSpread(stream$) {
         const streamStore = new Map()
@@ -296,11 +297,94 @@ So that takes care of instances on the VM side.  This thus allows us to keep Hyp
 
 
 
+## Simple State to Rendering
+
+Before I tackle using those fancy memoized thingers, I'm going to takle setting up a simple state->render thing.
+
+We have a few things:
+- A top-level sink that actions go into
+- A top-level source that states come out of
+
+We then want to turn state changes into DOM updates.  So, it seems then, `Stream<Action> -> Stream<State> -> Stream<DOM>`
+
+> Technically, the transform from `State` to `DOM` also flushes those changes to the actual DOM itself.
+
+```js
+const dispatch$ = flyd.stream()
+const state$ = dispatch$.pipe(flyd.scan(
+    (acc, action) => {
+        switch (action[0]) {
+            case 'incr': return acc + action[1]
+            default: return acc
+        }
+    },
+    0
+))
+
+const dom$ = state$.pipe($ => {
+    const html = hyperHTML.wire($)
+    return $.pipe(flyd.map(state => html`
+        <h1>Counter!</h1>
+        <div class="value">${state}</div>
+        <button onclick=${() => dispatch$(['incr', 1])}>Incr!</button>
+    `))
+})
+
+// We don't need to attach it after this,
+// it becomes purely side-effectual via hyperHTML.
+hyperHTML.bind(document.getElementById('app'))`${dom$()}`
+```
+
+
+
 ## Using the Memoized Thingies
 
 So, with `memoizedSpreadOf` and `memoizedSpreadPipe`, we can do things like this...
 
-> TK!
+```js
+const dispatch$ = flyd.stream()
+const state$ = dispatch$.pipe(flyd.scan(
+    (acc, action) => {
+        switch (action[0]) {
+            case 'incr':
+                if (action[1][0] >= acc.length) return acc
+                return acc.map((c, i) => {
+                    if (i === action[1][0]) return c + action[1][1]
+                    return c
+                })
+
+            default: return acc
+        }
+    },
+    [2, 5, 1]
+))
+
+// Stream<Array<Stream<DOM>>>
+const counterDoms$ = state$.pipe(memoizedSpreadOf())
+    .pipe(memoizedSpreadPipe(($, index) => {
+        const html = hyperHTML.wire($)
+        const doIncr = () => dispatch$(['incr', [index, 1]])
+        return $.pipe(flyd.map(counterState => html`
+            <h2>Counter ${index + 1}</h2>
+            <div class="counter-content">
+                <span class="counter-value">${counterState}</span>
+                <button onclick="${doIncr}"></button>
+            </div>
+        `))
+    }))
+
+const appDom$ = state$.pipe($ => {
+    const html = hyperHTML.wire($)
+    return $.pipe(flyd.map(state => html`
+        <h1>Counters!</h1>
+        ${counterDoms$().map($ => $())}
+    `))
+})
+
+hyperHTML.bind(document.getElementById('app'))`${appDom()}`
+```
+
+Event handling could be a wee bit better, but the basic idea is there.
 
 
 

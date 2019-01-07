@@ -307,7 +307,7 @@ We have a few things:
 
 We then want to turn state changes into DOM updates.  So, it seems then, `Stream<Action> -> Stream<State> -> Stream<DOM>`
 
-> Technically, the transform from `State` to `DOM` also flushes those changes to the actual DOM itself.
+> Technically, the transform from `State` to `DOM` also flushes those changes to the actual DOM itself.  ... and technically, the DOM streams are actually returning the same nodes, or are effectively memoized.  For very impure notions of memoized.
 
 ```js
 const dispatch$ = flyd.stream()
@@ -385,6 +385,116 @@ hyperHTML.bind(document.getElementById('app'))`${appDom()}`
 ```
 
 Event handling could be a wee bit better, but the basic idea is there.
+
+
+
+## Actions
+
+In Cycle JS, this was handled thusly: Actions were a sink that a component output.  Perhaps the same should be done here?  It's likely that the shape Cycle took is basically the inevitable end of any completely stream based thingamabob.
+
+In such a model, then, we'd have Components which accept Sources and return Sinks.  Each of these is a dictionary of things, though naturally in JS we'll just use Objects because Objects.
+
+```js
+function App({ state$ }) {
+    const actions$ = namedEventHandlers({
+        incr(event) {
+            return ['incr']
+        },
+        reset(event) {
+            return ['set', 0]
+        },
+    })
+
+    const html = hyperHTML.wire(state$)
+
+    const dom$ = state$.pipe(flyd.map(state => html`
+        <h1>Counter!</h1>
+        <div class="counter-value">${state().value}</div>
+        <div class="counter-controls">
+            <button onclick="${actions$.handle('incr')}">Incr</button>
+            <button onclick="${actions$.handle('reset')}">Reset</button>
+        </div>
+    `))
+
+    return { dom$, actions$ }
+}
+```
+
+or something like that.
+
+Why that way, though?  Because otherwise, you're having to make all the event handler things eventually do `myEvents.pipe(flyd.on(action => actions$(action)))`, and even if that is what eventually happens, it's just weird.  (And if everyone does it, maybe it should be abstracted around?)
+
+What's this also gain?  Well, if you look at how Cycle handles sub-components, it's just mapping streams.
+
+```js
+function App({ state$ }) {
+    const actions$ = namedEventHandlers({
+        addCounter(event) {
+            return ['addCounter']
+        },
+    })
+
+    // Stream<Array<{ actions$: Stream<Action>, dom$: Stream<DOM> }>>
+    const countersSinks$ = state$
+    .pipe(memoizedSpreadOf(counterState => counterState.id))
+    .pipe(flyd.map(counterState$s => counterState$s.map(
+        counterState$ => Counter({ state$: counterState$ })
+    )))
+
+    const allActions$ = mergeAll([
+        actions$,
+        // Stream<Array<{ actions$: Stream<Action> }>> -> Stream<Action>
+        // Note the use of Chain instead of Map.
+        // Inner fn is Array<{}> -> Stream<Action>
+        countersSinks$.pipe(flyd.chain(countersSinks =>
+            // from 'flyd/module/mergeall'
+            mergeAll(countersSinks.map(sinks => sinks.actions$))
+        )),
+    ])
+
+    // Stream<Array<{ dom$: Stream<DOM> }>> -> Stream<Array<DOM>>
+    const countersDoms$ = countersSinks$.pipe(flyd.map(countersSinks => (
+        // There's probably already an elegant way to do this.
+        flyd.combine(
+            (...dom$s, self, changed) => {
+                return dom$s.map(dom$ => dom$())
+            },
+            countersSinks.map(sinks => sinks.dom$)
+        )
+    )))
+
+    const html = hyperHTML.wire(state$)
+
+    const dom$ = flyd.combine(
+        (state$, countersDoms$) => {
+            return html`
+                <h1>Counters!</h1>
+                <div class="counters">${countersDoms$()}</div>
+                <div class="counters-controls">
+                    <button onclick="${actions$.handle('addCounter')}">Add Counter</button>
+                </div>
+            `
+        },
+        [state$, countersDoms$]
+    )
+
+    return {
+        actions$: allActions$
+    }
+}
+```
+
+Hm.  That's quite complicated, but there's probably some helpers we could do up:
+- Something to help deal with `Stream<State> -> Stream<Array<{ [sinkKey]: Stream<SinkValue> }>>` might help.
+    - We have to do a `mergeAll` on `actions$`, but we just want to get `Stream<Array<SinkValue>>` for `dom$`, so we need different strategies.
+    - Probably a couple helpers and an extractor.
+        - Extractor: `SinkKey -> Stream<Array<{ [sinkKey]: Stream<SinkValue> }>> -> Stream<Array<Stream<SinkValue>>>`
+        - Helpers:
+            - for `actions$`: `Stream<Array<Stream<SinkValue>>> -> Stream<SinkValue>`
+            - for `dom$`: `Stream<Array<Stream<SinkValue>>> -> Stream<Array<SinkValue>>`
+        - These helpers can be seen up in the example, already, so we're pretty good there.
+
+Hmmm.
 
 
 

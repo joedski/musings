@@ -221,11 +221,11 @@ function memoizedSpread(keyFn = (elem, index) => index) {
 
         // If we get stopped, eagerly stop any still exsting substreams.
         stream$.end.pipe(flyd.on(() => {
-            streamStore.forEach((valueStream$ => (
+            streamStore.forEach(valueStream$ => (
                 valueStream$.end() === true
                     ? null
                     : valueStream$.end(true)
-            )))
+            ))
         }))
 
         return stream$.pipe(flyd.map(values => {
@@ -495,6 +495,73 @@ Hm.  That's quite complicated, but there's probably some helpers we could do up:
         - These helpers can be seen up in the example, already, so we're pretty good there.
 
 Hmmm.
+
+
+
+## More Faffing With Memos
+
+I'm rapidly losing interest, but I wonder if there's a more fundamental operation for dealing with the spread-memo bit?
+
+Maybe rather than a dedicated list one, we do... something.  Like ... this?
+
+```js
+// Foo :: { id: string, value: number }
+const Foo = (id) => ({ id, value: 0 })
+const memoizedSpreadOf = (keyFn = (item, index) => index) => keyedSpread(
+    {
+        createChild(item, itemKey) {
+            return flyd.stream()
+        },
+        updateChild(itemStream$, item, itemKey, index) {
+            itemStream$(item)
+        },
+        destroyChild(itemStream$) {
+            itemStream$.end(true)
+        },
+        eachChildOnParentEnd(itemStream$, itemKey) {
+            if (itemStream$.end()) return
+            itemStream$.end(true)
+        },
+    },
+    keyFn
+)
+// :: Stream<Array<Foo>>
+const streamOfArrays$ = flyd.stream([Foo('yakka'), Foo('foob'), Foo('mog')])
+const streamOfStreams$ = streamOfArrays$.pipe()
+```
+
+Still feels kinda stream specific, though, with `eachChildOnParentEnd`.  Speaks to the instantial nature of this operation, though.  Also opens up the ability to make that combo `key + transform` thing I was thinking about:
+
+```js
+const memoizedSpread = (keyFn = (item, index) => index, streamFn) => keyedSpread(
+    {
+        createChild(item, itemKey) {
+            const itemStream$ = flyd.stream()
+            if (streamFn) {
+                return Object.assign(itemStream$.pipe(streamFn), {
+                    source$: itemStream$,
+                })
+            }
+            return Object.assign(itemStream$, {
+                source$: itemStream$,
+            })
+        },
+        updateChild(itemStream$, item, itemKey, index) {
+            itemStream$(item)
+        },
+        destroyChild(itemStream$) {
+            itemStream$.source$.end(true)
+        },
+        eachChildOnParentEnd(itemStream$, itemKey) {
+            if (itemStream$.source$.end()) return
+            itemStream$.source$.end(true)
+        },
+    },
+    keyFn
+)
+```
+
+Saves a bit of memory and a bit of code space.  But mostly, it's the most common operation.
 
 
 

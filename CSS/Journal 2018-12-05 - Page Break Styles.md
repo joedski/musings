@@ -147,7 +147,7 @@ Now that I've gotten everything nice and pretty, I want to reduce the number of 
 
 ### Testing in IE
 
-I don't have a Windows computer and I'm pretty sure I'm not allowed to just load up BrowserStack and plunk our app in that, so I'm going to have to wait until our main tester has a chance to verify that the current styles work in our IE support matrix.
+I tested these styles in Chrome and FireFox, but not IE.  Now, I don't have a Windows computer and I'm pretty sure I'm not allowed to just load up BrowserStack and plunk our app in that, so I'm going to have to wait until our main tester has a chance to verify that the current styles work in our IE support matrix.
 
 
 ### Fixing other things

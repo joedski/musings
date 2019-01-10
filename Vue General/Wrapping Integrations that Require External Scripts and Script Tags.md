@@ -110,3 +110,45 @@ function loadScript(scriptSrc) {
 Nice.
 
 From there, you can do all manner of things like adding a mixin that automatically sets data props and whatnot, but this is simple enough.
+
+You could even avoid attaching novel properties to objects you shouldn't do that to with WeakMap:
+
+```js
+const loadScript = (() => {
+    const loadedPromises = new WeakMap()
+
+    return function loadScript(scriptSrc) {
+        let scriptTag = document.head.querySelector(`script[src="${scriptSrc}"]`)
+
+        if (! scriptTag) {
+            scriptTag = document.createElement('script')
+            scriptTag.src = scriptSrc
+            const scriptTagLoadedPromise = new Promise((resolve, reject) => {
+                const resolveAndRemove = (event) => {
+                    resolve(event)
+                    remove()
+                }
+
+                const rejectAndRemove = (event) => {
+                    reject(event)
+                    remove()
+                }
+
+                const remove = () => {
+                    scriptTag.removeEventListener('load', resolveAndRemove)
+                    scriptTag.removeEventListener('error', rejectAndRemove)
+                }
+
+                scriptTag.addEventListener('load', resolveAndRemove)
+                scriptTag.addEventListener('error', rejectAndRemove)
+            })
+            loadedPromises.set(scriptTag, scriptTagLoadedPromise)
+            document.head.appendChild(scriptTag)
+        }
+
+        return loadedPromises.get(scriptTag)
+    }
+})()
+```
+
+Easy peasy.

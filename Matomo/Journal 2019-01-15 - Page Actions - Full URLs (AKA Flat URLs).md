@@ -233,3 +233,16 @@ curl "..." | jq 'map(select(has("url")))'
 Not sure we actually want to omit that, though, but I'm not sure how to break it down since it doesn't really give any details besides "Others".
 
 So, that's that, I guess.  One parameter.  And sending the correct metrics, that helps, too.  Now if only we actually changed the page title...
+
+
+### Also the Admin Page Can Do That Too
+
+Looks like you can view the `flat=1` view in Matomo's admin page, too, though the option is at the very very very bottom of the page.
+
+
+
+## Only 100 Records?
+
+We have `/edit/*` and `/admin/*` routes, too, and I'd kind of wondered where those went.  Turns out there was a `filter_limit` param with a default value of 100, and `/page` was first because of `filter_sort_order=desc`.  `asc` would give different results.
+
+This is trivially fixed by adding `filter_limit=-1`.  The other option is to have the table load each page dynamically, which would probably be better, but possibly more annoying to the user?  Eh.

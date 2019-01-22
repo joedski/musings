@@ -151,3 +151,5 @@ My second thought is this:
 - After the mapping pass, any Components still flagged have their disposal methods called.
 
 This same map could be used by the mapping pass to handle the disposal method calls, rather than having those in the mapping pass itself.  Arrays will have to have a similar process occur.  In fact, they could probably use the exact same thing, or at least it's very close...  Hm.
+
+Another consideration: I don't even know how other keyed systems handle movement of keyed items between different lists or depths.  I think they just don't.  Not handling that admittedly likely strange case makes things easier.

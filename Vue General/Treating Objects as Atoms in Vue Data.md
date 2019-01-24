@@ -96,3 +96,30 @@ This works here because values from daggy are meant to be treated as immutable a
 While this is handy, you still have to watch out: Objects that have their own state, that is they self-mutate, are a poor fit for this technique.  This is explicitly called out somewhere in Vue's docs.  (TODO: Link to that!)  It's really more suited for objects that can be treated as immutable discrete values, hence use of the term "atom".
 
 Technically, you can (maybe?) get around that by applying another layer of indirection, `Object.create({ value: statefulObject })`, but at that point you might as well just do something like `this.propNotDefinedInData = statefulObject` and be done with it.  Simple is better, there.
+
+
+
+## Post-Final Amusement
+
+```js
+const atomPrototype = {
+    map(fn) {
+        return atom(fn(this.value))
+    },
+
+    toString() {
+        return '[object Atom]'
+    }
+}
+
+function atom(value) {
+    return Object.create(Object.assign({ value }, atomPrototype))
+}
+
+vm.someReactiveProp = atom({ forbidden: 'Semprini' })
+vm.$watch('someReactiveProp', next => {
+    vm.derivedProp = vm.someReactiveProp.map(value => ({
+        forbidden: value.forbidden.toUpperCase()
+    }))
+})
+```

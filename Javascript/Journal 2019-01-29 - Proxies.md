@@ -27,7 +27,7 @@ handler.get = function get(target, propKey, receiver) {
 
 > NOTE: They call it `receiver`, it's just the `this` context argument in `Function.prototype.call(context, ...args)`, or `.apply`, `Array.prototype.map(fn, context)`, etc.
 
-> NOTE: `Reflect.get` is another thing to look into... But notice that it has the same signature as `handler.get`.  Hmm hmm hmm!
+> NOTE: `Reflect` provides statically defined methods that implement the default behaviors of the various traps you can set in your `handler`, so it makes sense to use it as the else-case for anything you implement, at least where you want to have default behavior...  e.g. `Reflect.delete(target, propName)` is the same as `delete target.propName`.
 
 We could do something like this:
 

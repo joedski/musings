@@ -177,20 +177,20 @@ FROM "foo"
 ;
 
 WITH "anon_table" ("foo", "bar") AS (VALUES
-  -- NOTE: Type specified only for the first row!
-  (1, '1'::jsonb),
-  (2, '2'),
-  (3, '3')
+    -- NOTE: Type specified only for the first row!
+    (1, '1'::jsonb),
+    (2, '2'),
+    (3, '3')
 )
 UPDATE "real_table"
 SET "bar" = jsonb_set(
-  "real_table"."bar",
-  '{sameValue}',
-  (
-    SELECT "anon_table"."bar"
-    FROM "anon_table"
-    WHERE "anon_table"."foo" = "real_table"."foo"
-  )
+    "real_table"."bar",
+    '{sameValue}',
+    (
+        SELECT "anon_table"."bar"
+        FROM "anon_table"
+        WHERE "anon_table"."foo" = "real_table"."foo"
+    )
 )
 WHERE "real_table"."foo" IN (SELECT "foo" FROM "anon_table")
 ;
@@ -214,3 +214,169 @@ FROM "foo"
 -- LINE 4:  (2, 25),
 --              ^
 ```
+
+
+
+## `WITH RECURSIVE`
+
+These are examples pulled from the documentatino on `WITH` clauses, just as a quick summary and some personal notes.
+
+Here's a simple example that generates a sequence of numbers from 1 to 10:
+
+```sql
+WITH RECURSIVE foo (value) AS (
+    VALUES
+        (1)
+    UNION ALL
+        SELECT value + 1 AS value
+        FROM foo
+        WHERE value < 10
+)
+SELECT *
+FROM foo
+;
+```
+
+> NOTE: I tried running this both with `UNION ALL` and just `UNION` and it returned the same result.  Not sure if `UNION ALL` is necessary here.
+
+> NOTE: `UNION` discards duplicates, but `UNION ALL` retains them.
+
+
+### Tree Structures
+
+Naturally, `WITH RECURSIVE` can be used for tree structures, too.
+
+Suppose we have `some_tree (id, parent_id)`:
+
+```sql
+CREATE TABLE IF NOT EXISTS some_tree (
+    id SERIAL PRIMARY KEY,
+    -- For now, delete children of deleted parents
+    parent_id integer REFERENCES some_tree (id) ON DELETE CASCADE
+);
+```
+
+And let's fill it with some test data:
+
+```sql
+INSERT INTO some_tree (parent_id)
+VALUES
+    (NULL),
+    (NULL),
+    (NULL),
+    (1),
+    (2),
+    (4),
+    (1),
+    (4),
+    (2),
+    (6),
+    (7)
+;
+```
+
+We could get a child and all its ancestors like so:
+
+```sql
+-- In psql, you can test it like this:
+-- insert into some_tree (parent_id) values (null), (null), (1), (2), (4);
+-- \set id 6
+WITH RECURSIVE node_and_ancestors (id, parent_id, depth) AS (
+    -- Initial selection: The target node.
+    SELECT id, parent_id, 0 AS depth
+        FROM some_tree
+        -- use `\set id 6` for instance.
+        WHERE id = :id
+    UNION
+        SELECT some_tree.id, some_tree.parent_id, depth - 1 AS depth
+        FROM node_and_ancestors
+        JOIN some_tree ON some_tree.id = node_and_ancestors.parent_id
+)
+SELECT *
+FROM node_and_ancestors
+;
+```
+
+- We start by selecting the target node, which in the above snippet takes advantage the `psql` tool's ability to reference defined variables with a colon.
+    - As noted, these can be set using `\set id 6`.
+- Then, we start joining `some_tree` where `id`s in there equal the `parent_id`s of rows in the current `node_and_ancestors` selection.
+    - This iterates until there's no more things to select, which in this case means when `parent_id` is `NULL`.
+- Finally, just spit all those out.
+
+Similarly, we can get all descendants:
+
+```sql
+-- use `\set id 1` for instance.
+WITH RECURSIVE node_and_descendants (id, parent_id, depth) AS (
+    SELECT id, parent_id, 0 AS depth
+        FROM some_tree
+        WHERE id = :id
+    UNION
+        SELECT some_tree.id, some_tree.parent_id, depth + 1 AS depth
+        FROM node_and_descendants
+        JOIN some_tree ON some_tree.parent_id = node_and_descendants.id
+)
+SELECT *
+FROM node_and_descendants
+;
+```
+
+Notice how this does a bredth-first search, which makes sense since we go by parent rather than by branch.
+
+We can even combine these two if we want, just for funsies:
+
+```sql
+-- Use `\set id 4` for example...
+-- Need the node itself to get node.parent_id
+WITH RECURSIVE node_and_ancestors (id, parent_id, depth) AS (
+    SELECT id, parent_id, 0 AS depth
+        FROM some_tree
+        WHERE id = :id
+    UNION
+        SELECT some_tree.id, some_tree.parent_id, depth - 1 AS depth
+        FROM node_and_ancestors
+        JOIN some_tree ON some_tree.id = node_and_ancestors.parent_id
+),
+node_descendants (id, parent_id, depth) AS (
+    SELECT id, parent_id, 1 AS depth
+        FROM some_tree
+        WHERE parent_id = :id
+    UNION
+        SELECT some_tree.id, some_tree.parent_id, depth + 1 AS depth
+        FROM node_descendants
+        JOIN some_tree ON some_tree.parent_id = node_descendants.id
+)
+SELECT node_and_ancestors.id, node_and_ancestors.parent_id, node_and_ancestors.depth
+FROM node_and_ancestors
+UNION
+SELECT node_descendants.id, node_descendants.parent_id, node_descendants.depth
+FROM node_descendants
+;
+```
+
+> NOTE: `UNION` is part of the `SELECT` portion, and the `WITH` clauses apply to the query as a whole.
+
+This same sort of iterative methodology can be used for graph type structures, too, though you may have to `JOIN` on an edges table or something, depending on the setup.  Good times.
+
+
+
+## Multiple Operations via `WITH` Clauses
+
+Another interesting thing noted in the Postgres docs is that you can use `WITH` clauses to perform multiple mutations on data.  Their example of "moving" records:
+
+```sql
+WITH moved_rows AS (
+    DELETE FROM products
+    WHERE
+        "date" >= '2010-10-01' AND
+        "date" < '2010-11-01'
+    RETURNING *
+)
+INSERT INTO products_log
+SELECT * FROM moved_rows
+;
+```
+
+Note the `RETURNING *`, which is necessary since, ordinarily, `DELETE` doesn't return anything!  This tells Postgres to return the records that were selected for deletion, loading them into the `moved_rows` temporary table, and thus letting the `SELECT` query pull them back out for the `INSERT`.
+
+`RETURNING` is a feature in Postgres, but not every RDBMS.  As a frill, it's most certainly not in the light weight `sqlite`.

@@ -461,7 +461,7 @@ Some limitations:
     - Not much of a problem, though, because apparently you can specify a handler function inline, [so you can do this](https://jsfiddle.net/7jxL0fyu/):
         - `<foo @some-event="(foo, bar) => $streams.thingy([foo, bar])" />`
 - Streams aren't pervasive: Instead of streams being the primary data management system ala Cycle.js, they're shoved into a box, albeit a box that handles all the component's event and state processing.
-    - However, you can at least pass the sinks out via `this.$sinks`.
+    - However, you can at least pass the sinks out via `this.$streams.$sinks`.
     - I suppose this could be circumvented by just having `stream.$watch` check if the target value is another stream and just subscribe to its values.  Flyd does have an `isStream()` utility.
     - Updates then still only come out via the Sinks, which is fine.
 
@@ -516,3 +516,90 @@ Could fix that streams-props one pretty easily:
     },
 }
 ```
+
+A simple counter then looks like this:
+
+```html
+<template>
+    <div class="counter">
+        <div class="counter-count">{{ currentCount }}</div>
+        <div class="counter-controls">
+            <button @click="handleIncrementClick">
+                Increment
+            </button>
+        </div>
+    </div>
+</template>
+```
+
+```js
+export default {
+    name: 'Counter',
+
+    streams(source) {
+        const counterClicks = source('counterClicks')
+        const currentCount = counterClicks.pipe(flyd.scan(
+            (acc) => acc + 1,
+            0
+        ))
+
+        return {
+            currentCount,
+        }
+    },
+
+    methods: {
+        handleIncrementClick(event) {
+            this.$streams.counterClicks(event)
+        }
+    },
+}
+```
+
+Here's what the original Vue code might look like:
+
+```js
+export default {
+    name: 'Counter',
+
+    data() {
+        return {
+            currentCount: 0,
+        }
+    },
+
+    methods: {
+        handleIncrementClick(event) {
+            this.currentCount += 1
+        },
+    },
+}
+```
+
+The Ideomatic Vue version is more concise... for now.  FRP wins out in the long run, though.
+
+
+### Object Paths
+
+There's a pretty big limitation in the above: It fails when you hand `$createSource` an object path.  We really need something like `lodash.has`.  Given that, I'm leaning towards not having any automatic behavior at all.  That is, if you want to bind to a Prop, you have to explicitly specify a watcher on that prop.
+
+```js
+export default {
+    props: {
+        foo: { type: String },
+    },
+
+    streams(source) {
+        // Must pass in the watch listener in the second arg.
+        const foo = source('foo', 'foo')
+        return {
+            FOO: foo.map(a => String(a).toUpperCase()),
+        }
+    },
+}
+```
+
+
+### Starting with Values
+
+Just use `source('thinger').pipe(flyd.merge(startsWith(someValue)))` or whatever.  Would be nice to have some shorthand for that, but `source()` is overloaded as is.  Alternatively, you could do `const foo = source('foo'); foo(initValue);`.  The only problem there is that any scans will then be off-by-one by the time the initial render occurs.  Bleh!

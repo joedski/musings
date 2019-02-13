@@ -106,3 +106,31 @@ function asyncify(syncFn) {
 ```
 
 This works because throwing an error in the Promise Executor (the function you pass to the Promise Constructor) results in that Promise rejecting!  So you don't even need to write your own try/catch block in there, you can just eagerly call `resolve` and know that, should `syncFn` throw, the Promise will `reject` instead.
+
+
+
+## Returnable If Statements: A Fun Use of IIFEs
+
+`if/else` block sets are Flow-Control Statements in JS, which means that unlike in Coffeescript, Lisp, or various other languages, you can't use them to assign to a `const` declaration.  At least, not directly.
+
+There is, however, something in JS that does allow you to assign to a `const` declaration, and that's an Immediately Invoked Function Expression, or IIFE.  Thus, you can now write complex one-off logic in an assignable-returnable manner.  Even more, since the logic is already swaddled in a function, you can just copy/paste it out somewhere else if you ever need to extract it!
+
+This is a lot friendlier, I think, than writing ternaries.  More verbose, but easier to follow.
+
+In fact, the only time I think you shouldn't do this is in any performance critical code, since it creates a new function-closure every execution.  There, you'll want to devolve to more imperative-procedural modalities, assuming that's actually where your performance bottleneck is.  You did profile, first, right?
+
+```js
+// arrow functions are perfect for this sort of use
+// due to keeping the same `this` binding as their parent function.
+const someValue = (() => {
+    if (something === 'thing!') {
+        return 'something else entirely'
+    }
+
+    if (isFrabjous(something)) {
+        return 'callou callay'
+    }
+
+    return 'boo'
+})()
+```

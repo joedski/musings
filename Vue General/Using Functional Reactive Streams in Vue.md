@@ -603,3 +603,34 @@ export default {
 ### Starting with Values
 
 Just use `source('thinger').pipe(flyd.merge(startsWith(someValue)))` or whatever.  Would be nice to have some shorthand for that, but `source()` is overloaded as is.  Alternatively, you could do `const foo = source('foo'); foo(initValue);`.  The only problem there is that any scans will then be off-by-one by the time the initial render occurs.  Bleh!
+
+
+
+## Too Fancy?
+
+What about if I just made it so that you create sources like normal, then hook them up explicitly via `this.$watch` or something?  And then you'd return an object with `{ sources: { ... }, sinks: { ... } }`?  Hm.
+
+```js
+export default {
+    streams() {
+        const someProp = flyd.stream()
+        this.$watch('someProp', next => someProp(next))
+        const clicks = flyd.stream()
+        const clickCount = clicks.pipe(flyd.scan(
+            (acc) => acc + 1,
+            0
+        ))
+
+        return {
+            sources: {
+                clicks,
+            },
+            sinks: {
+                clickCount,
+            }
+        }
+    },
+}
+```
+
+Hm.

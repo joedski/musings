@@ -605,6 +605,11 @@ export default {
 Just use `source('thinger').pipe(flyd.merge(startsWith(someValue)))` or whatever.  Would be nice to have some shorthand for that, but `source()` is overloaded as is.  Alternatively, you could do `const foo = source('foo'); foo(initValue);`.  The only problem there is that any scans will then be off-by-one by the time the initial render occurs.  Bleh!
 
 
+### Stream Props
+
+I decided to drop special treatment of Props that are Streams.  You can easily and more robustly cover that case with [a `mergeAll` type thing](https://github.com/bertofer/flyd-mergeAll).  Or even just `flyd.combine((...ss, self, changed) => (flyd.isStream(ss()) ? ss()() : undefined), [streamOfPropWatch])`.
+
+
 
 ## Too Fancy?
 
@@ -616,21 +621,70 @@ export default {
         const someProp = flyd.stream()
         this.$watch('someProp', next => someProp(next))
         const clicks = flyd.stream()
+        const somePropChanges = someProp.pipe(flyd.scan(
+            (acc) => acc + 1,
+            0
+        ))
         const clickCount = clicks.pipe(flyd.scan(
             (acc) => acc + 1,
             0
         ))
 
         return {
-            sources: {
+            $sources: {
+                someProp,
                 clicks,
             },
-            sinks: {
+            $sinks: {
+                somePropChanges,
                 clickCount,
-            }
+            },
         }
     },
 }
 ```
 
-Hm.
+Hm.  Returning `$sources` and `$sinks` makes it very obvious what's happening.  It provides a very nice symmetry to `this.$streams.$sources` and `this.$streams.$sinks`.
+
+We could easily wrap that in a helper:
+
+```js
+export default {
+    streams() {
+        const someProp = this.$streams.$fromWatch('someProp')
+
+        return {
+            $sources: {
+                someProp,
+            },
+            $sinks: {
+                // ...
+            }
+        }
+    }
+}
+```
+
+That's basically the `source()` function from my first version, but without the `name` parameter.
+
+On the one hand, I like the simplicity.  On the other hand, it is another layer up.  Dunno.  Currently leaning towards the first interface rather than this one.  Another thing going for the first interface is that the timing of when `$watch` is actually called is handled for you.  Here you have the special function `$fromWatch` which feels like extra.  I guess you could also do `$fromProp` as a simplified version, but eh.
+
+Given that we'll probably be using `$fromWatch` for a lot of sources, we'll probably want to pass that in.
+
+```js
+export default {
+    streams({ $fromWatch }) {
+        const someProp = $fromWatch('someProp')
+
+        return {
+            $sources: { someProp },
+            $sinks: { /* ... */ },
+        }
+    }
+}
+```
+
+
+### Do We Actually Need Watch Handler?
+
+Another thought I just had is this: We might not really need the watch handler.  The only time I can think of that it's useful is if you do `stream => (next, prev) => stream([next, prev])`, and honestly, you can do that with `flyd.scan((acc, next) => [next, acc[0]], [])`, so you don't really gain much by being able to change that.  Seems like something in both API shapes I've checked out that honestly doesn't need to be there.  It pollutes the API without adding anything.

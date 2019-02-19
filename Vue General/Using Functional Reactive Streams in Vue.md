@@ -881,3 +881,82 @@ interface IStreamsController<TComponent, TConfig> {
 ```
 
 Not quite sure that'll work for everything, buuut it's a start.
+
+
+### Dogmaticism: Don't Bind the Manager to the VM?
+
+Honestly, not sure how far I could go with that, since any integration would require referencing the VM at some point.  Currently, it's documented that `streams.sources()` and `streams.sinks()` are called in the context of the VM, to allow access to any features one can reasonably assume are available on a given instance.  This means `Manager#createStreams()` must necessarily have access to the VM.  `Manager#watch()` also needs it, just due to needing perform side effects for each Sink.
+
+Not really sure it's worth trying to get dogmatic in that.  The Manager needs a VM to actually tie to it.
+
+Could this be worked around?
+
+- Theoretically, you don't need to have `sources()` or `sinks()` called in the VM context, though I feel that would be rather confusing.
+- The only time you absolutely need the VM is in `watch()`, where you're making explicit bindings to the VM.
+
+Not binding the VM to the Manager does present another downside: Error messages from the Manager can't reference `$options.name`.  Given the marginal benefit of binding only at the point of integration rather than instantiation, that name referencing point is probably enough to just leave binding at the top level.
+
+#### How About: Why Dogmatic?
+
+Why do I want to even consider this, though?  That might be a better question to ask, first.
+
+Theoretically, if the Manager can operate apart from a VM, then the Manager can be tested in isolation from a VM.
+
+I'm not sure if there's much benefit to that, given that the entire point is gluing a blob of streams to a Vue component.  The Streams library is assumed to be reasonably well tested, and Vue itself is assumed to be so well tested, too.  The issue then is purely around the integration.  That being the case, is there really any value to being able to test this glue code outside of the things it's gluing together?  I'm inclined to say _"no"_.
+
+
+
+## Bikeshedding III: Yet Another API
+
+We're returning things as Sources and Sinks, but really, Streams don't care that much other than not having any sugar for Cycles in the Dependency Graph.  You can't (easily?) make a Stream that eventually has itself as a dependency, you can only eventually push a value into it, making that an implicit cycle.  Implicit is exactly what FR Streams are meant to avoid.
+
+In light of this, is there really any value to having two separate functions?  Thinking about it, it's really kind of an indirection with no benefit.  Instead, the original single `streams()` function which returns an object with two fields `sources` and `sinks` may be better.
+
+Thus, usage would look like this:
+
+```js
+export default {
+    streams({ fromWatch }) {
+        const labels = fromWatch('label')
+        const clicks = flyd.stream()
+        const clickCounts = clicks
+        .pipe(flyd.filter(Boolean))
+        .pipe(flyd.scan(acc => acc + 1, 0))
+
+        return {
+            sources: { labels, clicks },
+            sinks: { clickCounts },
+        }
+    },
+}
+```
+
+That still gives us static typing since `sources` and `sinks` are both explicitly defined, and, well, the documentation from explicit decalaration of `sources` and `sinks`.
+
+Something to do in `v0.4.0` I guess.
+
+With types:
+
+```js
+export default {
+    streams({ fromWatch }) {
+        // The typings are best done without accessor shorthands, hence
+        // the use of a function instead of a string.
+        // The type annotation then is just there to ensure the given interface.
+        // An expectation, if you will.
+        const labels: Stream<string> = fromWatch(() => this.label)
+        // Since this is a new stream, we have to explicitly define the type.
+        const clicks: Stream<any> = flyd.stream()
+        // Technically, the type is already determined by `stream.pipe(flyd.scan)`.
+        const clickCounts: Stream<number> = clicks
+        .pipe(flyd.filter(Boolean))
+        .pipe(flyd.scan(acc => acc + 1, 0))
+
+        // :: { sources: { labels: Stream<string>, clicks: Stream<any> }, sinks: { clickCounts: Stream<number> } }
+        return {
+            sources: { labels, clicks },
+            sinks: { clickCounts },
+        }
+    },
+}
+```

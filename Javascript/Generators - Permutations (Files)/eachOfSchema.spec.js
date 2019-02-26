@@ -33,6 +33,14 @@ const { eachOfSchema } = require('./eachOfSchema')
     { foo: 'foo-3', bar: 16 },
   ]
 
+  // We can compare results in order because we know these:
+  // - eachOfSchema ultimately relies on eachPermutation.
+  // - eachPermutation iterates last-iterator-first.
+  // - V8 traverses object properties in order of addition,
+  //   which for literals means in order of writing.
+  // If we didn't take advantage of those, we'd have to treat the
+  // results set as a Set rather than an Array.
+
   let i = 0
   for (const result of eachOfSchema(schema)) {
     const expectedResult = schemaResults[i]

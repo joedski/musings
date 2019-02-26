@@ -688,3 +688,275 @@ export default {
 ### Do We Actually Need Watch Handler?
 
 Another thought I just had is this: We might not really need the watch handler.  The only time I can think of that it's useful is if you do `stream => (next, prev) => stream([next, prev])`, and honestly, you can do that with `flyd.scan((acc, next) => [next, acc[0]], [])`, so you don't really gain much by being able to change that.  Seems like something in both API shapes I've checked out that honestly doesn't need to be there.  It pollutes the API without adding anything.
+
+
+
+## Typescript Friendly
+
+This initial interface, although a bit wonky implementation wise, is actually pretty nice to use.  I like it.  It's not the most friendly to static systems like Typescript, though, being that Sources are created imperatively rather than declaratively.  (I suppose there's some argument about whether or not the `streams()` option is indeed imperative or declarative, but anyway.)
+
+Now, I don't actually care about how the Sources themselves are created, only that it's not easy to statically type the current interface in Typescript.  In fact, since it's based completely on actually executing JS, it's impossible in the current system.  Hm.
+
+Hmmm.
+
+Hmmmmmmmm.
+
+The issue is that we need to have Sources their own thing, so that `this.$streams.$sources` or however they'll be accessed can have a specified interface.  As noted, I don't actually care about how they're created, so long as we have the interface.  So, maybe we just shove Source creation into its own function?  This would give us a few things:
+- The inferred interface of the return value of this Sources Definition Function would be, well, the interface for our Sources.
+- The creation of Sources is in its own explicitly defined area, which is good for documentation.
+    - It's not an Object, but it at least returns one.
+- It's symmetrical with how the Sinks are created.
+    - Granted, this isn't necessarily important, but it is comfy.
+
+So, we get something like this:
+
+```js
+export default {
+    mixins: [StreamsMixin],
+
+    streams: {
+        sources({ fromWatch }) {
+            const prop = fromWatch('prop')
+            const combined = fromWatch(() => (this.a + this.b))
+            const clicks = flyd.stream()
+
+            return { prop, combined, clicks }
+        },
+        sinks(sources) {
+            const clickCount = clicks.pipe(flyd.scan(acc => acc + 1, 0))
+            const moreCombined = flyd.combine(
+                (prop, combined, self, changed) => {
+                    return `${prop()} - ${combined()}`
+                },
+                [sources.prop, sources.combined]
+            )
+
+            return { clickCount, moreCombined, combined: sources.combined }
+        }
+    }
+}
+```
+
+Bad points:
+- More nesting.
+- Sources are not independently defined, they're created imperatively, effectively.
+- function instead of an object means execution of JS is required for tooling to do anything with it.
+
+Good points:
+- Still have an explicit type for Sources.
+- Creation of Sources is symmetrical with Creation of Sinks.
+
+Wash Points:
+- Sinks is already a function, and trying to break _that_ out into something more strictly declarative would require a compiler that's even more complex to write and test, or a whole mess of utility functions to make it not unbearable to write.
+- We don't actually care about what happens inside the Sources Definition Function, only the output it returns.
+
+Uncertainties
+- Not sure about the exact interface of the manager, but it probably won't change that much?
+- And I'm still thinking of controlling the current values of some `data` props with the Sinks.  That's just handy.
+- Referincing a sink as a source is not forbidden, but is a bad idea.  Maybe it should be warned?  Hm.
+
+Never the less, this seems like an improvement to me: `source`'s weirdness is gone, `fromWatch` is more meaningful, and knowing about `sources` and `sinks` is enforced.  Plus, `sinks` ends up looking a bit closer to Cycle, which is probably a good thing.
+
+
+### Implementation: API 2.0
+
+Or v0.3.0, I guess.  Still in the v0.x versions, after all.
+
+```js
+function StreamsManager(vm) {
+    const config = vm.$options.streams
+    const hasConfig = config && config === 'object'
+    if (hasConfig && ! (
+        typeof config.sources === 'function'
+        && typeof config.sinks === 'function'
+    )) {
+        throw new Error(`StreamsManager cannot be created for ${vm.$options.name || '(Anonymous Component)'}: vm.$options.streams.sources and vm.$options.streams.sinks must both be functions`)
+    }
+
+    const manager = {
+        $sources: {},
+        $sinks: {},
+        $controller: null,
+    }
+
+    manager.$controller = StreamsController(vm, config, manager)
+
+    return manager
+}
+
+function StreamsController(vm, config, manager) {
+    const hasConfig = config && config === 'object'
+
+    return {
+        initializeStreams() {
+            if (!hasConfig) return
+
+            const sources = config.sources.call(vm, {
+                fromWatch: (watchBinding, watchOptions) => this.streamFromWatch(watchBinding, watchOptions),
+            })
+
+            const sinks = config.sinks.call(vm, sources)
+
+            Object.assign(manager.$sources, sources)
+            Object.assign(manager, sources)
+            Object.assign(manager.$sinks, sinks)
+        },
+
+        streamFromWatch(watchBinding, watchOptions) {
+            const stream = flyd.stream()
+            vm.$watch(
+                watchBinding,
+                next => stream(next),
+                { immediate: true, ...watchOptions }
+            )
+            return stream
+        },
+
+        data() {
+            return Object.entries(manager.$sinks).reduce(
+                (acc, [key, stream]) => {
+                    acc[key] = stream()
+                    return acc
+                },
+                {}
+            )
+        },
+
+        watch() {
+            Object.entries(manager.$sinks).forEach(([key, stream]) => {
+                stream.pipe(flyd.on(e => { vm[key] = e }))
+            })
+        },
+
+        end() {
+            Object.values(manager.$sources).forEach((stream) => {
+                stream.end(true)
+            })
+        },
+    }
+}
+```
+
+I moved the Controller stuff to a separate part for a bit cleaner separation.  The Mixin is then basically the same, though:
+
+```js
+export default {
+    beforeCreate() {
+        this.$streams = StreamsManager(this)
+        this.$streams.$controller.initializeStreams()
+    },
+
+    data() {
+        return this.$streams.$controller.data()
+    },
+
+    created() {
+        this.$streams.$controller.watch()
+    },
+
+    beforeDestroy() {
+        this.$streams.$controller.end()
+    },
+}
+```
+
+The only tough part, then, is `streamFromWatch`.  Can any Typescript stuff actually apply typing to watches?  That might require some type anotations that can't actually be proven at compile time.  Hm.  You might have to just use only Function for Watch Bindings for that, that's the only thing I can think of.  Which is fine.  `fromWatch(() => this.foo)` is only a little longer than `fromWatch('foo')`.
+
+
+### Type Musing
+
+For `streamsFromWatch`, I suspect something like this:
+
+```
+interface IStreamsController<TComponent, TConfig> {
+    <TWatch>streamsFromWatch(
+        watchBinding: (this: TComponent) => TWatch,
+        watchOptions: Partial<{ immediate: boolean, deep: boolean }> | void,
+    ) => Stream<TWatch>;
+    streamsFromWatch(
+        watchBinding: string,
+        watchOptions: Partial<{ immediate: boolean, deep: boolean }> | void,
+    ) => Stream<any>;
+}
+```
+
+Not quite sure that'll work for everything, buuut it's a start.
+
+
+### Dogmaticism: Don't Bind the Manager to the VM?
+
+Honestly, not sure how far I could go with that, since any integration would require referencing the VM at some point.  Currently, it's documented that `streams.sources()` and `streams.sinks()` are called in the context of the VM, to allow access to any features one can reasonably assume are available on a given instance.  This means `Manager#createStreams()` must necessarily have access to the VM.  `Manager#watch()` also needs it, just due to needing perform side effects for each Sink.
+
+Not really sure it's worth trying to get dogmatic in that.  The Manager needs a VM to actually tie to it.
+
+Could this be worked around?
+
+- Theoretically, you don't need to have `sources()` or `sinks()` called in the VM context, though I feel that would be rather confusing.
+- The only time you absolutely need the VM is in `watch()`, where you're making explicit bindings to the VM.
+
+Not binding the VM to the Manager does present another downside: Error messages from the Manager can't reference `$options.name`.  Given the marginal benefit of binding only at the point of integration rather than instantiation, that name referencing point is probably enough to just leave binding at the top level.
+
+#### How About: Why Dogmatic?
+
+Why do I want to even consider this, though?  That might be a better question to ask, first.
+
+Theoretically, if the Manager can operate apart from a VM, then the Manager can be tested in isolation from a VM.
+
+I'm not sure if there's much benefit to that, given that the entire point is gluing a blob of streams to a Vue component.  The Streams library is assumed to be reasonably well tested, and Vue itself is assumed to be so well tested, too.  The issue then is purely around the integration.  That being the case, is there really any value to being able to test this glue code outside of the things it's gluing together?  I'm inclined to say _"no"_.
+
+
+
+## Bikeshedding III: Yet Another API
+
+We're returning things as Sources and Sinks, but really, Streams don't care that much other than not having any sugar for Cycles in the Dependency Graph.  You can't (easily?) make a Stream that eventually has itself as a dependency, you can only eventually push a value into it, making that an implicit cycle.  Implicit is exactly what FR Streams are meant to avoid.
+
+In light of this, is there really any value to having two separate functions?  Thinking about it, it's really kind of an indirection with no benefit.  Instead, the original single `streams()` function which returns an object with two fields `sources` and `sinks` may be better.
+
+Thus, usage would look like this:
+
+```js
+export default {
+    streams({ fromWatch }) {
+        const labels = fromWatch('label')
+        const clicks = flyd.stream()
+        const clickCounts = clicks
+        .pipe(flyd.filter(Boolean))
+        .pipe(flyd.scan(acc => acc + 1, 0))
+
+        return {
+            sources: { labels, clicks },
+            sinks: { clickCounts },
+        }
+    },
+}
+```
+
+That still gives us static typing since `sources` and `sinks` are both explicitly defined, and, well, the documentation from explicit decalaration of `sources` and `sinks`.
+
+Something to do in `v0.4.0` I guess.
+
+With types:
+
+```js
+export default {
+    streams({ fromWatch }) {
+        // The typings are best done without accessor shorthands, hence
+        // the use of a function instead of a string.
+        // The type annotation then is just there to ensure the given interface.
+        // An expectation, if you will.
+        const labels: Stream<string> = fromWatch(() => this.label)
+        // Since this is a new stream, we have to explicitly define the type.
+        const clicks: Stream<any> = flyd.stream()
+        // Technically, the type is already determined by `stream.pipe(flyd.scan)`.
+        const clickCounts: Stream<number> = clicks
+        .pipe(flyd.filter(Boolean))
+        .pipe(flyd.scan(acc => acc + 1, 0))
+
+        // :: { sources: { labels: Stream<string>, clicks: Stream<any> }, sinks: { clickCounts: Stream<number> } }
+        return {
+            sources: { labels, clicks },
+            sinks: { clickCounts },
+        }
+    },
+}
+```

@@ -9,24 +9,19 @@ const utils = require('./utils')
  * @yield {Generator<Array<T>>} Generator that yields values.
  */
 function *eachPermutation(fns) {
+  // This is basically how it's implemented in any functional language.
   // TODO: Exercise: Redo with less recursion?
   if (! fns || ! fns.length) {
-    yield []
+    return
   }
   else if (fns.length === 1) {
     for (const res0 of fns[0]())
       yield [res0]
   }
-  else if (fns.length === 2) {
-    for (const res0 of fns[0]())
-      for (const res1 of fns[1]())
-        yield [res0, res1]
-  }
   else {
-    // Rephrase in terms of two.
-    const rfns = [fns[0], () => eachPermutation(fns.slice(1))]
-    for (const result of eachPermutation(rfns))
-      yield [result[0]].concat(result[1])
+    for (const res0 of fns[0]())
+      for (const res1 of eachPermutation(fns.slice(1)))
+        yield [res0].concat(res1)
   }
 }
 

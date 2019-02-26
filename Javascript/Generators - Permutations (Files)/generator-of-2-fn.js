@@ -18,9 +18,6 @@ const utils = require('./utils')
 // }
 
 function *eachPermutation2(fn0, fn1) {
-  const itrs = []
-  const results = []
-
   for (const res0 of fn0())
     for (const res1 of fn1())
       yield [res0, res1]

@@ -38,7 +38,7 @@ function *eachPermutation2(fn0, fn1) {
 
 And we could do N sequences with N for loops... and define N functions.  could we do that a bit better?
 
-As it happens, we can use this to treat N sequences as 1+(N-1) sequences, all the way down until we hit N=2:
+As it happens, we can use this to treat N sequences as 1+(N-1) sequences, all the way down until we hit N=1:
 
 ```js
 function *eachPermutation(fns) {

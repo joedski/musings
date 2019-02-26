@@ -1,4 +1,4 @@
-Treating Objects as Atoms is Vue Data
+Treating Objects as Atoms in Vue Data
 =====================================
 
 Vue 2.x reactifies objects by walking their own props and transforming them into getters/setters.  In particular, it will _not_ walk the Prototype Chain, as the Vue team wanted to treat instances or objects with delegates as staying instances/objects-with-delegates.

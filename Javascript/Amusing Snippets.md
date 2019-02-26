@@ -119,6 +119,8 @@ This is a lot friendlier, I think, than writing ternaries.  More verbose, but ea
 
 In fact, the only time I think you shouldn't do this is in any performance critical code, since it creates a new function-closure every execution.  There, you'll want to devolve to more imperative-procedural modalities, assuming that's actually where your performance bottleneck is.  You did profile, first, right?
 
+> You could ease the performance hit a bit by extracting the returnable-if into a utility function, in which case it becomes a pure function of its arguments and, more importantly, only defined once, effectively "statically".
+
 ```js
 // arrow functions are perfect for this sort of use
 // due to keeping the same `this` binding as their parent function.

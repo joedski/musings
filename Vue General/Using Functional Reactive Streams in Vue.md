@@ -960,3 +960,5 @@ export default {
     },
 }
 ```
+
+Given that sometimes a stream may be both a source and a sink, and that really you can tap any stream as a sink... maybe even this distinction is too much?  Granted, having only some streams actually update Data values is probably a good thing, albeit at the cost of not being able to easily see every value in the dev tools.  But, Vue already only enqueues a Render only on changes to Data values and other reactive dependencies that are actually referenced by the Render.  Extra Data props are unlikely to appreciably affect render performance.

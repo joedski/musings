@@ -58,17 +58,17 @@ function *eachOfObjectSchema(schema) {
     return
   }
 
-  const propGenerators = []
+  const propGeneratorFns = []
   const propNames = []
 
   Object.entries(schema.properties).forEach(
     ([propName, propSchema], i) => {
-      propGenerators[i] = () => eachOfSchema(propSchema)
+      propGeneratorFns[i] = () => eachOfSchema(propSchema)
       propNames[i] = propName
     }
   )
 
-  for (const permutation of eachPermutation(propGenerators)) {
+  for (const permutation of eachPermutation(propGeneratorFns)) {
     yield permutation.reduce(
       (acc, value, i) => {
         acc[propNames[i]] = value

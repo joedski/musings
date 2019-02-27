@@ -17,3 +17,6 @@ One of the greatest difficulties in working with Typescript is in typing orthogo
 2. Apparently [`vue-class-component`](https://github.com/vuejs/vue-class-component) has [its own support for Mixins](https://github.com/vuejs/vue-class-component#using-mixins).
     1. In contrast to [(Ss 1.2.2)](https://www.npmjs.com/package/vue-mixin-decorator).
     2. Also apparently [`vue-class-component` is officially supported](https://vuejs.org/v2/guide/typescript.html#Class-Style-Vue-Components).
+3. Vuex and Typescript: https://forum.vuejs.org/t/vuex-typescript-and-vue-cli-strongly-typed-store/39925/2
+    1. Basically, say `export default abstract class Vue extends BaseVue { public $store: Store<AppState>; }` and extend from that Vue class instead.
+    2. Same thing can be done with any other global additions like event busses, HTTP services, etc.

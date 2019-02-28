@@ -125,4 +125,15 @@ class QuoteUrlCommand(sublime_plugin.TextCommand):
 Test text: This is some text with spaces!  And Punctuation...
 Result: This%20is%20some%20text%20with%20spaces%21%20%20And%20Punctuation...
 
-Nice, it works!  Now I just need to make it into a menu command.
+Nice, it works!  Now I just need to make it into a menu command.  I guess that's done with a `plugin_name.sublime-commands` file?  Or even just adding it to my own user list of sublime commands.
+
+```json
+[
+  {
+    "caption": "Quote URL",
+    "command": "quote_url"
+  }
+]
+```
+
+And it works.  Nice!

@@ -20,3 +20,7 @@ One of the greatest difficulties in working with Typescript is in typing orthogo
 3. Vuex and Typescript: https://forum.vuejs.org/t/vuex-typescript-and-vue-cli-strongly-typed-store/39925/2
     1. Basically, say `export default abstract class Vue extends BaseVue { public $store: Store<AppState>; }` and extend from that Vue class instead.
     2. Same thing can be done with any other global additions like event busses, HTTP services, etc.
+    3. I wonder if this can also be done using [declaration merging](https://www.typescriptlang.org/docs/handbook/declaration-merging.html)?
+        1. Answer: NOPE.  From that page: "Not all merges are allowed in TypeScript. Currently, _classes can not merge with other classes_ or with variables."
+        2. Thus, point 3 about creating an extension.
+        3. This is also why `vue-class-component` uses the `mixins()` utility function to create a merged Base Class that the Component using those Mixins extends from.

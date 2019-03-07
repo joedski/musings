@@ -207,3 +207,70 @@ type TaggedSumConstructorMember<TZipped extends any[]> = {
 ```
 
 Hm.  Not quite.  What am I trying to do with that?
+
+
+
+## POJOs + Functions?
+
+Two things in Typescript have a lot of nice type usage characteristics: Classes and Functions.  I've looked at the above before, but Daggy itself tends to operate in a very Function-oriented manner.  A PR I submitted even removed some uses of `this` because of Opinions (that I happened to agree with).
+
+What might this look like?  I expect a Namespace that acts as the "base type", a Union to act as the "enum" (because Tagged Sums are Better Enums), and of course functions to act upon those types.
+
+```typescript
+export type Maybe<T> = { '@sum': 'Maybe' } & (
+  { '@tag': 'Nothing', '@values': [] }
+  | { '@tag': 'Just', '@values': [T] }
+);
+
+export function Just<T>(value: T): Maybe<T> {
+  return { '@sum': 'Maybe', '@tag': 'Just', '@values': [value] };
+}
+
+export function Nothing(): Maybe<void> {
+  return { '@sum': 'Maybe', '@tag': 'Nothing', '@values': [] };
+}
+
+export function cata<T, TCatas extends AnyCatasOf<Maybe<T>> = AnyCatasOf<Maybe<T>>>(inst: Maybe<T>, catas: TCatas): AnyCataHandlerReturnType<TCatas> {
+  return catas[inst['@tag']](...inst['@values']);
+}
+
+
+//// utils?
+
+type TagsOf<T> = T extends { '@tag': infer TTags } ? TTags extends string ? TTags : never : never;
+
+// Test:
+type TagsOfMaybe = TagsOf<Maybe<any>>;
+
+type AnyCatasOf<T> = {
+  [K in TagsOf<T>]: AnyCataHandlerOf<T, K>;
+};
+
+type AnyCataHandlerOf<T, K> = (...args: CataValuesOfTag<T, K>) => any;
+
+// These are currently just returning any... Because of AnyCataHandlerOf and AnyCatasOf?  Possibly.
+type AnyCataHandlerReturnType<TCatas extends { [k: string]: (...args: any[]) => any }> = ReturnType<TCatas[keyof TCatas]>;
+// type AnyCataHandlerReturnType<TCatas> =
+//   TCatas extends { [k: string]: (...args: any[]) => infer TReturn }
+//   ? TReturn
+//   : never
+//   ;
+
+type CataValuesOfTag<TSum, TTag> =
+  TSum extends { '@tag': TTag, '@values': infer TValues }
+  ? TValues extends any[]
+  ? TValues
+  : never
+  : never
+  ;
+
+// Test:
+type CatasOfMaybe = AnyCatasOf<Maybe<boolean>>;
+
+const maybeBooleanHandlers: CatasOfMaybe = {
+  Nothing: () => 'nothing!',
+  Just: (value) => String(value),
+}
+
+type MaybeBooleanHandlersReturnTypes = AnyCataHandlerReturnType<CatasOfMaybe>;
+```

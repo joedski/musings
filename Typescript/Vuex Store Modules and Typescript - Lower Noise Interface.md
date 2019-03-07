@@ -351,3 +351,72 @@ const after = before.$withMutation('SET_FOO', (state, foo: string) => {
 
 // after.mutations.SET_FOO :: (state: { foo: string }, foo: string) => void
 ```
+
+We should be able to use some `this` typing to get types for Dispatch and such.
+
+```typescript
+$withAction<
+  TStoreDefinition,
+>(this: TStoreDefinition, key: TKey, action: TAction): WithAction<TStoreDefinition, TKey, TAction> {
+  this.actions[key] = action;
+  return this;
+}
+
+type WithAction<
+  TStoreDefinition,
+  TKey extends string,
+  TAction // ??
+> = TStoreDefinition & {
+  actions: {
+    [key: TKey]: TAction;
+  };
+}
+```
+
+
+
+## Another Take?
+
+Or maybe this is just taking the above ideas to their logical conclusion.
+
+```
+function storeModule(state) {
+  return {
+    state,
+    $modules,
+    $getter,
+    $mutation,
+    $action,
+  }
+}
+
+function $mutation<
+  TStoreDefinition,
+  TKey extends string,
+  TMutation extends AnyStoreMutation<TStoreDefinition>,
+>(this: TStoreDefinition, key: TKey, mutation: TMutation) {
+  return {
+    ...this,
+    mutations: {
+      ...this.mutations,
+      [key]: mutation,
+    },
+  }
+}
+
+function $action<
+  TStoreDefinition,
+  TKey extends string,
+  TAction extends AnyStoreAction<TStoreDefinition>,
+>(this: TStoreDefinition, key: TKey, action: TAction) {
+  return {
+    ...this,
+    actions: {
+      ...this.actions,
+      [key]: action,
+    }
+  }
+}
+```
+
+To reiterate, then, each one can only access previous things.  Not sure how self-recursion or trampolining would work, though that's purely a concern for actions, I think.  Any recursion in Getters is a bug, since it would result in a stack explosion, and Mutations all live in isolation.

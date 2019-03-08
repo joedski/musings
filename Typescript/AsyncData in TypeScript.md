@@ -216,6 +216,20 @@ Two things in Typescript have a lot of nice type usage characteristics: Classes 
 
 What might this look like?  I expect a Namespace that acts as the "base type", a Union to act as the "enum" (because Tagged Sums are Better Enums), and of course functions to act upon those types.
 
+I think the intended interface might look something like this:
+
+```typescript
+import maybe from '@/util/maybe';
+const someMaybeValue: maybe.Maybe<boolean> = maybe.Just(true);
+const someResult = maybe.cata(someMaybeValue, {
+    Nothing: () => 'Absolutely nothing!',
+    Just: (value: boolean) => `It's just ${value}!`,
+});
+if (maybe.Just.is(someMaybeValue)) {
+    console.log('The value is some value!');
+}
+```
+
 ```typescript
 export type Maybe<T> = { '@sum': 'Maybe' } & (
   { '@tag': 'Nothing', '@values': [] }
@@ -249,6 +263,7 @@ type AnyCatasOf<T> = {
 type AnyCataHandlerOf<T, K> = (...args: CataValuesOfTag<T, K>) => any;
 
 // These are currently just returning any... Because of AnyCataHandlerOf and AnyCatasOf?  Possibly.
+// I think a prior constraint of TCatas to extend `AnyCatasOf` which itself uses `AnyCataHandlerOf` pins the return types to `any`, simply because there's no attempt to actually get a type more specific than `any`.
 type AnyCataHandlerReturnType<TCatas extends { [k: string]: (...args: any[]) => any }> = ReturnType<TCatas[keyof TCatas]>;
 // type AnyCataHandlerReturnType<TCatas> =
 //   TCatas extends { [k: string]: (...args: any[]) => infer TReturn }
@@ -267,6 +282,7 @@ type CataValuesOfTag<TSum, TTag> =
 // Test:
 type CatasOfMaybe = AnyCatasOf<Maybe<boolean>>;
 
+// Using AnyCatasOf<T> here is causing all the handlers in maybeBooleanHandlers to have a declared return type of `any`.  Hm.
 const maybeBooleanHandlers: CatasOfMaybe = {
   Nothing: () => 'nothing!',
   Just: (value) => String(value),
@@ -274,3 +290,19 @@ const maybeBooleanHandlers: CatasOfMaybe = {
 
 type MaybeBooleanHandlersReturnTypes = AnyCataHandlerReturnType<CatasOfMaybe>;
 ```
+
+So, that's not working.  Need to start back from the top, with the structure of things.
+
+- `TagsOf<T>` works, so we can use that, at least.
+- We then need to ensure that the catas map has a handler for each of those tags.
+    - Start with `ArgsByTagsOf<T>`?
+    - Also an `AnyReturnType<T extends { [k: string]: () => any }>`?
+- Is the intersection-with-union thing the best way to go about it?
+    - Also, also, do we really need the `@` prefixes if we're sticking values on an array?
+
+I know that for `cata`, we obviously need the TType first, otherwise we can't derive the tags with `TagsOf`.
+
+
+### Try 2 with POJOs + Functions
+
+Did up a better whack at the types [here](./AsyncData%20in%20TypeScript%20Examples/objects-and-functions-r1.ts).

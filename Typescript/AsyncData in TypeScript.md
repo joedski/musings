@@ -417,3 +417,14 @@ type AsyncData<R, E> = TaggedSum<'AsyncData', [R, E], {
 ```
 
 It does look redundant there, granted.
+
+
+### More JS-Friendly Chaining?
+
+```
+value
+    .pipe(maybe.flatMap, (a): maybe.Maybe<number> => (a >= 0 ? maybe.Just(a) : maybe.Nothing()))
+    .pipe(maybe.map, a => a * 2)
+```
+
+That'd require adding `.pipe` but that's really simple to write: `{ pipe(fn, ...args) { return fn(this, ...args); } }`.

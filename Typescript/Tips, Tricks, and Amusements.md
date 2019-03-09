@@ -17,7 +17,7 @@ This is very useful for things like mapped-type configuration objects.
 
 There's a limitation though: You can't have that type itself be a _conditional type_ on `T`, as that leads to a circular constraint.  That is, this is not allowed:
 
-```js
+```typescript
 type SomeShape<T> = T extends SomeShapeGeneral ? { [K in keyof T]: ShapeProp<T[K]> } : never;
 function configureThing<
   // TS complains about circular constraint on TConfig.
@@ -27,7 +27,7 @@ function configureThing<
 
 You can, however, still place ordinary (type-parameter) constrains on `T`:
 
-```js
+```typescript
 type SomeShape<T extends SomeShapeGeneral> = {
   [K in keyof T]: ShapeProp<T[K]>;
 };
@@ -45,7 +45,7 @@ function configureThing<
 
 You can constrain a function to operate on keys of an object by doing something like this:
 
-```js
+```typescript
 function getPropValue<TObject, TKey extends keyof TObject>(o: TObject, key: TKey) {
   return o[key];
 }
@@ -66,7 +66,7 @@ I tried a few things to restrict what propnames are allowed in a mapped type.
 
 Suppose we have a function...
 
-```js
+```typescript
 function noFoos<T extends NoFooProp<T>>(t: T) {
     return t;
 }
@@ -74,13 +74,13 @@ function noFoos<T extends NoFooProp<T>>(t: T) {
 
 We want TypeScript to tell us this is bad:
 
-```js
+```typescript
 noFoos({ bar: true, foo: true });
 ```
 
 Two things seemed to work:
 
-```js
+```typescript
 type Omit<T, K> = Pick<T, Exclude<keyof T, K>>;
 
 // This works in function signatures as a type constraint
@@ -107,7 +107,7 @@ This only works of course in cases where you already have a type to play with, f
 
 Anyway, this same trick can be used of course for anything else: Suppose you have a special name reserved for config?  Remember, that `never` is just another type, albeit one that has special meaning.
 
-```js
+```typescript
 type SpecialConfig<T> = {
   [K in keyof T]: (
     K extends 'forbidden' ? never :
@@ -119,7 +119,7 @@ type SpecialConfig<T> = {
 
 You can also exclude or define many specific props at once:
 
-```js
+```typescript
 type SpecialConfig<T> = {
   [K in keyof T]: (
     K extends 'forbidden' | 'alsoForbidden' | 'stillForbidden' ? never :
@@ -136,7 +136,7 @@ There is actually a case where you may need to use the intersection trick: If yo
 
 Take the config above: Suppose we require the user specify `$config` on there?
 
-```js
+```typescript
 type SpecialConfig<T> = {
   [K in keyof T]: (
     K extends 'forbidden' ? never :
@@ -154,7 +154,7 @@ Sure, it's an `any`, the devil itself, but while `number & any` may result in `a
 
 You might wonder if you can just do something like this:
 
-```js
+```typescript
 type RequireBaz<T extends { baz: string }> = {
     [K in keyof T]: (
         K extends 'baz' ? string : number
@@ -176,7 +176,7 @@ I tried that, but the function call doesn't require `baz`, and worse, TS complai
 
 You can define interfaces and type aliases local a block or function body, which is handy when you want to have type aliases for long drawn out definitions that are reused through out a function or if or loop block.
 
-```ts
+```typescript
 function foo<TFoo>(f: TFoo) {
   type Boxed = { foo: TFoo };
   return { foo: TFoo } as Boxed;
@@ -195,3 +195,113 @@ type beep: Beep = { beep: 5 };
 ```
 
 While I'm not sure how useful it is in loops, it's immensely useful for DRYing types in functions.  The only time it's not useful is for specifying the return type of a function... A shame, really.
+
+
+
+## Working With Exact Shapes or Specific Values
+
+You can use a type constraint as a way interacting with more specific types rather than more general types.
+
+For instance, if you use a naive approach to a pair-creating function, you'll get something too generic to really use:
+
+```typescript
+function pair<K, V>(s: K, v: V): [K, V] {
+    return [s, v]
+}
+
+// :: [string, number]
+const pair0 = pair('a', 5)
+```
+
+It might be what you want, but maybe you want to have the exact key instead of just `string`?  This is doable by specifying that `K extends string` rather than, well, not doing that.
+
+```typescript
+function keyValuePair<K extends string, V>(k: K, v: V): [K, V] {
+    return [k, v]
+}
+
+// :: ["a", number]
+const pair1 = keyValuePair('a', 5)
+```
+
+You might wonder if `K extends any` also works, but `any` is too broad, you'll get just the generic type.
+
+```typescript
+function anyKeyValuePair<K extends any, V>(k: K, v: V): [K, V] {
+    return [k, v]
+}
+
+// :: [string, number]
+const pair2 = anyKeyValuePair('a', 42)
+```
+
+You can get somewhat the way there by using a union of narrower types, though:
+
+```typescript
+function unionKeyValuePair<K extends string | number | boolean, V>(k: K, v: V): [K, V] {
+    return [k, v]
+}
+
+// :: ["a", number]
+const pair3 = unionKeyValuePair('a', 3)
+// :: [true, number]
+const pair4 = unionKeyValuePair(true, 5)
+```
+
+
+
+## Getting a Key-Value-Associated Union from a Map-Object Type, e.g. Key-Value Pairs
+
+Suppose we have a type like this:
+
+```typescript
+const mapOfFns = {
+    five: () => 5,
+    double: (x: number) => x * 2,
+    greet: (name: string) => `Hello, ${name}!`,
+};
+
+// :: { five(): number; double(x: number): number; greet(name: string): string; }
+type MapOfFns = typeof mapOfFns;
+```
+
+And we want to get this:
+
+```
+type UnionOfPairs = ['five', () => number] | ['double', (x: number) => number] | ['greet', (name: string) => string]
+```
+
+We need to both take advantage of the distribution of Unions across other types, while at the same time locking each Union member down.  To do this, we can use the old `K extends string` trick to pin a given Union member, and then use that to extract the value from the Map Type based on the pinned Union member.  At least, that's how I think about it.
+
+Here's probably the tightest solution:
+
+```typescript
+type Pairs<TMap> = ExtractPairs<TMap, keyof TMap>;
+
+type ExtractPairs<TMap, TKey extends keyof TMap> =
+    TKey extends string ? [TKey, TMap[TKey]] : never;
+```
+
+And here's one that technically isn't as tight, but is practically speaking more than good enough since you can only specify a subset of keys, never a superset, for `TKey`:
+
+```typescript
+type Pairs<TMap, TKey extends keyof TMap = keyof TMap> =
+    TKey extends string ? [TKey, TMap[TKey]] : never;
+```
+
+In either case, you can then replace `[TKey, TMap[TKey]]` with anything you like!  For instance...
+
+```typescript
+type Dispatches<TMap, TKey extends keyof TMap = keyof TMap> =
+    TKey extends string ? DispatchOfPair<TKey, TMap[TKey]> : never;
+
+type DispatchOfPair<TKey, TFn> =
+    TFn extends (...args: infer TArgs) => infer TReturn
+    ? TArgs extends any[]
+        ? (key: TKey, ...args: TArgs) => TReturn
+        : never
+    : never
+    ;
+```
+
+Man, if we had higher order types, we could totally wrap that around any type specifier that takes a Key type and a Value type... Pretty sure the TS team isn't interested in that, though.

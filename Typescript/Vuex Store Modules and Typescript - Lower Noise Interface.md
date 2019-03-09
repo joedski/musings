@@ -273,7 +273,7 @@ type AnyCommit = (mutationName: string, payload: any) => void;
 So now we have basic shapes that we can use as basic-most constraints.  How bout them Mutations?  A slight complication arises: The Mutation should have a constraint that it refers to the State of the Store Definition... So.  New Auxiliary Type.
 
 ```typescript
-function $withMutation<
+function $mutation<
     TStoreDefinition extends AnyStoreDefinition,
     TMutationKey extends string,
     TMutation extends AnyMutationOf<TStoreDefinition>
@@ -342,10 +342,10 @@ const before = {
   getters: {},
   mutations: {},
   actions: {},
-  $withMutation
+  $mutation
 }
 
-const after = before.$withMutation('SET_FOO', (state, foo: string) => {
+const after = before.$mutation('SET_FOO', (state, foo: string) => {
   state.foo = foo;
 })
 
@@ -420,3 +420,24 @@ function $action<
 ```
 
 To reiterate, then, each one can only access previous things.  Not sure how self-recursion or trampolining would work, though that's purely a concern for actions, I think.  Any recursion in Getters is a bug, since it would result in a stack explosion, and Mutations all live in isolation.
+
+
+### Union of Functions from Keys/Value Pairs
+
+I moved most of my work on this to [a separate journal](./Journal%202019-03-02%20-%20Playing%20with%20Key-Value%20Pairs%20from%20Map-Object%20Types.md) to reduce the noise a bit here, since the work wasn't really specific.
+
+```typescript
+type Dispatches<TMap, TKey extends keyof TMap = keyof TMap> =
+    TKey extends string ? DispatchOfPair<TKey, TMap[TKey]> : never;
+
+type DispatchOfPair<TKey, TFn> =
+    TFn extends (...args: infer TArgs) => infer TReturn
+    ? TArgs extends any[]
+        ? (key: TKey, ...args: TArgs) => TReturn
+        : never
+    : never
+    ;
+```
+
+Eet verks.  Also, inferrence of rest args, hell yeah.
+

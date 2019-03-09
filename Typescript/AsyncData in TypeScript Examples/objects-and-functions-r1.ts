@@ -5,7 +5,7 @@ export type Maybe<T> = { '@sum': 'Maybe' } & (
 
 export const is = isAnySumMember<Maybe<unknown>>('Maybe');
 
-export function Just<T>(value: T): Maybe<T> {
+export function Just<T = unknown>(value: T): Maybe<T> {
   return { '@sum': 'Maybe', '@tag': 'Just', '@values': [value] };
 }
 

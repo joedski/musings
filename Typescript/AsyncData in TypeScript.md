@@ -306,3 +306,32 @@ I know that for `cata`, we obviously need the TType first, otherwise we can't de
 ### Try 2 with POJOs + Functions
 
 Did up a better whack at the types [here](./AsyncData%20in%20TypeScript%20Examples/objects-and-functions-r1.ts).
+
+This actually seems to work pretty well.  There's a few rough edges:
+
+- Cata doesn't auto-infer the types of handler parameters.
+    - Maybe doable with a `TCatas extends CatasOf<TSum, TCatas>` mapped-type dealio?
+- Manipulators are all data-first which is nice for imperative style, but not so nice for functional style.  Curried functions are such bullshit to type, though.
+- Pretty sure I can create something for the actual interface.
+
+In fact, here's a whack at the interface creator thingy, at least the Type:
+
+```typescript
+type TaggedSum<
+  TSumName extends string,
+  TTagDefs extends AnyTagDefs
+> = { '@sum': TSumName } & TaggedSumTags<TTagDefs>;
+
+type AnyTagDefs = { [k: string]: any[] };
+
+type TaggedSumTags<
+  TTagDefs extends AnyTagDefs,
+  TTagName extends keyof TTagDefs = keyof TTagDefs
+> =
+  TTagName extends string
+  ? TTagDefs[TTagName] extends any[]
+  ? { '@tag': TTagName; '@values': TTagDefs[TTagName] }
+  : never
+  : never
+  ;
+```

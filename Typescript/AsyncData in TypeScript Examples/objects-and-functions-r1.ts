@@ -11,7 +11,7 @@ export function Just<T>(value: T): Maybe<T> {
 
 Just.is = isSpecificSumMember<Maybe<unknown>, 'Just'>('Maybe', 'Just');
 
-export function Nothing(): Maybe<unknown> {
+export function Nothing<T = unknown>(): Maybe<T> {
   return { '@sum': 'Maybe', '@tag': 'Nothing', '@values': [] };
 }
 
@@ -27,6 +27,26 @@ export function cata<
   catas: TCatas
 ): AnyCataHandlerReturnType<TSum, TCatas> {
   return catas[inst['@tag']](...inst['@values']);
+}
+
+//// Specific Functions
+
+export function map<A, B>(inst: Maybe<A>, fn: (a: A) => B): Maybe<B> {
+  return cata(inst, {
+    Just: (a: A) => Just(fn(a)),
+    Nothing: () => inst as Maybe<B>,
+  });
+}
+
+export function flatten<A>(inst: Maybe<Maybe<A>>): Maybe<A> {
+  return cata(inst, {
+    Just: (a: Maybe<A>) => a,
+    Nothing: () => inst as Maybe<A>,
+  })
+}
+
+export function flatMap<A, B>(inst: Maybe<A>, fn: (a: A) => Maybe<B>): Maybe<B> {
+  return flatten(map(inst, fn));
 }
 
 //// Utilities
@@ -97,7 +117,7 @@ type ValuesTypeByTag<TSum> = {
 
 
 
-//////// Examples
+//////// Inline Examples
 
 const value0Just = Just(true);
 const value0Nothing = Nothing();

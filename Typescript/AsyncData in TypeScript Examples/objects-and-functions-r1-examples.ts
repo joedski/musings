@@ -19,4 +19,6 @@ const result0Just = maybe.cata(value0Just, {
   Nothing: () => 'Nothing!',
 });
 
+const result0JustNumber = maybe.map(value0Just, (a) => (a ? 42 : -42));
 
+const resultOfFlattenedDoubleMaybe = maybe.flatMap(result0JustNumber, (a) => (a >= 0 ? maybe.Just(a) : maybe.Nothing<number>()));

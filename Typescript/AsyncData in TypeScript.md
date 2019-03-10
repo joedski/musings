@@ -669,9 +669,68 @@ Interesting that you get `{}` for the type parameter there, but it does seem to 
 Otherwise, though, this seems to work as desired.
 
 
-### Runtime Hit, But Safer
+### How About a Type Error on Not Specifying All the Factories?
 
-To make things a bit safer, we could actually require that the factories return a tuple of the args, then use those factories in the instance factories themselves.  This means two function calls, you can be sure you'll receive the correct number of values.
+Perhaps we can feed the Type in with `unknown` for parameters to allow some validation?
+
+```typescript
+function createFactories<
+  TSum extends AnyTaggedSum,
+>(sumName: SumNameOf<TSum>, valuesFactories: ValuesFactoriesOf<TSum>) {
+  type TValuesFactories = ValuesFactoriesOf<TSum>;
+  type InstanceFactoriesType = {
+    [K in keyof TValuesFactories]: <TArgs extends ArgsType<TValuesFactories[K]>>(...args: TArgs) => {
+      '@sum': SumNameOf<TSum>,
+      '@tag': K,
+      '@values': TArgs
+    };
+  };
+
+  const instanceFactories = {} as InstanceFactoriesType;
+
+  for (const tagName in valuesFactories) {
+    instanceFactories[tagName] = <TArgs extends any[]>(...args: TArgs) => ({
+      '@sum': sumName,
+      '@tag': tagName,
+      '@values': args,
+    });
+  }
+
+  return instanceFactories;
+}
+
+type ArgsType<TFn> = TFn extends (...args: infer TArgs) => any ? TArgs : never;
+
+type ValuesFactoriesOf<TSum extends AnyTaggedSum> = {
+  [K in TagKeysOf<TSum>]: (...args: TagValuesType<TSum, K>) => TagValuesType<TSum, K>;
+};
+
+// Some :: <TArgs extends [any]>(...args: TArgs) => { '@sum': "Option"; '@tag': "Some"; '@values': TArgs; }
+// None :: <TArgs extends []>(...args: TArgs) => { '@sum': "Option"; '@tag': "None"; '@values': TArgs; }
+const { Some, None } = createFactories<Option<any>>('Option', {
+  Some: <A>(a: A) => [a],
+  None: () => [],
+});
+
+// Same types and errors as before.
+const optionValue0: Option<boolean> = Some(true);
+const optionValue1: Option<boolean> = Some(true, false);
+
+type ReturnTypeSomeExtendsOption<T> = typeof Some extends <TArgs extends [T]>(...args: TArgs) => Option<T> ? true : false;
+// also still = true
+type ReturnTypeSomeExtendsOptionBoolean = ReturnTypeSomeExtendsOption<boolean>;
+```
+
+That's definitely better.  We even get some improvements from the exact locking down of `valuesFactories`:
+
+- Missing a case results in a type error.
+- An extra case results in a type error.
+- The wrong number of arguments results in a type error, admittedly kind of a weird looking one.
+
+
+### Runtime Hit, But Safer?
+
+To make things a bit safer, we could actually require that the factories return a tuple of the args, then use those factories in the instance factories themselves.  This means two function calls, but you can be sure you'll receive the correct number of values during run time.
 
 
 

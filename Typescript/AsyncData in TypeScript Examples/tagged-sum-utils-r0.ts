@@ -50,16 +50,18 @@ type TaggedSumInstance<TSum extends AnyTaggedSum, TTagName extends string> = Ext
 
 type TagKeysOf<T> = T extends { '@tag': infer TTagKey } ? TTagKey extends string ? TTagKey : never : never;
 
+type SumNameOf<T> = T extends { '@sum': infer TSumName } ? TSumName extends string ? TSumName : never : never;
+
+
 //// Factory-Factory
 
 function createFactories<
-  TSumName extends string,
-  TValuesFactories extends { [key: string]: (...args: any[]) => any[] },
->(sumName: TSumName, valuesFactories: TValuesFactories) {
-  type ValuesFactoriesType = typeof valuesFactories;
+  TSum extends AnyTaggedSum,
+>(sumName: SumNameOf<TSum>, valuesFactories: ValuesFactoriesOf<TSum>) {
+  type TValuesFactories = ValuesFactoriesOf<TSum>;
   type InstanceFactoriesType = {
-    [K in keyof ValuesFactoriesType]: <TArgs extends ArgsType<ValuesFactoriesType[K]>>(...args: TArgs) => {
-      '@sum': TSumName,
+    [K in keyof TValuesFactories]: <TArgs extends ArgsType<TValuesFactories[K]>>(...args: TArgs) => {
+      '@sum': SumNameOf<TSum>,
       '@tag': K,
       '@values': TArgs
     };
@@ -68,7 +70,7 @@ function createFactories<
   const instanceFactories = {} as InstanceFactoriesType;
 
   for (const tagName in valuesFactories) {
-    instanceFactories[tagName] = <TArgs extends ArgsType<ValuesFactoriesType[typeof tagName]>>(...args: TArgs) => ({
+    instanceFactories[tagName] = <TArgs extends any[]>(...args: TArgs) => ({
       '@sum': sumName,
       '@tag': tagName,
       '@values': args,
@@ -78,8 +80,11 @@ function createFactories<
   return instanceFactories;
 }
 
-// type ArgsType<TFn> = TFn extends (...args: infer TArgs) => any ? TArgs extends any[] ? TArgs : never : never;
 type ArgsType<TFn> = TFn extends (...args: infer TArgs) => any ? TArgs : never;
+
+type ValuesFactoriesOf<TSum extends AnyTaggedSum> = {
+  [K in TagKeysOf<TSum>]: (...args: TagValuesType<TSum, K>) => TagValuesType<TSum, K>;
+};
 
 
 
@@ -116,11 +121,15 @@ type OptionFactoriesMap<T> = TaggedSumFactoriesMap<Option<T>>;
 type OptionFactoriesMapSome<T> = OptionFactoriesMap<T>['Some'];
 type OptionFactoriesMapNone<T> = OptionFactoriesMap<T>['None'];
 
+//// ValuesFactoriesOf
+
+type ValuesFactoriesOfOptionBoolean = ValuesFactoriesOf<Option<boolean>>;
+
 //// createFactories
 
-const { Some, None } = createFactories('Option', {
-  Some<A>(a: A) { return [a] },
-  None() { return [] },
+const { Some, None } = createFactories<Option<any>>('Option', {
+  Some: <A>(a: A) => [a],
+  None: () => [],
 });
 
 const optionValue0: Option<boolean> = Some(true);

@@ -671,7 +671,7 @@ Otherwise, though, this seems to work as desired.
 
 ### Runtime Hit, But Safer
 
-To make things a bit safer, we could actually require that the factories return a tuple of the args, then use those factories in the instance factories themselves.
+To make things a bit safer, we could actually require that the factories return a tuple of the args, then use those factories in the instance factories themselves.  This means two function calls, you can be sure you'll receive the correct number of values.
 
 
 

@@ -726,11 +726,73 @@ That's definitely better.  We even get some improvements from the exact locking 
 - Missing a case results in a type error.
 - An extra case results in a type error.
 - The wrong number of arguments results in a type error, admittedly kind of a weird looking one.
+- The wrong number of tuple elements results in a type error.
+
+There's still one major issue, though:
+
+- If you have two type parameters in one case, it can't catch the mis-ordering of them in the return value.
+    - Even more amusingly, you don't even need to add any type parameters to the factories at all.  `<A, B>(a: A, b: B) => [a, b]` is treated the same as `(a, b) => [a, b]`.
+    - It all comes back to all the types being broadened to `any`, though.  Without being able to maintain explicit relationships, the separate type params, the order no longer matters.  It works, but only because we tell it to work.
+
+```typescript
+type ExtraOption<A, B> = TaggedSum<'ExtraOption', {
+  Lots: [A, B];
+  Little: [];
+}>;
+
+const { Lots, Little } = createFactories<ExtraOption<any, any>>('ExtraOption', {
+  Lots: <A, B>(a: A, b: B) => [a, b],
+  Little: () => [],
+});
+```
+
+If I don't want to hardcode things, then I have to use a broad type like `any` so that `Lots` and `Little` can specialize later.  If I use concrete values like `"A"` and `"B"`, then they get locked to those values because the types are written to only narrow, never broaden.
+
+```typescript
+const { Lots, Little } = createFactories<ExtraOption<'A', 'B'>>('ExtraOption', {
+  Lots: <A, B>(a: A, b: B) => [a, b],
+  Little: () => [],
+})
+
+// Expected "A", not "C"; "C" is not assignable to "A".
+// Same with "D" vs "B".
+Lots('C', 'D')
+```
 
 
 ### Runtime Hit, But Safer?
 
 To make things a bit safer, we could actually require that the factories return a tuple of the args, then use those factories in the instance factories themselves.  This means two function calls, but you can be sure you'll receive the correct number of values during run time.
+
+```typescript
+function createFactories<
+  TSum extends AnyTaggedSum,
+>(sumName: SumNameOf<TSum>, valuesFactories: ValuesFactoriesOf<TSum>) {
+  type TValuesFactories = ValuesFactoriesOf<TSum>;
+  type InstanceFactoriesType = {
+    [K in keyof TValuesFactories]: <TArgs extends ArgsType<TValuesFactories[K]>>(...args: TArgs) => {
+      '@sum': SumNameOf<TSum>,
+      '@tag': K,
+      '@values': TArgs
+    };
+  };
+
+  const instanceFactories = {} as InstanceFactoriesType;
+
+  for (const tagName in valuesFactories) {
+    instanceFactories[tagName] = <TArgs extends any[]>(...args: TArgs) => ({
+      '@sum': sumName,
+      '@tag': tagName,
+      // Calling the values factory here.
+      '@values': valuesFactories[tagName](...args),
+    });
+  }
+
+  return instanceFactories;
+}
+```
+
+No type changes, and technically no runtime changes, except for the extra function calls.
 
 
 

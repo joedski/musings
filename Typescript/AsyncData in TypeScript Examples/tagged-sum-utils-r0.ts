@@ -73,7 +73,7 @@ function createFactories<
     instanceFactories[tagName] = <TArgs extends any[]>(...args: TArgs) => ({
       '@sum': sumName,
       '@tag': tagName,
-      '@values': args,
+      '@values': valuesFactories[tagName](...args),
     });
   }
 
@@ -137,3 +137,15 @@ const optionValue1: Option<boolean> = Some(true, false);
 
 type ReturnTypeSomeExtendsOption<T> = typeof Some extends <TArgs extends [T]>(...args: TArgs) => Option<T> ? true : false;
 type ReturnTypeSomeExtendsOptionBoolean = ReturnTypeSomeExtendsOption<boolean>;
+
+//// Combined Test: ExtraOption<A, B>
+
+type ExtraOption<A, B> = TaggedSum<'ExtraOption', {
+  Lots: [A, B];
+  Little: [];
+}>;
+
+const { Lots, Little } = createFactories<ExtraOption<any, any>>('ExtraOption', {
+  Lots: <A, B>(a: A, b: B) => [a, b],
+  Little: () => [],
+});

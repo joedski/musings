@@ -418,8 +418,264 @@ type AsyncData<R, E> = TaggedSum<'AsyncData', [R, E], {
 
 It does look redundant there, granted.
 
+So, that's all well and good, but how might this all actually work?  I don't know, exactly, but I think the first thing will be to just get each part separately.
 
-### More JS-Friendly Chaining?
+
+### Getting the Constructors
+
+The Constructors don't really care about the Parameters Tuple, all they really do is create each Instance.  Further more, they just return an Instance of the Tagged Sum Type, the particular Tags are themselves never referenced, except maybe in the `cata` function and the `is` predicates.
+
+Creating these from the Values Factories is pretty easy:
+
+```typescript
+const tagFactories = {};
+
+for (const tagName in tagValuesFactories) {
+    tagFactories[tagName] = (...args) => ({
+        '@sum': sumName,
+        '@tag': tagName,
+        '@values': args,
+    });
+}
+```
+
+In fact, we don't even need to call the Value Factories themselves... We just need to make sure that each Tag Factory has its args set to the appropriate type: `(...args: ArgsTypes<tagValuesFactories[tagName]>) => (...)`
+
+The problem as ever remains: No where does the tuple of type parameters ever show up.  Without that, we can't really keep things related, can we?
+
+Hm.
+
+I'm not actually sure what I'm trying to do with the types is possible.  I'll shelve it for now and try something a bit more repetitious but ultimately more doable?
+
+
+
+## Separate Construction from Type Definition
+
+I think things will be easier if I don't try to completely deduplicate.  JS isn't a language with Tagged Sums, and TS doesn't try to make it one, so there's going to be a bit of noise.
+
+Instead, if I just make the Type and the Constructors separate, but feed the Type into the Constructors, then I should be able to create things with minimal headache.
+
+I already have a pretty competent Type setup, I just need to figure out a good way to make specifying the constructors themselves not annoying.
+
+```typescript
+type TaggedSum<
+  TSumName extends string,
+  TTagDefs extends AnyTagDefs
+> = { '@sum': TSumName } & TaggedSumTags<TTagDefs>;
+```
+
+Same one from before.  We don't have any extra type params in there, right now, those are specified by the created type itself.  Now we just need to define the Factories in terms of that.
+
+```typescript
+type TaggedSumFactory<TSum, TTagName> =
+  (...args: TagValuesType<TSum, TTagName>) => TaggedSumInstance<TSum, TTagName>;
+
+type TaggedSumInstance<TSum extends AnyTaggedSum, TTagName extends string> = Extract<TSum, { '@tag': TTagName }>;
+
+type TagValuesType<
+  TSum extends AnyTaggedSum,
+  TTagName extends string
+> = TaggedSumInstance<TSum, TTagName>['@values'] extends infer TValues
+  ? TValues extends any[]
+  ? TValues
+  : never
+  : never
+  ;
+```
+
+This seems to work reasonably well.
+
+```typescript
+type Option<T> = TaggedSum<'Option', {
+  Some: [T];
+  None: [];
+}>;
+
+// :: [T]
+type OptionSomeValuesType<T> = TagValuesType<Option<T>, 'Some'>;
+// :: []
+type OptionNoneValuesType<T> = TagValuesType<Option<T>, 'None'>;
+```
+
+We then also can make the factories' types just as easily.
+
+```typescript
+// :: (arg_0: T) => { '@sum': 'Option' } & { '@tag': 'Some', '@values': [T] }
+type OptionSomeFactory<T> = TaggedSumFactory<Option<T>, 'Some'>;
+// :: () => { '@sum': 'Option' } & { '@tag': 'Some', '@values': [] }
+type OptionNoneFactory<T> = TaggedSumFactory<Option<T>, 'None'>;
+```
+
+There's still those blasted `<T>`s on there, though.  I think I'll just have to bite the bullet and specify the type parameters on each factory, though.
+
+```typescript
+type TaggedSumFactoriesMap<TSum extends AnyTaggedSum> = {
+  [K in TagKeysOf<TSum>]: TaggedSumFactory<TSum, K>;
+};
+
+// :: { Some: (args_0: T) => { '@sum': "Option"; } & { '@tag': "Some"; '@values': [T]; }; None: () => { '@sum': "Option"; } & { '@tag': "None"; '@values': []; } }
+type OptionFactoriesMap<T> = TaggedSumFactoriesMap<Option<T>>;
+type OptionFactoriesMapSome<T> = OptionFactoriesMap<T>['Some'];
+type OptionFactoriesMapNone<T> = OptionFactoriesMap<T>['None'];
+```
+
+Okay, so that's something.  How do we create the factories while still deferring the type parametrization to point-of-use?  Obviously, the factories are going to have to specify the type themselves, or else the parameters would have to be specified somehow before hand.  This is one reason I pondered tuples as type params before: We can't tell typescript to dynamically do `<...Ts[]>(...args: Args) => something`, that makes no sense!
+
+So, nothing there, but how do I then get the types right without unduely tightening everything right away?  Well, what am I expecting to actually do with things?
+
+```typescript
+// where's the <T> in Option<T> come from?
+const { Some, None } = taggedSum.createFactories<Option<T>>({
+  Some: (t: T) => [t],
+  None: () => [],
+});
+```
+
+The problem seems to be that `Some` and `None` here are concrete values, not Types, and the only way to defer type parametrization there is to put it at the point of use, i.e. on the Factories `Some` and `None` themselves.  As stated before, `<T>(...args: Args) => T`, or... something like that.
+
+Hm.
+
+```
+<Option<T>>() => ({
+    Some: (a: T) => TaggedSumInstance('Option', 'Some', [a]),
+    None: () => TaggedSumInstance('Option', 'None', []),
+});
+```
+
+That doesn't even make sense, TS wise, but is ... something.
+
+
+### How About Structural Typing?
+
+Some salvation may be found in the structural nature of Typescript's Typing system.  Each Tagged Sum is really just an Object that extends the Interface `{ '@sum': string, '@tag': string, '@values': any[] }`.  Using this, we can with some amount of repetition recreate the constituent type, even if it's going around the long way.  We just need those three elements, the Sum Name, the Tag Names, and the Values Tuples.
+
+In isolation, then, we know that any Tagged Sum of a particular Sum has the type `TSum extends { '@sum': TSumName, '@tag': string, '@values': any[] }`.  No type params.
+
+We also know that any particular Tag has the type `TSumTag extends { '@sum': TSumName, '@tag': TTagName, '@values': any[] }`.  Again, no type params.
+
+Type params only come into play when actually specifying `@values`.
+
+Further, we know that with, say, `Maybe<T>`, we can have either one of `{ '@sum': 'Maybe', '@tag': 'Just', '@values': [true] }` and that will be `Maybe<boolean>`, or `{ '@sum': 'Maybe', '@tag': 'Nothing', '@values': [] }` and that will be `Maybe<unknown>`.
+
+So, technically, we don't need to actually pass any params in.  In fact, we don't really need to pass anything in at all...
+
+```
+const factories = createFactories('Maybe', {
+    Just<T>(a: T) => [a],
+    Nothing() => [],
+});
+```
+
+And we just return the shapes, and everything should be fine?
+
+```typescript
+function createFactories<
+  TSumName extends string,
+  TValuesFactories extends { [key: string]: (...args: any[]) => any[] },
+>(sumName: TSumName, valuesFactories: TValuesFactories) {
+  type ValuesFactoriesType = typeof valuesFactories;
+  type InstanceFactoriesType = {
+    [K in keyof ValuesFactoriesType]: <TArgs extends ReturnType<ValuesFactoriesType[K]>>(...args: TArgs) => {
+      '@sum': TSumName,
+      '@tag': K,
+      '@values': TArgs
+    };
+  };
+
+  const instanceFactories: InstanceFactoriesType = {} as InstanceFactoriesType;
+
+  for (const tagName in valuesFactories) {
+    instanceFactories[tagName] = <TArgs extends any[]>(...args: TArgs) => ({
+      '@sum': sumName,
+      '@tag': tagName,
+      '@values': args,
+    });
+  }
+
+  return instanceFactories;
+}
+
+// Some :: <TArgs extends {}[]>(...args: TArgs) => { '@sum': "Option"; '@tag': "Some"; '@values': TArgs; }
+// None :: <TArgs extends {}[]>(...args: TArgs) => { '@sum': "Option"; '@tag': "None"; '@values': TArgs; }
+const { Some, None } = createFactories('Option', {
+  Some<A>(a: A) { return [a] },
+  None() { return [] },
+});
+
+// Some(true) :: <[boolean]>(args_0: boolean) => { '@sum': "Option"; '@tag': "Some"; '@values': [boolean]; }
+const optionValue0: Option<boolean> = Some(true);
+// optionValue1: Type Error: types of property 'length' are not compatible: 2 is not assignable to 1.
+// Some(true, false) :: <[boolean, boolean]>(args_0: boolean, args_1: boolean) => { '@sum': "Option"; '@tag': "Some"; '@values': [boolean, boolean]; }
+const optionValue1: Option<boolean> = Some(true);
+
+type ReturnTypeSomeExtendsOption<T> = typeof Some extends <TArgs extends [T]>(...args: TArgs) => Option<T> ? true : false;
+// = true
+type ReturnTypeSomeExtendsOptionBoolean = ReturnTypeSomeExtendsOption<boolean>;
+```
+
+Close, but both are currently arbitrarily long.  Need to tie the lengths somehow.  How about if I use the args type rather than the return type?
+
+```typescript
+function createFactories<
+  TSumName extends string,
+  TValuesFactories extends { [key: string]: (...args: any[]) => any[] },
+>(sumName: TSumName, valuesFactories: TValuesFactories) {
+  type ValuesFactoriesType = typeof valuesFactories;
+  type InstanceFactoriesType = {
+    [K in keyof ValuesFactoriesType]: <TArgs extends ReturnType<ValuesFactoriesType[K]>>(...args: TArgs) => {
+      '@sum': TSumName,
+      '@tag': K,
+      '@values': TArgs
+    };
+  };
+
+  const instanceFactories = {} as InstanceFactoriesType;
+
+  for (const tagName in valuesFactories) {
+    instanceFactories[tagName] = <TArgs extends ReturnType<ValuesFactoriesType[typeof tagName]>>(...args: TArgs) => ({
+      '@sum': sumName,
+      '@tag': tagName,
+      '@values': args,
+    });
+  }
+
+  return instanceFactories;
+}
+
+type ArgsType<TFn> = TFn extends (...args: infer TArgs) => any ? TArgs : never;
+
+// Some :: <TArgs extends [{}]>(...args: TArgs) => { '@sum': "Option"; '@tag': "Some"; '@values': TArgs; }
+// None :: <TArgs extends []>(...args: TArgs) => { '@sum': "Option"; '@tag': "None"; '@values': TArgs; }
+const { Some, None } = createFactories('Option', {
+  Some<A>(a: A) { return [a] },
+  None() { return [] },
+});
+
+// Some(true) :: <[boolean]>(args_0: boolean) => { '@sum': "Option"; '@tag': "Some"; '@values': [boolean]; }
+const optionValue0: Option<boolean> = Some(true);
+// optionValue1 :: Option<boolean>
+// Some(true, false): Expected 1 argument, got 2.
+const optionValue1: Option<boolean> = Some(true, false);
+
+type ReturnTypeSomeExtendsOption<T> = typeof Some extends <TArgs extends [T]>(...args: TArgs) => Option<T> ? true : false;
+// still = true
+type ReturnTypeSomeExtendsOptionBoolean = ReturnTypeSomeExtendsOption<boolean>;
+```
+
+Interesting that you get `{}` for the type parameter there, but it does seem to work: given an actual concrete type, it replaces the `{}` with that type.  Which makes sense, `{}` is kinda close to `any` since JS will autobox primitives.
+
+> Aside: `null extends {}` will pass, but `void extends {}` will not.  Interestingly, a point of divergence: `void extends any` will pass.
+
+Otherwise, though, this seems to work as desired.
+
+
+### Runtime Hit, But Safer
+
+To make things a bit safer, we could actually require that the factories return a tuple of the args, then use those factories in the instance factories themselves.
+
+
+
+## More JS-Friendly Chaining?
 
 ```
 value

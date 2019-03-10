@@ -50,6 +50,37 @@ type TaggedSumInstance<TSum extends AnyTaggedSum, TTagName extends string> = Ext
 
 type TagKeysOf<T> = T extends { '@tag': infer TTagKey } ? TTagKey extends string ? TTagKey : never : never;
 
+//// Factory-Factory
+
+function createFactories<
+  TSumName extends string,
+  TValuesFactories extends { [key: string]: (...args: any[]) => any[] },
+>(sumName: TSumName, valuesFactories: TValuesFactories) {
+  type ValuesFactoriesType = typeof valuesFactories;
+  type InstanceFactoriesType = {
+    [K in keyof ValuesFactoriesType]: <TArgs extends ArgsType<ValuesFactoriesType[K]>>(...args: TArgs) => {
+      '@sum': TSumName,
+      '@tag': K,
+      '@values': TArgs
+    };
+  };
+
+  const instanceFactories = {} as InstanceFactoriesType;
+
+  for (const tagName in valuesFactories) {
+    instanceFactories[tagName] = <TArgs extends ArgsType<ValuesFactoriesType[typeof tagName]>>(...args: TArgs) => ({
+      '@sum': sumName,
+      '@tag': tagName,
+      '@values': args,
+    });
+  }
+
+  return instanceFactories;
+}
+
+// type ArgsType<TFn> = TFn extends (...args: infer TArgs) => any ? TArgs extends any[] ? TArgs : never : never;
+type ArgsType<TFn> = TFn extends (...args: infer TArgs) => any ? TArgs : never;
+
 
 
 //////// Examples
@@ -84,3 +115,16 @@ type OptionNoneFactory<T> = TaggedSumFactory<Option<T>, 'None'>;
 type OptionFactoriesMap<T> = TaggedSumFactoriesMap<Option<T>>;
 type OptionFactoriesMapSome<T> = OptionFactoriesMap<T>['Some'];
 type OptionFactoriesMapNone<T> = OptionFactoriesMap<T>['None'];
+
+//// createFactories
+
+const { Some, None } = createFactories('Option', {
+  Some<A>(a: A) { return [a] },
+  None() { return [] },
+});
+
+const optionValue0: Option<boolean> = Some(true);
+const optionValue1: Option<boolean> = Some(true, false);
+
+type ReturnTypeSomeExtendsOption<T> = typeof Some extends <TArgs extends [T]>(...args: TArgs) => Option<T> ? true : false;
+type ReturnTypeSomeExtendsOptionBoolean = ReturnTypeSomeExtendsOption<boolean>;

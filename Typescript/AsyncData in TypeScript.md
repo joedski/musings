@@ -796,6 +796,283 @@ No type changes, and technically no runtime changes, except for the extra functi
 
 
 
+## Maybe Start With the Factories, Then Make the Type?
+
+What if I tried it the other way around?  We need the factories anyway, and those have to be written out, so why not create the tagged sum from those?  Maybe we could do this, then?
+
+```typescript
+export const { NotAsked, Waiting, Error, Result } = taggedSum('AsyncData', {
+    NotAsked: () => [],
+    Waiting: () => [],
+    Error: <E>(error: E) => [error],
+    Result: <R>(result: R) => [result],
+});
+
+export type AsyncData<E, R> = TaggedSum<'AsyncData', typeof ({
+    NotAsked, Waiting, Error, Results
+});
+```
+
+Hmmm, not quite.  That whole Type Parameters thing rears its ugly head again.  Curses.  Guess I'm stuck with the repetition.  Plus, there's no way in the Constructors to indicate that we have two distinct types, and they'll all get converted to `{}` or `any` regardless.  Bleh!
+
+I think the solution is something close to one prior exploration, where I define a tuple somewhere and reference indexed elements of it, but I'm still not sure how to actually save all those, or if it's even possible with TS's system right now.
+
+My concern is that type reification will, instead of keeping relations to the parameters tuple, instead pull the currently inferred or derived types from the tuple.  Hence if `T = [unknown, unknown]` then `T[0]` will simply be reified to `unknown`.
+
+
+
+## Maybe Indices?
+
+Can I somehow use indices, then, as the references?  Then the types would be lazily determined.  How would that even work?  Would it work?
+
+```typescript
+const at =
+    <T extends any[]>(t: T) =>
+        <TI extends number>(index: TI): T[TI] => t[index];
+
+const tuple = <T extends any[]>(...t: T): T => t;
+
+const vals = tuple('foo', 42, true, { hello: 'world' });
+
+// :: number
+const valsAt1 = at(vals)(1);
+
+// :: { hello: string }
+const valsAt3 = at(vals)(3);
+```
+
+That kinda works, but is backwards from the case I'm trying to handle, I think.  The types in the Parameters Tuple will be lazily determined, while the indices will be determined up front.  It'd be more like `at(1)(vals)`, although that by itself is not quite what we're looking for.
+
+I also tried doing tuples mapping tuples but that didn't quite work...
+
+```typescript
+const ats =
+    <T extends any[]>(t: T) =>
+        <TI extends Array<keyof T>>(...indices: TI): T[ElsOf<TI>] =>
+            indices.map(i => t[i]) as T[ElsOf<TI>];
+
+// creates a union, not a list.  Hm.
+type ElsOf<T extends any[]> = T[Extract<keyof T, number>];
+type TupleEls<T extends any[], TI extends (keyof T)[]> =
+    { [I in keyof TI]: T[TI[I]] }
+    ;
+```
+
+Anyway, let's try just inverting things:
+
+```typescript
+const at =
+    <TI extends number>(index: TI) =>
+        <T extends any[]>(t: T) => t[index];
+
+const tuple = <T extends any[]>(...t: T): T => t;
+
+const vals = tuple('foo', 42, true, { hello: 'world' });
+
+// :: number
+const val1 = at(1)(vals);
+// :: { hello: string }
+const val3 = at(3)(vals);
+// :: undefined
+const val4 = at(4)(vals);
+```
+
+That certainly works.
+
+Still not sure I can generalize, though, given the trouble I had with the tuples mapping tuples thing.
+
+```
+type AsyncData<R, E> = TaggedSum<'AsyncData', [R, E], {
+    NotAsked: [],
+    Waiting: [],
+    Result: [R],
+    Error: [E],
+}>;
+
+const TypeConstructors = taggedSum<AsyncData<any, any>>('AsyncData', ['R', 'E'], {
+    NotAsked: [],
+    Waiting: [],
+    Result: [0],
+    Error: [1],
+});
+```
+
+Maybe then tags are specified like this?
+
+```
+type AsyncDataResult<[R, E]> = TaggedSumTag<'AsyncData', [R, E], 'Result', [0]>;
+```
+
+If I could reliably map a tuple of indices across a tuple of types to get a derived tuple of types, I could solve this easily.  That's a possible solution, then.
+
+```typescript
+type TestTuple = [string, number, boolean, { hello: string }];
+type IndexTuple = [0, 3];
+
+// string | { hello: string }
+type DerivedTuple = TestTuple[IndexTuple[Extract<keyof IndexTuple, number>]];
+```
+
+Not quite.  I think the problem is this:
+
+```typescript
+// 0 | 3
+type ElsOfIndexTuple = IndexTuple[Extract<keyof IndexTuple, number>];
+```
+
+So, we need a mapped type, not a union type.  The problem there is that we end up with something that has properties, but isn't really an Array-tuple.  Not sure if that's actually material to our case, though.
+
+```typescript
+// 0 | 3
+type ElsOfIndexTuple = IndexTuple[Extract<keyof IndexTuple, number>];
+
+// { 0: string; 3: { hello: string; }; }
+type DerivedTuple = {
+    [I in ElsOfIndexTuple]: TestTuple[I];
+}
+```
+
+Er, not quite what I'm going for.  Need both the element of the index and the index of the index.  The index-index.  Not confusing at all.  Unfortunately, I can't seem to dependably get that, instead just getting something like `[number, 0 | 3]`.  I think it's because `Extract<keyof SomeTupleType, number>` expands to just `number` rather than something like `0 | 1`.  TS is smart enough to know all `number`-addressable elements of a tuple, but we can't get concrete indices...
+
+Perhaps I can still use this, though.  If I can get a union of elements within, then I should be able to get all properties that result in a value in that union.
+
+```typescript
+// "0" | "1"
+type IndicesOfIndexTuple =
+    keyof IndexTuple extends infer KI
+    ? KI extends keyof IndexTuple
+    ? IndexTuple[KI] extends ElsOfIndexTuple
+    ? Extract<KI, string>
+    : never : never : never;
+
+// 0 | 3
+type AnyElOfIndexTuple = IndexTuple[IndicesOfIndexTuple];
+```
+
+Need to use `Extract<KI, string>` to remove that `number` type.  Otherwise, that seems to work.
+
+```typescript
+// ["0" | "1", 0 | 3]
+type EntriesOfIndexTuple =
+    IndicesOfIndexTuple extends string
+    ? [IndicesOfIndexTuple, IndexTuple[IndicesOfIndexTuple]]
+    : never
+    ;
+```
+
+Er, not quite.
+
+```typescript
+// ["0", 0] | ["1", 3]
+type EntriesOfIndexTuple = EntryOfIndexTuple<IndicesOfIndexTuple>;
+
+type EntryOfIndexTuple<I> =
+    I extends keyof IndexTuple
+    ? [I, IndexTuple[I]]
+    : never
+    ;
+```
+
+The accessory conditional type allows the union to distribute a layer up, expanding the `EntryOfIndexTuple<IT>` to `EntryOfIndexTuple<"0"> | EntryOfIndexTuple<"1">`.
+
+We can then genericize this thusly:
+
+```typescript
+type EntriesOf<T extends any[]> = EntryOf<T, IndicesOf<T>>;
+
+type EntryOf<T extends any[], I> = I extends keyof T ? [I, T[I]] : never;
+
+type IndicesOf<T extends any[]> =
+    keyof T extends infer KI
+    ? KI extends keyof T
+    ? T[KI] extends T[number]
+    ? Extract<KI, string>
+    : never : never : never;
+
+type IndexTuple = [0, 3];
+
+// ["0", 0] | ["1", 3]
+type IndexTupleEntries = EntriesOf<IndexTuple>;
+```
+
+That's ... something, anyway.  Closer than anything else I've gotten.  What was I trying to do with this, now?
+
+I think my ultimate goal was: Given Tuple T of Types and Tuple I of Indices, create a new Tuple D that is each element of T at index I.  So the above work is ... close, but not quite.
+
+
+### Bring It Back Around: D as the T at each I
+
+So, As stated before, I have two inputs:
+
+- T, a Tuple of Types that must be a certain length.
+- I, a Tuple of Indices.
+
+From those, I want:
+
+- D, a Tuple of Types from T for each element in I.
+
+And code wise, I think I'm trying to do this:
+
+```
+(i: I) => <T>(...args: MappedTuple<T, I>) => MappedTuple<T, I>
+```
+
+Or more fully,
+
+```
+<I extends number[]>(tagName: string, i: I) =>
+    <T extends TParams>(...args: MappedTuple<T, I>) =>
+        Tag<SumName, TagName, MappedTuple<T, I>>
+```
+
+I'm not sure the type system allows that, but I'll try it?  It may be able to back-derive the types based solely on the structure, and just leave `unknown` or `any` (or `{}`) for anything it can't back-derive.
+
+```typescript
+type MappedTuple<
+    T extends any[],
+    I extends number[]
+> = { [KI in ElsOf<I>]: T[KI] };
+
+type ElsOf<T extends any[]> = T[number];
+
+type TupleTest = [number, string, { hello: string }];
+type TestIndices = [0, 2];
+// { 0: number; 2: { hello: string }; }
+type TestMapped = MappedTuple<TupleTest, TestIndices>;
+```
+
+Oops, meant to use the indices of the indices for the output.  That was the whole point of the Entries type.
+
+```typescript
+type MappedTuple<
+    T extends any[],
+    I extends number[]
+> = { [KI in EntriesOf<I>[0]]: T[KI] };
+
+type ElsOf<T extends any[]> = T[number];
+
+type EntriesOf<T extends any[]> = EntryOf<T, IndicesOf<T>>;
+
+type EntryOf<T extends any[], I> = I extends keyof T ? [I, T[I]] : never;
+
+type IndicesOf<T extends any[]> =
+    keyof T extends infer KI
+    ? KI extends keyof T
+    ? T[KI] extends T[number]
+    ? Extract<KI, string>
+    : never : never : never;
+
+type TupleTest = [number, string, { hello: string }];
+type TestIndices = [0, 2];
+type IndicesEntries = EntriesOf<TestIndices>;
+// { 0: number; 1: string; length: 3; }
+type TestMapped = MappedTuple<TupleTest, TestIndices>;
+```
+
+... Erp.  Looks like `T[KI] extends T[number]` isn't enough when the length is the same as one of the elements.  Hmmm.
+
+
+
 ## More JS-Friendly Chaining?
 
 ```
@@ -805,3 +1082,17 @@ value
 ```
 
 That'd require adding `.pipe` but that's really simple to write: `{ pipe(fn, ...args) { return fn(this, ...args); } }`.
+
+I think type wise it'd just be this:
+
+```typescript
+function pipe<This, TArgs extends any[], R>(
+    this: This,
+    fn: (inst: This, ...args: TArgs) => R,
+    ...args: TArgs
+): R {
+    return fn(this, ...args);
+}
+```
+
+Simple enough.

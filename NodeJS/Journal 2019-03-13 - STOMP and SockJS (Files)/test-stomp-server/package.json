@@ -1,0 +1,24 @@
+{
+  "name": "test-stomp-server",
+  "version": "0.0.0",
+  "description": "Simple STOMP over SockJS Server for Testing Clients",
+  "main": "index.js",
+  "scripts": {
+    "start": "node .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "stomp",
+    "sockjs"
+  ],
+  "author": "Joseph Sikorski <joedski@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "node-static": "^0.7.11",
+    "sockjs": "^0.3.19",
+    "stomp-broker-js": "git+https://github.com/Asc2011/StompBrokerJS.git#ff66e30e2bb2ac519c50453cf27d99de5206efc1"
+  },
+  "devDependencies": {
+    "eslint": "^5.15.1"
+  }
+}

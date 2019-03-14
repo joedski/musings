@@ -6,6 +6,7 @@ Wonder if I can make my own Markdown plugins?  I mean, I probably can, given the
 Things I imagine I'll need to cover:
 
 - Automatic list formatting.
+- Show a Pretty Title when hovering or within a Link Reference?
 - Automatic link reference naming/renaming.
     - I don't actually need link references to have any sort of naming logic... they could even be entirely random.
 - Automatic link reformatting and reference generation.

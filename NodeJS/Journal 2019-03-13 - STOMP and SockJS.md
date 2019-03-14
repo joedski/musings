@@ -5,6 +5,17 @@ A work project is using STOMP (Simple Text Oriented Messaging Protocol) over Soc
 
 To do this, though, I need to actually spin up a minimal server.
 
+Exploration Goals:
+
+- Setup a basic websocket server locally.
+    - I'm thinking it'll just periodically echo back an object with the current logs tab settings and a random message.
+- Learn how websocket stuff is meant to be handled, client side.
+    - Before I go on a controller-creation rampage, I should learn how STOMP expects client side stuff to be handled, what sort of usage it was written with in mind.
+- Contemplate client abstractions.
+    - Once I've gotten some basic reading done on the topic, start to think about how to actually abstract usefully around it.
+
+Sources:
+
 1. [STOMPJS Usage][ss-1]
     1. As of 2019-03-13, kinda sparse.  Hopefully be better in the future.
 2. [STOMPJS API Docs][ss-2]
@@ -28,7 +39,7 @@ To do this, though, I need to actually spin up a minimal server.
 5. [SockJS GitHub Org][ss-5]
     1. [SockJS Node Server][ss-5-1]
     2. [SockJS Example: Multiplexer][ss-5-2]
-6. [Websocket-Multiplex][ss-5]: Multiplex over a single SockJS connection
+6. [Websocket-Multiplex][ss-6]: Multiplex over a single SockJS connection
 
 [ss-1]: https://stomp-js.github.io/
 [ss-2]: https://stomp-js.github.io/api-docs/latest/
@@ -39,9 +50,9 @@ To do this, though, I need to actually spin up a minimal server.
 [ss-4-1-2-1]: https://github.com/4ib3r/StompBrokerJS/tree/8d8de4b5232c6fe456ee99237e9f731ce3846ed4/examples/sockjs
 [ss-4-2]: https://github.com/pcan/node-stomp-protocol
 [ss-5]: https://github.com/sockjs
-[ss-4-1]: https://github.com/sockjs/sockjs-node
-[ss-4-2]: https://github.com/sockjs/sockjs-node/tree/master/examples/multiplex
-[ss-5]: https://www.npmjs.com/package/websocket-multiplex
+[ss-5-1]: https://github.com/sockjs/sockjs-node
+[ss-5-2]: https://github.com/sockjs/sockjs-node/tree/master/examples/multiplex
+[ss-6]: https://www.npmjs.com/package/websocket-multiplex
 
 
 
@@ -120,3 +131,13 @@ Looking at the websocket frames that are being sent and received, I see:
 Gonna suppose the current code is fubbernucked.  Maybe it's [this change here](https://github.com/Asc2011/StompBrokerJS/commit/1a42c90f5285e5eb08958ba21e5467ed2c9d52c3#diff-abc0d9513517234243e17e77d9288427R25).  Sure enough, reverting that part to the call to `toStringOrbuffer()` (and fixing [some linting issues along the way](https://github.com/joedski/StompBrokerJS/pull/1)) fixes things.  Now the client and server happily send back messages about messages.
 
 > Aside: May want to check if I want to pull over the fix for the issue claimed in that commit message, though, that "breaks on bodies consisting only of `\n\n` thing".
+
+
+
+## Usage Patterns on the Client
+
+It seems like it would be wasteful to open more than one socket to a given server, which also seems like part of the reason for things like STOMP in the first place: the Client and Server can coordinate on just what data to send to the Client.  It's like [websocket-multiplex][ss-5] but with things like headers built in, more akin to a message broker service like RabbitMQ than just simple multiplexing.
+
+Given that, it seems then that on the client, you'd have a singleton service that handles all the actually websocket/message-broker communication and exposes a nice instantial API for the rest of the client code.
+
+Does further research into this topic bear out this speculation?

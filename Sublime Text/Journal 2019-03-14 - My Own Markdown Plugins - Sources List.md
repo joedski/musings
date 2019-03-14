@@ -24,8 +24,8 @@ Things I imagine I'll need to cover:
 - Maybe being able to reference multiple different lists in the same document?
     - Referencing non-link items would mean creating `<a id=""></a>` tags, but yeah.  Don't need to be `<a>`, but it's short and handy, so hey.
     - Going off the Declaration Comment, it could be something like:
-        - `<!-- @MarkdownReferenceList "sources" -->` for a list named `sources`.
-        - `<!-- @MarkdownReferenceList "pros-cons" list-type="unordered" -->` for a list named `pros-cons`, unordered.
+        - `<!-- MarkdownReferenceList "sources" -->` for a list named `sources`.
+        - `<!-- MarkdownReferenceList "pros-cons" list-type="unordered" -->` for a list named `pros-cons`, unordered.
         - Etc.
 
 Sources:

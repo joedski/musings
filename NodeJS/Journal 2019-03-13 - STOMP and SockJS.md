@@ -134,10 +134,20 @@ Gonna suppose the current code is fubbernucked.  Maybe it's [this change here](h
 
 
 
+## Aside: Web Sockets vs...
+
+There are a few other methodologies that were in more common use compared to Web Sockets:
+
+- Polling: Periodically making requests to check for updates.
+- Long Polling: Client makes a request and the Server leaves the connection open, not sending a response until Much Later, usually when there are updates.
+- Server Sent Events: Client makes a request and the Server responds with headers, then periodically sends events as appendations to the body, without closing the response.
+
+
+
 ## Usage Patterns on the Client
 
-It seems like it would be wasteful to open more than one socket to a given server, which also seems like part of the reason for things like STOMP in the first place: the Client and Server can coordinate on just what data to send to the Client.  It's like [websocket-multiplex][ss-5] but with things like headers built in, more akin to a message broker service like RabbitMQ than just simple multiplexing.
+It seems like it would be wasteful to open more than one socket to a given server, which also seems like part of the reason for things like STOMP in the first place: the Client and Server can coordinate on just what data to send to each Client.  It's like [websocket-multiplex][ss-5] but with things like headers built in, more akin to a message broker service like RabbitMQ than just simple multiplexing.
 
 Given that, it seems then that on the client, you'd have a singleton service that handles all the actually websocket/message-broker communication and exposes a nice instantial API for the rest of the client code.
 
-Does further research into this topic bear out this speculation?
+Does further research into this topic bear out this speculation?  ... I don't actually know.  I'm not even sure what to search for this.  I suppose a chat

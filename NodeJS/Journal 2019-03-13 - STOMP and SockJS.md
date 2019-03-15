@@ -148,6 +148,10 @@ There are a few other methodologies that were in more common use compared to Web
 
 It seems like it would be wasteful to open more than one socket to a given server, which also seems like part of the reason for things like STOMP in the first place: the Client and Server can coordinate on just what data to send to each Client.  It's like [websocket-multiplex][ss-5] but with things like headers built in, more akin to a message broker service like RabbitMQ than just simple multiplexing.
 
+> I say that, but with WebSockets you can open 1024 client-server connections... Why so many?
+>
+> Further aside: It seems that with SockJS, [you cannot open more than 1 due to how the fallback is implemented](https://mdavey.wordpress.com/2014/03/04/multiplexing-and-websockets/).  So, multiplexing a single connection is still the way to go for the best dependability.
+
 Given that, it seems then that on the client, you'd have a singleton service that handles all the actually websocket/message-broker communication and exposes a nice instantial API for the rest of the client code.
 
 Does further research into this topic bear out this speculation?  ... I don't actually know.  I'm not even sure what to search for this.  I suppose a chat

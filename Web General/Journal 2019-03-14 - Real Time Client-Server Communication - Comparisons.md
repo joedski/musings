@@ -16,6 +16,7 @@ Sources:
 5. [This one, showing there are other options besides WebSockets][ss-5]
     1. It has cute animations.
 6. [A Server-Sent Events Tutorial][ss-6]
+7. [A post recommending the use of SSE on mobile rather than WebSockets][ss-7]
 
 [ss-1]: https://codeburst.io/polling-vs-sse-vs-websocket-how-to-choose-the-right-one-1859e4e13bd9
 [ss-2]: https://blog.baasil.io/why-you-shouldnt-use-long-polling-fallbacks-for-websockets-c1fff32a064a
@@ -25,6 +26,7 @@ Sources:
 [ss-4]: https://codeburst.io/polling-vs-sse-vs-websocket-how-to-choose-the-right-one-1859e4e13bd9
 [ss-5]: https://blog.stanko.io/do-you-really-need-websockets-343aed40aa9b
 [ss-6]: https://medium.com/conectric-networks/a-look-at-server-sent-events-54a77f8d6ff7
+[ss-7]: https://www.smashingmagazine.com/2018/02/sse-websockets-data-flow-http2/ "Smashing Magazine: Using SSE Instead Of WebSockets For Unidirectional Data Flow Over HTTP/2"
 
 Current points:
 
@@ -35,6 +37,8 @@ Current points:
     - Pros
         1. Easy to use.
         2. Allegedly: [Clients automatically try to reconnect them if they drop for any reason][ss-6].
+        3. [May be friendlier to mobile devices, resource usage wise][ss-7].
+        4. [Fewer caveats when dealing with intervening communication middleware][ss-7].
     - Cons
         1. [Not supported by everyone](https://caniuse.com/#search=eventsource). (IE, Edge as of v18)
         2. No way to tell if a Client dropped until the Server tries sending an event.
@@ -42,7 +46,12 @@ Current points:
     - Pros
         1. Can have 1024 Client-Server connections, vs only 6 as allowed by HTTP/1.
     - Cons
-        1. Allegedly: [Hard to load balance, dealing with proxies is difficult][ss-2-2].
+        1. Allegedly: [Hard to load balance, dealing with proxies is difficult][ss-2-2].  [Corroboration][ss-7].
+        2. [More likely to have deleterious effects on mobile platforms][ss-7] due to the persistent connection.
+        3. Basically a TCP socket with a bow on top, so you have to [do a lot more yourself to deal with dropped connections, proxies, load balancing, etc][ss-7].
 3. Long Polling
+    - Pros
+        1. Easy to implement.
+        2. Basically everything in the tech stack can already work with it.
     - Cons
         1. Allegedly: [Resource intensive][ss-2] due to leaving all those sockets open.

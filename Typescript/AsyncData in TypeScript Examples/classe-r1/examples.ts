@@ -9,6 +9,8 @@ import TaggedSum, {
 } from './TaggedSum';
 
 import Maybe from './Maybe';
+import Either from './Either';
+import AsyncData from './AsyncData';
 
 // Just checking some extends things.
 type _CheckNoArgs = ['Foo'] extends [string] ? true : false;
@@ -34,6 +36,8 @@ type _MaybeSpecialization<TTagName> =
 type _MaybeSpecializedToJust = _MaybeSpecialization<'Just'>;
 
 //// Playing around with concrete values
+
+//// Maybe...
 
 // should return T extends Maybe<string>
 const maybe0: Maybe<string> = new Maybe('Nothing');
@@ -73,7 +77,7 @@ if (Maybe.is(maybe0AsAny)) {
   });
 }
 
-if (Maybe.isType('Just', maybe0AsAny)) {
+if (Maybe.isTag('Just', maybe0AsAny)) {
   // isType doesn't preserve anything besides the case name,
   // so typeName here is 'Just', but that's all we get.
   const typeName = maybe0AsAny.type[0];
@@ -85,4 +89,41 @@ if (Maybe.isType('Just', maybe0AsAny)) {
   const typeName2 = maybe0AsAny.tag;
   // :: [unknown]
   const values = maybe0AsAny.values;
+}
+
+//// Either...
+
+interface Foo {
+  foo: string;
+}
+
+// this gets a type error: Type 'Either<42, 42>' is not assignable to type 'Either<number, Error>'.
+// For whatever reason, the constructor gets inferred type "new Either<42, 42>".
+// I'm guessing this has to do with both type params referring to args[1],
+// even though args[0] has one of the cases.
+const either0CU: Either<number, Error> = new Either('Left', 42);
+// Put more abstractly, given <L, R>(l: L) => new Either('Left', l),
+// Typescript infers things to <L, R>(l: L) => new Either<L, L>('Left', l).
+// To fix this, we have to specify the types...
+const either0CP: Either<number, Error> = new Either<number, Error>('Left', 42);
+// Or, if we use a factory function to do that for us, telling Typescript that those two types
+// should be different, then it works things out.
+// This requires more investigation.
+const either0F: Either<number, Error> = Either.Left(42);
+const either1F: Either<number, Error> = Either.Right(new Error('oh no'));
+const either2F: Either<Foo, Error> = Either.Left({ foo: 'yay' });
+
+//// AsyncData...
+
+const asyncData0C: AsyncData<Foo, Error> = new AsyncData<Foo, Error>('Data', { foo: 'foo' });
+const asyncData0F: AsyncData<Foo, Error> = AsyncData.Data({ foo: 'foo' });
+const asyncData1C: AsyncData<Foo, Error> = new AsyncData<Foo, Error>('Error', new Error('oh no'));
+const asyncData1F: AsyncData<Foo, Error> = AsyncData.Error(new Error('oh no'));
+
+type T = AsyncData<boolean, Error>// & TaggedSumSpecializedTo<AsyncData<any, any>, 'Error'>
+const t: T = AsyncData.Error(new Error('oh no'));
+if (AsyncData.isTag('Error', t)) {
+  t.tag;
+  // [Error] & [any] which becomes just [any]...
+  t.values;
 }

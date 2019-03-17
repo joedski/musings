@@ -25,7 +25,11 @@ export default abstract class TaggedSum<
     this.type = type;
   }
 
-  public cata<T extends AnyTaggedSum, H extends TaggedSumCataHandlers<T>>(this: T, handlers: H): ReturnType<H[TaggedSumTagNames<T>]> {
+  // I wanted to use <H extends TaggedSumCataHandlers<this>>> and TaggedSumCataHandlersReturnType<this, H>
+  // but I was getting the following error:
+  //   Error: Return type annotation circularly references itself
+  // So I just used the type "this" ought to have... Seems to work.
+  public cata<H extends TaggedSumCataHandlers<TaggedSum<TSumName, TTagDefs>>>(handlers: H): TaggedSumCataHandlersReturnType<TaggedSum<TSumName, TTagDefs>, H> {
     return handlers[this.type[0]](...this.type.slice(1));
   }
 
@@ -59,15 +63,18 @@ export type TaggedSumCataHandlers<TSum> = {
   [HK in TaggedSumTagNames<TSum>]: (...args: TaggedSumCataHandlerArgs<TSum, HK>) => any;
 };
 
+export type TaggedSumCataHandlersReturnType<TSum extends AnyTaggedSum, THandlers extends TaggedSumCataHandlers<TSum>> =
+  ReturnType<THandlers[TaggedSumTagNames<TSum>]>;
+
 /**
  * Get all the Tag Names of a Tagged Sum.
  */
-export type TaggedSumTagNames<TSum> =
-  TSum extends TaggedSum<string, infer TTagDefs>
-  ? TTagDefs extends [infer TNames, ...any[]]
-  ? TNames
-  : never
-  : never
+export type TaggedSumTagNames<TSum> = TaggedSumTagDefs<TSum>[0];
+  // TSum extends TaggedSum<string, infer TTagDefs>
+  // ? TTagDefs extends [infer TNames, ...any[]]
+  // ? TNames
+  // : never
+  // : never
   ;
 
 /**

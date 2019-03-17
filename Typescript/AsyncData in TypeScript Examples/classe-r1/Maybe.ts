@@ -15,52 +15,40 @@ extends TaggedSum<'Maybe',
   | ['Just', A]
 > {
   // Daggy style factories, if you're into that sort of thing.
-
-  static Just<A>(a: A) {
-    return new Maybe('Just', a);
-  }
-
-  static Nothing<A = unknown>() {
-    return new Maybe<A>('Nothing' as 'Nothing');
-  }
+  static Just = <A>(a: A) => new Maybe('Just', a);
+  static Nothing = <A = unknown>() => new Maybe<A>('Nothing' as 'Nothing');
 
   // Predicates for imperative checks.
 
   static is(inst: unknown): inst is Maybe<unknown> {
-    return (
-      inst != null
-      && inst instanceof Maybe
-    );
+    return inst != null && inst instanceof Maybe;
   }
 
-  static isType<
-    TTypeName extends TaggedSumTagNames<Maybe<any>>
-  >(type: TTypeName, inst: unknown): inst is TaggedSumSpecializedTo<Maybe, TTypeName> {
-    return (
-      Maybe.is(inst)
-      && inst.type[0] === type
-    );
+  static isTag<
+    TTagName extends TaggedSumTagNames<Maybe<any>>
+  >(type: TTagName, inst: unknown): inst is TaggedSumSpecializedTo<Maybe, TTagName> {
+    return Maybe.is(inst) && inst.type[0] === type;
   }
 
   constructor(...type: TaggedSumTagDefs<Maybe<A>>) {
     super('Maybe', type);
   }
 
-  map<B>(this: Maybe<A>, fn: (a: A) => B): Maybe<B> {
+  map<B>(fn: (a: A) => B): Maybe<B> {
     return this.cata({
       Nothing: () => this as unknown as Maybe<B>,
       Just: (a: A) => new Maybe('Just', fn(a)),
     });
   }
 
-  flatten<A>(this: Maybe<Maybe<A>>): Maybe<A> {
+  flatten<T>(this: Maybe<Maybe<T>>): Maybe<T> {
     return this.cata({
-      Nothing: () => this as unknown as Maybe<A>,
-      Just: (inner: Maybe<A>) => inner,
+      Nothing: () => this as unknown as Maybe<T>,
+      Just: (inner: Maybe<T>) => inner,
     });
   }
 
-  flatMap<A, B>(this: Maybe<A>, fn: (a: A) => Maybe<B>): Maybe<B> {
+  flatMap<B>(fn: (a: A) => Maybe<B>): Maybe<B> {
     return this.map(fn).flatten();
   }
 }

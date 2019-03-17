@@ -1389,7 +1389,7 @@ This leads to the ugly `as unknown as Maybe<B>` hack shown below.  Still thinkin
 class Maybe<A = unknown> extends TaggedSum<'Maybe', ['Nothing'] | ['Just', A]> {
   // ...
 
-  map<A, B>(this: Maybe<A>, fn: (a: A) => B): Maybe<B> {
+  map<B>(this: Maybe<A>, fn: (a: A) => B): Maybe<B> {
     return this.cata({
       Nothing: () => this as unknown as Maybe<B>,
       Just: (a: A) => new Maybe('Just', fn(a)),
@@ -1403,11 +1403,13 @@ class Maybe<A = unknown> extends TaggedSum<'Maybe', ['Nothing'] | ['Just', A]> {
     });
   }
 
-  flatMap<A, B>(this: Maybe<A>, fn: (a: A) => Maybe<B>): Maybe<B> {
+  flatMap<B>(this: Maybe<A>, fn: (a: A) => Maybe<B>): Maybe<B> {
     return this.map(fn).flatten();
   }
 }
 ```
+
+~~Also, for some reason, I need to explicitly specify the this-type `this: Maybe<A>` for `map` and `flatMap` or it doesn't pick up any of the tags, for some reason, even though `this` does seem to show up as `TaggedSum<'Maybe', ['Nothing'] | ['Just', A]>`...~~ False alarm, turns out it's just because I had `this` typed as `T extends AnyTaggedSum` in the Cata function rather than leaving it as just `this`.  Taking that out fixes things right up.  Excellent!
 
 I suppose in these cases, it wouldn't be too bad to use the type check predicates, since that would make TS happier.  Cata is just so much nicer than imperative stuff, but at least wrapping the imperative stuff in functions makes it easier to deal with.
 
@@ -1427,3 +1429,77 @@ class Maybe<A = unknown> extends TaggedSum<'Maybe', ['Nothing'] | ['Just', A]> {
 ```
 
 Anyway, it's almost as easy as using Daggy.
+
+
+### Update: Not All Is Happy in Happyland
+
+Turns out the tuple-union seems to lead to some odd behavior with TS's inferrence engine.  Or else I'm just doing weird stuff again.
+
+The minimal example is something like `Either<L, R>`:
+
+```typescript
+class Either<L, R> extends TaggedSum<'Either', ['Left', L] | ['Right', R]> {
+  constructor(...type: TaggedSumTagDefs<Either<L, R>>) {
+    super('Either', type);
+  }
+}
+
+// Type Error: Type 'Either<42, 42>' is not assignable to type 'Either<number, Error>'.
+// Constructor inferred as "new Either<42, 42>('Left', 42)"...
+const either0CU: Either<number, Error> = new Either('Left', 42);
+
+// This works, but is verbose.
+const either0CP: Either<number, Error> = new Either<number, Error>('Left', 42);
+```
+
+I don't know exactly what's going on, but I'm supposing it's because all the cases are tuples, and even though the Tag Name argument at index 0 is always unique and, technically, the type of argument 1 should always be based on that, it never the less isn't unambiguous enough according to how TS currently infers this.  I'll have to look at it some time I'm not running on fumes.
+
+Since the way to fix it is to specify the type parameters explicitly, why not try those Daggy-style factory functions?
+
+```typescript
+// Using factories seems to help, though:
+
+class Either<L, R> extends TaggedSum<'Either', ['Left', L] | ['Right', R]> {
+  static Left = <L, R>(left: L) => new Either<L, R>('Left', left);
+  static Right = <L, R>(right: R) => new Either<L, R>('Right', right);
+
+  constructor(...type: TaggedSumTagDefs<Either<L, R>>) {
+    super('Either', type);
+  }
+}
+
+const either0F: Either<number, Error> = Either.Left(42);
+const either1F: Either<number, Error> = Either.Right(new Error('oh no'));
+```
+
+Using those, we don't have to write them out explicitly, any more.  Near as I can tell, TS is smart enough to pick up here that when assigning to a value of a type `Either<number, Error>` and calling a function of `<L, R>(...args) => Either<L, R>`, that those type parameters `number` and `Error` should be carried to the return type and hence to the function's own type parameters, barring of course the appearance of those type parameters within the function arguments.
+
+```typescript
+interface Foo { foo: string; }
+
+// The call is typed as "Either.Left<{ foo: string }, Error>({ foo: string })"
+// But the var is still typed "Either<Foo, Error>".
+const either2F: Either<Foo, Error> = Either.Left({ foo: 'yay' });
+```
+
+So there's that much again.  Looks like the factories win on just more than not having to use `new`!
+
+Anyway, I suspect this will happen for any TaggedSum types where any Tag has an overlapping number of values, but the factories, though boilerplatey, at least help mitigate things during usage.
+
+
+### Improvements to Tag Predicates?
+
+Currently, if you do something like this:
+
+```typescript
+const asyncData2: AsyncData<boolean, Error> = AsyncData.Error(new Error('oh no'));
+if (AsyncData.isTag('Error', asyncData2)) {
+  asyncData2.tag;
+  // [Error] & [any] which becomes just [any]...
+  asyncData2.values;
+}
+```
+
+You get `asyncData2.values :: [Error] & [any]` which of course collapses down to `[any]`.  Not helpful.  Is there a better way to do the Tag Predicates than the current method?  I like the current point, and I'm definitely willing to use it since I don't usually touch `values`, but it would be reeeeeally nice... I just hope it doesn't become a "perfect is the enemy of good" type situation.
+
+One possibility may be to only use `unknown` as a default type of `inst` instead of the given type.  Then, if the type of inst is indeed compatible, I could use that instead of just `AsyncData<any, any>`.

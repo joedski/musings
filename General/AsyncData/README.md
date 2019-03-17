@@ -131,19 +131,21 @@ coalesce mergeReses mergeErrors a b = match a:
 In more dynamic languages, this is easily implemented with the following behavior:
 
 ```js
-if (AsyncData.Error.is(a) && AsyncData.Error.is(b))
-  return AsyncData.Error(mergeErrors(a, b))
+function coalesce(a, b, mergeReses) {
+  if (AsyncData.Error.is(a) && AsyncData.Error.is(b))
+    return AsyncData.Error(mergeErrors(a, b))
 
-if (AsyncData.Error.is(a)) return a
-if (AsyncData.Error.is(b)) return b
+  if (AsyncData.Error.is(a)) return a
+  if (AsyncData.Error.is(b)) return b
 
-if (AsyncData.Waiting.is(a)) return a
-if (AsyncData.Waiting.is(b)) return b
+  if (AsyncData.Waiting.is(a)) return a
+  if (AsyncData.Waiting.is(b)) return b
 
-if (AsyncData.NotAsked.is(a)) return a
-if (AsyncData.NotAsked.is(b)) return b
+  if (AsyncData.NotAsked.is(a)) return a
+  if (AsyncData.NotAsked.is(b)) return b
 
-return a.map(ra => b.map(rb => mergeReses(ra, rb))).flatten()
+  return a.map(ra => b.map(rb => mergeReses(ra, rb))).flatten()
+}
 ```
 
 Now, I only specified that there's a `mergeErrors` to handle the case of both values being Error cases, but what we probably need is both `mergeErrors` and `mapError`.  The formmer would still only be called if both values are Error cases, but the latter ensures we're able to render any errors into a consistent shape.  We don't need a separate `mapReses` because unlike the error cases, we only have one case where we deal with any reses at all: when both values are Result cases.

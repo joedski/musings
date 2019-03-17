@@ -1503,3 +1503,22 @@ if (AsyncData.isTag('Error', asyncData2)) {
 You get `asyncData2.values :: [Error] & [any]` which of course collapses down to `[any]`.  Not helpful.  Is there a better way to do the Tag Predicates than the current method?  I like the current point, and I'm definitely willing to use it since I don't usually touch `values`, but it would be reeeeeally nice... I just hope it doesn't become a "perfect is the enemy of good" type situation.
 
 One possibility may be to only use `unknown` as a default type of `inst` instead of the given type.  Then, if the type of inst is indeed compatible, I could use that instead of just `AsyncData<any, any>`.
+
+#### Try 1: `inst` with Type Param
+
+My first attempt went like this:
+
+```typescript
+type AsyncData {
+  static isTag<
+    TTagName extends TaggedSumTagNames<AsyncData<any, any>>,
+    T = unknown
+  >(type: TTagName, inst: T): inst is TaggedSumSpecializedTo<AsyncData<any, any>, TTagName> {
+    return AsyncData.is(inst) && inst.type[0] === type;
+  }
+}
+```
+
+But that immediately gives the following error on the return type: `Type 'TaggedSum<"AsyncData", ["NotAsked"]> | TaggedSum<"AsyncData", ["Waiting"]> | TaggedSum<"AsyncData", ["Data", any]> | TaggedSum<"AsyncData", ["Error", any]>' is not assignable to type 'T'.`
+
+Which makes sense, really: T is only defaulting to `unknown`, but TS can't assume it will actually _be_ `unknown` at call time.  It could be anything, but by making it a param like this we're telling TS to lock it down.  Now, one could argue that this actually should work anyway, but Typescript has a very specific definition about what `is` means, and it means that for `T is U`, U is assignable to T, i.e. `t: T = u as U`.  So, bleh.

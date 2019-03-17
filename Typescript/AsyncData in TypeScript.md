@@ -1271,7 +1271,44 @@ if (Maybe.isType('Just', maybe0AsAny)) {
 
 Sadly, being static methods, we can't really pass those up to subclasses from the base class, so they have to be defined on the subclass itself.  Boo, boilerplate.  The whole reason they're static methods is so that the target value could be `null` or not have an `is()` method and the test would still work.
 
-Speaking of Cata(morphism), that's actually surprisingly easy to setup in TS, contrary to the previous class-based attempt I made:
+It's kind of annoying dealing with the tuple, so let's create some getters to simplify things:
+
+```typescript
+abstract class TaggedSum<
+  TSum extends string,
+  TSpec extends [string, ...any[]]
+> {
+  // ...
+
+  get tag() {
+    return this.type[0] as TSpec[0];
+  }
+
+  get values() {
+    return this.type.slice(1) as Tail<TSpec>;
+  }
+}
+
+// Can't currently do (T extends [any, ...infer TTail])
+// Modified off of this:
+//   https://github.com/Microsoft/TypeScript/issues/25719#issuecomment-433658100
+type Tail<T> =
+  T extends any[]
+  ? ((...args: T) => any) extends (h: any, ...rest: infer TRest) => any
+  ? TRest
+  : never
+  : never
+  ;
+
+if (Maybe.isType('Just', maybe0AsAny)) {
+  // :: "Just"
+  const typeName = maybe0AsAny.tag;
+  // :: [unknown]
+  const values = maybe0AsAny.values;
+}
+```
+
+Also, speaking of Cata(morphism), that's actually surprisingly easy to setup in TS, contrary to the previous class-based attempt I made:
 
 ```typescript
 abstract class TaggedSum<

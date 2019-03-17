@@ -17,20 +17,17 @@ abstract class TaggedSum<
     this.type = type;
   }
 
-  // public cata<T extends AnyTaggedSum, H extends TaggedSumCataHandlers<T>>(this: T, handlers: H): ReturnType<H[keyof H]> {
-  //   return handlers[this.type[0]](...this.type.slice(1));
-  // }
-
   public cata<T extends AnyTaggedSum, H extends TaggedSumCataHandlers<T>>(this: T, handlers: H): ReturnType<H[TaggedSumTypeNames<T>]> {
-  // // This one doesn't really add anything, despite the attempt at greater restriction, just makes the types more confusing.  Damn.
-  // public cata<T extends AnyTaggedSum, H extends OnlyAllowedHandlers<T, H>>(this: T, handlers: H): ReturnType<H[Extract<keyof H, TaggedSumTypeNames<T>>]> {
     return handlers[this.type[0]](...this.type.slice(1));
   }
 
-  // get values() {
-  //   const type = this.type;
-  //   return this.type.slice(1) as TaggedSumValuesType<typeof type>;
-  // }
+  get tag() {
+    return this.type[0] as TSpec[0];
+  }
+
+  get values() {
+    return this.type.slice(1) as Tail<TSpec>;
+  }
 }
 
 // type TaggedSumValuesType<T> =
@@ -222,4 +219,8 @@ if (Maybe.isType('Just', maybe0AsAny)) {
   const typeValue1 = maybe0AsAny.type[1];
   // Error: No element at index 2.
   const typeValue2 = maybe0AsAny.type[2];
+  // :: "Just"
+  const typeName2 = maybe0AsAny.tag;
+  // :: [unknown]
+  const values = maybe0AsAny.values;
 }

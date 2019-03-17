@@ -1121,6 +1121,7 @@ export const Result = <R>(r: R): AsyncData<R> => createTag('AsyncData', 'NotAske
 
 
 
+
 ## More JS-Friendly Chaining?
 
 ```
@@ -1144,3 +1145,229 @@ function pipe<This, TArgs extends any[], R>(
 ```
 
 Simple enough.
+
+
+
+## Surprisingly Easy: Classes with Tuple Unions
+
+Not sure where I came up with the idea, but using something that looks a bit closer to Elm in how the definition is created, I came up with this:
+
+```typescript
+abstract class TaggedSum<
+  TSum extends string,
+  TSpec extends [string, ...any[]]
+> {
+  sum: TSum;
+  type: TSpec;
+
+  constructor(sum: TSum, type: TSpec) {
+    this.sum = sum;
+    this.type = type;
+  }
+}
+```
+
+Then, it gets used like so:
+
+```typescript
+class Maybe<A = unknown> extends TaggedSum<
+  'Maybe',
+  ['Nothing'] | ['Just', A]
+> {
+  constructor(...type: TaggedSumTypes<Maybe<A>>) {
+    super('Maybe', type);
+  }
+}
+
+const maybe0: Maybe<string> = new Maybe('Nothing');
+const maybe1: Maybe<string> = new Maybe('Just', 'this string');
+
+// Also some errors:
+// Error: '"5"' is not assignable to 'number'
+const maybe2: Maybe<number> = new Maybe('Just', '5');
+// Error: '3' is not assignable to '1' (because 'Nothing' should be the only arg.)
+const maybeErrorTooManyArgs: Maybe<string> = new Maybe('Nothing', 'yes', 'no');
+// Error: '"Just"' is not assignable to '"Nothing"'
+const maybeErrorTooFewArgs: Maybe<string> = new Maybe('Just');
+// Error: Missing the following properties from ["Just", unknown]: 0, 1
+const maybeErrorNoType: Maybe<string> = new Maybe();
+// Error: "Not A Type" is not assignable to "Nothing"
+const maybeErrorNotValidType: Maybe<string> = new Maybe('Not A Type');
+```
+
+Kind of a motley bunch of errors, but eh.
+
+A bit of boilerplate, but much less than before.  Getting Daggy-style factories is doable, though adds back a bit of boilerplate:
+
+```typescript
+class Maybe<A = unknown> extends TaggedSum<'Maybe', ['Nothing'] | ['Just', A]> {
+  // Daggy style factories, if you're into that sort of thing.
+  static Just<A>(a: A) {
+    return new Maybe('Just', a);
+  }
+
+  // The <A = unknown> here lets TS infer the type instead of always
+  // giving back Maybe<unknown>.  Neat!
+  static Nothing<A = unknown>() {
+    return new Maybe<A>('Nothing' as 'Nothing');
+  }
+}
+
+const maybe0DaggyStyle: Maybe<string> = Maybe.Nothing();
+const maybe1DaggyStyle: Maybe<string> = Maybe.Just('this string here');
+```
+
+Adding predicates is easy, though I opted not to stick them on the factories.  I'm able to get it to the proper case and number of values, but of course since it's coming from an `any`, who knows what the types of the values themselves are...
+
+```typescript
+class Maybe<A = unknown> extends TaggedSum<'Maybe', ['Nothing'] | ['Just', A]> {
+  static is(inst: unknown): inst is Maybe<unknown> {
+    return (
+      inst != null
+      && inst instanceof Maybe
+    );
+  }
+
+  static isType<TTypeName extends TaggedSumTypeNames<Maybe<any>>>(
+    type: TTypeName,
+    inst: unknown
+  ): inst is TaggedSumSpecializedTo<Maybe, TTypeName> {
+    return (
+      Maybe.is(inst)
+      && inst.type[0] === type
+    );
+  }
+
+  // ... other stuff.
+}
+
+type TaggedSumSpecializedTo<TSum, TTagName> =
+  TSum extends TaggedSum<infer TSumName, infer TTypes>
+  ? TTagName extends TaggedSumTypeNames<TSum>
+  ? TaggedSum<TSumName, Extract<TTypes, [TTagName, ...any[]]>>
+  : never : never;
+
+const maybe0AsAny: any = maybe0;
+
+if (Maybe.is(maybe0AsAny)) {
+  maybe0AsAny.cata({
+    Nothing: () => console.log('Nothing!'),
+    Just: (a: unknown) => console.log('Just this:', a),
+  });
+}
+
+if (Maybe.isType('Just', maybe0AsAny)) {
+  // isType doesn't preserve anything besides the case name
+  // and the number of values.
+  // :: "Just"
+  const typeName = maybe0AsAny.type[0];
+  // :: unknown
+  const typeValue1 = maybe0AsAny.type[1];
+  // Error: no element at index 2.
+  // And the returned value is properly undefined.
+  const typeValue2 = maybe0AsAny.type[2];
+}
+```
+
+Sadly, being static methods, we can't really pass those up to subclasses from the base class, so they have to be defined on the subclass itself.  Boo, boilerplate.  The whole reason they're static methods is so that the target value could be `null` or not have an `is()` method and the test would still work.
+
+Speaking of Cata(morphism), that's actually surprisingly easy to setup in TS, contrary to the previous class-based attempt I made:
+
+```typescript
+abstract class TaggedSum<
+  TSum extends string,
+  TSpec extends [string, ...any[]]
+> {
+  // ...
+
+  public cata<
+    T extends AnyTaggedSum,
+    H extends TaggedSumCataHandlers<T>
+  >(this: T, handlers: H): ReturnType<H[TaggedSumTypeNames<T>]> {
+    return handlers[this.type[0]](...this.type.slice(1));
+  }
+}
+
+// Finally had to add utility types.
+
+type AnyTaggedSum = TaggedSum<string, [string, ...any[]]>;
+
+type TaggedSumCataHandlers<TSum> = {
+  [HK in TaggedSumTypeNames<TSum>]: (...args: TaggedSumCataHandlerArgs<TSum, HK>) => any;
+};
+
+type TaggedSumTypeNames<TSum> =
+  TSum extends TaggedSum<string, infer TTypes>
+  ? TTypes extends [infer TNames, ...any[]]
+  ? TNames
+  : never
+  : never
+  ;
+
+type TaggedSumCataHandlerArgs<TSum, THandlerKey> =
+  TSum extends TaggedSum<string, infer TTypes>
+  ? Tail<Extract<TTypes, [THandlerKey, ...any[]]>>
+  : never
+  ;
+
+// Can't currently do (T extends [any, ...infer TTail])
+// Modified off of this:
+//   https://github.com/Microsoft/TypeScript/issues/25719#issuecomment-433658100
+type Tail<T> =
+  T extends any[]
+  ? ((...args: T) => any) extends (h: any, ...rest: infer TRest) => any
+  ? TRest
+  : never
+  : never
+  ;
+
+// using the maybe type...
+
+// Error: missing props Just, Nothing
+const mapbe0value0 = maybe0.cata({});
+// Error: missing prop Just
+const maybe0value1 = maybe0.cata({
+  Nothing: () => 0,
+});
+// :: number
+const maybe0value2 = maybe0.cata({
+  Nothing: () => 0,
+  Just: (a: string) => a.length,
+});
+// Haven't found a good way of restricting allowed props, but at least the return type is accurate to the only cases which are used.
+// :: number
+const maybe0value3 = maybe0.cata({
+  Nothing: () => 0,
+  Just: (a: string) => a.length,
+  // Foo never gets called on Maybe.
+  Foo: () => true,
+});
+```
+
+But after that, I can define things like Map and Flatten in terms of Cata, much more easily than with the previous class based version:
+
+```typescript
+class Maybe<A = unknown> extends TaggedSum<'Maybe', ['Nothing'] | ['Just', A]> {
+  // ...
+
+  map<A, B>(this: Maybe<A>, fn: (a: A) => B): Maybe<B> {
+    return this.cata({
+      Nothing: () => this as Maybe<B>,
+      Just: (a: A) => new Maybe('Just', fn(a)),
+    });
+  }
+
+  flatten<A>(this: Maybe<Maybe<A>>): Maybe<A> {
+    return this.cata({
+      Nothing: () => this as Maybe<A>,
+      Just: (inner: Maybe<A>) => inner,
+    });
+  }
+
+  flatMap<A, B>(this: Maybe<A>, fn: (a: A) => Maybe<B>): Maybe<B> {
+    return this.map(fn).flatten();
+  }
+}
+```
+
+Almost as easy as using Daggy.

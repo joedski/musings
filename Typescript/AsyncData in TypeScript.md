@@ -1072,6 +1072,54 @@ type TestMapped = MappedTuple<TupleTest, TestIndices>;
 ... Erp.  Looks like `T[KI] extends T[number]` isn't enough when the length is the same as one of the elements.  Hmmm.
 
 
+### An Aside: Specifying Tuple Length While Deferring Exact Type Inferrence
+
+After walking away for a bit, I had a thought like this:
+
+```typescript
+type NAryFn<TArity extends any[]> = <TArgs extends TArity>(...args: TArgs) => TArgs;
+type UnaryFn = NAryFn<[unknown]>;
+
+// unaryFn: NAryFn<[unknown]>;
+const unaryFn = (<A>(a: A) => [a]) as UnaryFn;
+// unaryFn: <[number]>(args_0: number) => [number]
+unaryFn(5);
+```
+
+Not sure if that's usable for what I was trying to do with the whole `TParams[1]` or whatever, but hey.
+
+
+
+## In the Mean Time, Just Some Util Functions?
+
+We already have the biggest part, `TaggedSum<TSumName, TTagDefs>`, so we can easily create the factories without need for much else.
+
+```typescript
+export type AsyncData<R = unknown, E = unknown> = TaggedSum<'AsyncData', {
+    NotAsked: [],
+    Waiting: [],
+    Result: [R],
+    Error: [E],
+}>;
+
+export const NotAsked: () => AsyncData = createTagFactory('AsyncData', 'NotAsked');
+export const Waiting: () => AsyncData = createTagFactory('AsyncData', 'Waiting');
+export const Result: <R>(r: R) => AsyncData<R> = createTagFactory('AsyncData', 'Result');
+export const Error: <E>(e: E) => AsyncData<unknown, E> = createTagFactory('AsyncData', 'Error');
+```
+
+Hm.  Maybe this?
+
+```typescript
+function createTag<S extends string, T extends string, Vs extends any[](sumName: S, tagName: T, ...values: Vs) {
+    return { '@sum': sumName, '@tag': tagName, '@values', values };
+}
+
+export const NotAsked = (): AsyncData => createTag('AsyncData', 'NotAsked');
+export const Result = <R>(r: R): AsyncData<R> => createTag('AsyncData', 'NotAsked', r);
+```
+
+
 
 ## More JS-Friendly Chaining?
 

@@ -1383,6 +1383,8 @@ const maybe0value3 = maybe0.cata({
 
 But after that, I can define things like Map and Flatten in terms of Cata, much more easily than with the previous class based version.  The only problem with using Cata is that in cases where it's technically okay to return just the given instance as is, there's no way for TS to know that that handler will only be called if the instance has a given tag, so it can't appropriately narrow the types to understand that, in some cases, `Maybe<A>` actually is directly assignable to `Maybe<B>` because the type parameter isn't found on the instance due to the instance being a `Nothing`.
 
+This leads to the ugly `as unknown as Maybe<B>` hack shown below.  Still thinking about this.
+
 ```typescript
 class Maybe<A = unknown> extends TaggedSum<'Maybe', ['Nothing'] | ['Just', A]> {
   // ...
@@ -1407,4 +1409,21 @@ class Maybe<A = unknown> extends TaggedSum<'Maybe', ['Nothing'] | ['Just', A]> {
 }
 ```
 
-Almost as easy as using Daggy.
+I suppose in these cases, it wouldn't be too bad to use the type check predicates, since that would make TS happier.  Cata is just so much nicer than imperative stuff, but at least wrapping the imperative stuff in functions makes it easier to deal with.
+
+Or not, because the type predicate `is()` can only give intersection on the type.  It just so happens that `any` or `unknown` get swallowed up by such an intersection, but an existing type sticks around.  Alas, alas, always some messiness in there.
+
+```typescript
+class Maybe<A = unknown> extends TaggedSum<'Maybe', ['Nothing'] | ['Just', A]> {
+  // ...
+
+  map<B>(this: Maybe<A>, fn: (a: A) => B): Maybe<B> {
+    // Error: Type 'Maybe<B>' is not assignable to type 'Maybe<A>'.
+    if (Maybe.isType('Nothing', this)) return this;
+    // The "as A" is needed because of how isType() works...
+    if (Maybe.isType('Just', this)) return Maybe.Just(fn(this.values[0] as A));
+  }
+}
+```
+
+Anyway, it's almost as easy as using Daggy.

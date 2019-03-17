@@ -1381,7 +1381,7 @@ const maybe0value3 = maybe0.cata({
 });
 ```
 
-But after that, I can define things like Map and Flatten in terms of Cata, much more easily than with the previous class based version:
+But after that, I can define things like Map and Flatten in terms of Cata, much more easily than with the previous class based version.  The only problem with using Cata is that in cases where it's technically okay to return just the given instance as is, there's no way for TS to know that that handler will only be called if the instance has a given tag, so it can't appropriately narrow the types to understand that, in some cases, `Maybe<A>` actually is directly assignable to `Maybe<B>` because the type parameter isn't found on the instance due to the instance being a `Nothing`.
 
 ```typescript
 class Maybe<A = unknown> extends TaggedSum<'Maybe', ['Nothing'] | ['Just', A]> {
@@ -1389,14 +1389,14 @@ class Maybe<A = unknown> extends TaggedSum<'Maybe', ['Nothing'] | ['Just', A]> {
 
   map<A, B>(this: Maybe<A>, fn: (a: A) => B): Maybe<B> {
     return this.cata({
-      Nothing: () => this as Maybe<B>,
+      Nothing: () => this as unknown as Maybe<B>,
       Just: (a: A) => new Maybe('Just', fn(a)),
     });
   }
 
   flatten<A>(this: Maybe<Maybe<A>>): Maybe<A> {
     return this.cata({
-      Nothing: () => this as Maybe<A>,
+      Nothing: () => this as unknown as Maybe<A>,
       Just: (inner: Maybe<A>) => inner,
     });
   }

@@ -15,23 +15,40 @@ extends TaggedSum<'Maybe',
   | ['Just', A]
 > {
   // Daggy style factories, if you're into that sort of thing.
+  // These make it easier to create instances due to how TS infers types
+  // with the tuple union setup.
   static Just = <A>(a: A) => new Maybe('Just', a);
   static Nothing = <A = unknown>() => new Maybe<A>('Nothing' as 'Nothing');
 
   // Predicates for imperative checks.
 
+  /**
+   * Check if a value is an instance of a TaggedSum without regard for any Tag.
+   * Note that since the value may be anything, we cannot derive type parametrization
+   * from it because that information was lost.  We can only determine the Sum and Tag.
+   * @param inst The value that may or may not be an instance of a given tagged sum.
+   */
   static is(inst: unknown): inst is Maybe<unknown> {
     return inst != null && inst instanceof Maybe;
   }
 
+  /**
+   * Checks if a value is an instance of a TaggedSum with a particular Tag.
+   * Note that since the value may be anything, we cannot derive type parametrization
+   * from it because that information was lost.  We can only determine the Sum and Tag.
+   * @param tagName The tag name you want to check against.
+   * @param inst The item that may or may not be an instance of a given tagged sum.
+   */
   static isTag<
     TTagName extends TaggedSumTagNames<Maybe<any>>
-  >(type: TTagName, inst: unknown): inst is TaggedSumSpecializedTo<Maybe, TTagName> {
-    return Maybe.is(inst) && inst.type[0] === type;
+  >(tagName: TTagName, inst: unknown): inst is TaggedSumSpecializedTo<Maybe, TTagName> {
+    return Maybe.is(inst) && inst.type[0] === tagName;
   }
 
+  sum: 'Maybe';
+
   constructor(...type: TaggedSumTagDefs<Maybe<A>>) {
-    super('Maybe', type);
+    super(type);
   }
 
   map<B>(fn: (a: A) => B): Maybe<B> {

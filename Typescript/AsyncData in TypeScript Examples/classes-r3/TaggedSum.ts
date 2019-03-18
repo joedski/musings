@@ -3,6 +3,9 @@
  * in Haskel or Elm.  However, in normal use, it's fairly fluent,
  * unlike all my attempts with either using specific Tagged Sum Type
  * as the base class or otherwise using Daggy-style object-definitions.
+ *
+ * This is a slight tweak over r1 to allow not needing to define a new
+ * constructor in every subclass.
  */
 
 /**
@@ -12,6 +15,40 @@
  * the same thing in this case.
  *
  * It can be used to implement things like Maybe<T>, Either<L, R>, etc.
+ *
+ * Example of subclassing:
+ *
+ *     import TaggedSum from './TaggedSum';
+ *
+ *     class Either<L, R>
+ *     extends TaggedSum<'Either',
+ *       | ['Left', L]
+ *       | ['Right', R]
+ *     > {
+ *       // Factories that are easier to work with.
+ *       static Left = <L, R>(left: L) => new Either<L, R>('Left', left);
+ *       static Right = <L, R>(right: R) => new Either<L, R>('Right', right);
+ *
+ *       sum: 'Either';
+ *
+ *       // No need to override constructor,
+ *       // just add any extra methods you might need.
+ *     }
+ *
+ * Example of use:
+ *
+ *     const either0: Either<number, Error> = Either.Left(42);
+ *     const either1: Either<number, Error> = Either.Right(new Error('oh no'));
+ *
+ *     const value0 = either0.cata({
+ *       Left: (n: number) => n,
+ *       Right: (e: Error) => NaN,
+ *     });
+ *
+ *     const value1 = either1.cata({
+ *       Left: (n: number) => n,
+ *       Right: (e: Error) => NaN,
+ *     });
  */
 export default abstract class TaggedSum<
   TSumName extends string,
@@ -25,15 +62,23 @@ export default abstract class TaggedSum<
    *
    *     class Either<L, R> extends TaggedSum<'Either', ['Left', L] | ['Right', R]> {
    *       sum: 'Either';
-   *       constructor(...type: TaggedSumTagDefs<Either<L, R>>) {
-   *         super(type);
-   *       }
    *     }
    */
   sum: TSumName;
+
+  /**
+   * Current tag and values of this instance.
+   * No real reason to touch this directly except while debugging.
+   * Rather, you should use #cata to define a mapping for
+   * every tag/value-set to another value.
+   */
   type: TTagDefs;
 
-  constructor(type: TTagDefs) {
+  /**
+   * Instantiate a new TaggedSum value.  You shouldn't need to ever override this.
+   * @param type Arguments should be the Tag Name followed by any of the parameters for that tag.
+   */
+  constructor(...type: TTagDefs) {
     this.type = type;
   }
 
@@ -103,8 +148,13 @@ export type TaggedSumCataHandlers<TSum> = {
   [HK in TaggedSumTagNames<TSum>]: (...args: TaggedSumCataHandlerArgs<TSum, HK>) => any;
 };
 
+/**
+ * The return type for any of the handlers.
+ */
 export type TaggedSumCataHandlersReturnType<TSum extends AnyTaggedSum, THandlers extends TaggedSumCataHandlers<TSum>> =
-  ReturnType<THandlers[TaggedSumTagNames<TSum>]>;
+  // Can't use ReturnType<T> in strict mode because TaggedSumCataHandlerArgs<TSum, TKey> is not assignable to any[].
+  THandlers[TaggedSumTagNames<TSum>] extends (tagName: string, ...values: any[]) => infer TReturn ? TReturn : never;
+
 
 /**
  * Get all the Tag Names of a Tagged Sum.

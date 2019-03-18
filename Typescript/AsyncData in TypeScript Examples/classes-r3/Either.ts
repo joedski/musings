@@ -1,6 +1,4 @@
-import TaggedSum, {
-  TaggedSumTagDefs,
-} from './TaggedSum';
+import TaggedSum from './TaggedSum';
 
 export default class Either<L, R>
 extends TaggedSum<'Either',
@@ -11,8 +9,4 @@ extends TaggedSum<'Either',
   static Right = <L, R>(right: R) => new Either<L, R>('Right', right);
 
   sum: 'Either';
-
-  constructor(...type: TaggedSumTagDefs<Either<L, R>>) {
-    super(type);
-  }
 }

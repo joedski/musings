@@ -35,9 +35,13 @@ type _MaybeSpecialization<TTagName> =
   : never : never;
 type _MaybeSpecializedToJust = _MaybeSpecialization<'Just'>;
 
-//// Playing around with concrete values
 
-//// Maybe...
+
+//////// Playing around with concrete values
+
+
+
+//////// Maybe...
 
 // should return T extends Maybe<string>
 const maybe0: Maybe<string> = new Maybe('Nothing');
@@ -91,7 +95,9 @@ if (Maybe.isTag('Just', maybe0AsAny)) {
   const values = maybe0AsAny.values;
 }
 
-//// Either...
+
+
+//////// Either...
 
 interface Foo {
   foo: string;
@@ -113,7 +119,9 @@ const either0F: Either<number, Error> = Either.Left(42);
 const either1F: Either<number, Error> = Either.Right(new Error('oh no'));
 const either2F: Either<Foo, Error> = Either.Left({ foo: 'yay' });
 
-//// AsyncData...
+
+
+//////// AsyncData...
 
 const asyncData0C: AsyncData<Foo, Error> = new AsyncData<Foo, Error>('Data', { foo: 'foo' });
 const asyncData0F: AsyncData<Foo, Error> = AsyncData.Data({ foo: 'foo' });
@@ -127,3 +135,6 @@ if (AsyncData.isTag('Error', t)) {
   // [Error] & [any] which becomes just [any]...
   t.values;
 }
+
+// :: AsyncData<[Foo, Foo, Foo], Error>
+const asyncDataAll0 = AsyncData.all(asyncData0F, asyncData1C, asyncData1F);

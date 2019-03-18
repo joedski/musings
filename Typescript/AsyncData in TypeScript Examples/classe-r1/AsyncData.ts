@@ -26,8 +26,41 @@ extends TaggedSum<'AsyncData',
     return AsyncData.is(inst) && inst.type[0] === type;
   }
 
+  /**
+   * Coalesces a tuple of AsyncData instances down to a single AsyncData instance
+   * whose Data type param is a tuple of all the inputs' Data type params, and whose
+   * Error type param is a Union of all the inputs' Error type params.
+   *
+   * NOTE: Unlike with `Promise.all`, you do NOT pass an array to this function.
+   *
+   * Example:
+   *
+   *     let foo: AsyncData<number, Error>;
+   *     let bar: AsyncData<string, Error>;
+   *     let baz: AsyncData<{ baz: string }, { error: Error }>;
+   *
+   *     // Type: AsyncData<[number, string, { baz: string; }], Error | { error: Error; }>
+   *     const allThemData = AsyncData.all(foo, bar, baz);
+   *
+   * Literally just reduces over the tuple using the coalesce method.
+   * @param allInsts A tuple of AsyncData instances
+   */
+  // Had to use rest-args to do this because TS treats array arguments vs rest args differently.
+  // Less symmetrical to Promise.all(), but oh well.
+  public static all<TAllInsts extends Array<AsyncData<any, any>>>(...allInsts: TAllInsts): AsyncDataAllReturnType<TAllInsts> {
+    return allInsts.reduce(
+      (acc, next) => acc.coalesce(next, (accData: any[], nextData: any) => {
+        accData.push(nextData);
+        return accData;
+      }),
+      AsyncData.Data([])
+    );
+  }
+
+  sum = 'AsyncData' as 'AsyncData';
+
   constructor(...type: TaggedSumTagDefs<AsyncData<D, E>>) {
-    super('AsyncData', type);
+    super(type);
   }
 
   map<DB>(fn: (data: D) => DB): AsyncData<DB, E> {
@@ -65,6 +98,15 @@ extends TaggedSum<'AsyncData',
     if (AsyncData.isTag('NotAsked', other)) return other as unknown as AsyncData<Dm, Eo>;
 
     // now both should be 'Data'.
-    return this.flatMap(thisData => other.map(otherData => merge(thisData, otherData)))
+    return this.flatMap(thisData => other.map(otherData => merge(thisData, otherData)));
   }
 }
+
+/**
+ * Return type of `AsyncData.all()`.
+ */
+type AsyncDataAllReturnType<TAllInsts extends Array<AsyncData<any, any>>> =
+  AsyncData<
+    { [I in keyof TAllInsts]: TAllInsts[I] extends AsyncData<infer R, any> ? R : never; },
+    TAllInsts extends Array<AsyncData<any, infer TError>> ? TError : never
+  >;

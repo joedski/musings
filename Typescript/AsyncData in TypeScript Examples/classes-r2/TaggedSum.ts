@@ -1,4 +1,4 @@
-/**
+/*
  * Third whack at Class-Based Tagged Sums.
  *
  * Taking the lessons from r1, this uses an abstract base class for TaggedSum itself,

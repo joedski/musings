@@ -5,6 +5,87 @@ In my ponderings about what might make Vue better (more like reactive stream thi
 
 
 
+## The Simplest Approach: Computed Prop + Data Prop
+
+- To be Reactive, a Computed Prop must be backed by a Data Prop.
+- Computed Props can define both getters and setters.
+
+This is the basic-most approach to scanned props, but suffers the defect of separating the state of the scanned prop from the computation thereof.
+
+```js
+export default {
+  props: {
+    incrementAmount: { type: Number, default: 1 },
+  },
+
+  data() {
+    return {
+      // Initial state.
+      // Note prefix.
+      _count: 0,
+    }
+  },
+
+  computed: {
+    count: {
+      get() {
+        return this._count;
+      },
+      // next is ['incr', amount] | ['decr', amount] | ['reset']
+      set(next) {
+        this._count += this.incrementAmount;
+      }
+    },
+  },
+}
+```
+
+A more complex setup is basically the same:
+
+```js
+export default {
+  props: {
+    incrementAmount: { type: Number, default: 1 },
+  },
+
+  data() {
+    return {
+      // Initial state.
+      // Note prefix.
+      _count: 0,
+    }
+  },
+
+  computed: {
+    count: {
+      get() {
+        return this._count;
+      },
+      // next is ['incr', amount] | ['decr', amount] | ['reset']
+      set(next) {
+        switch (next[0]) {
+          case 'incr':
+            this._count += next[1];
+            break;
+
+          case 'decr':
+            this._count -= next[1];
+            break;
+
+          case 'reset':
+            this._count = 0;
+            break;
+        }
+      },
+    },
+  },
+}
+```
+
+In that case, it's used like `this.count = ['incr', this.incrementAmount]`.
+
+
+
 ## Bikeshedding on the Configuration
 
 Once the configuration shape is settled upon, the implementation is really easy: Watchers and Functions.
@@ -267,3 +348,76 @@ Well, since I have the name as the first thing, why not just reuse that?  Maybe 
 - `@click="this.$scanned.count('clickEvent', $event)"`?
 
 Hm.  I suppose if a name can't be derived (via string (path strings are fine) or `Function#name`) then a simple numeric index is also allowed, but a warning is issued during development mode.
+
+
+### Minimal Most: Reducer and Initial
+
+I think the minimal-most setup would be in imitation of the minimal example up top:
+
+```js
+export default {
+  props: {
+    incrementAmount: { type: Number, default: 1 },
+  },
+
+  scanned: {
+    count: {
+      initial: () => 0,
+      scan(acc, next) {
+        // next is ['incr', amount] | ['decr', amount] | ['reset']
+        switch (next[0]) {
+          case 'incr': return acc + next[1];
+          case 'decr': return acc - next[1];
+          case 'reset': return 0;
+          default: return acc;
+        }
+      },
+    },
+  },
+}
+```
+
+Then you just do:
+
+```html
+<template>
+  <div class="count">{{ this.count }}</div>
+  <div class="controls">
+    <button
+      class="btn"
+      @click="this.click = ['incr', this.incrementAmount]"
+    >Incr</button>
+    <button
+      class="btn"
+      @click="this.click = ['decr', this.incrementAmount]"
+    >Decr</button>
+    <button
+      class="btn"
+      @click="this.click = ['reset']"
+    >Reset</button>
+  </div>
+</template>
+```
+
+> Aside: While I use the tuple-union actions style of value here, there's actually no reason you need to do that.  You can do anything, even just using numbers, strings, or going so far as objects, functions, etc.
+
+This is probably the best interface because:
+
+- It's simple, uncomplicated.
+- It's self contained, no watches or anything like that.
+- Because there're no watches, there're no magically appearing extra data/props.
+- Behavior is thus easy to compose.
+- Interface is entirely user-definable, unlike the above APIs.
+- Arguably more Vue-like in that you interact with it in much the same way you interact with data/props/computed already.
+
+And it is, in fact, exactly equivalent to the "Simplest Approach" at the top.
+
+Only problem now is, I'm not sure how to define extra Computed Props at Lifecycle Hook time.
+
+Implementation wise, the above interface is probably most easily done by using `Object.defineProperty` to create the get/set pairs on the instance in the `beforeCreate()` hook, and create a top level Data value with a key that is low-conflict, something like `_scannedDataState: {}`, and put the state values in there.  Then, at the very least, they're visible to Vue Dev Tools, even if it's not the best place.
+
+#### TypeScript Friendly?
+
+As noted in [all the discussion on this issue](https://github.com/Microsoft/TypeScript/issues/2521), as of 2019-03-18 it's unlikely that TypeScript is going to have any support for get/set pairs that have different types, which means the above will cause either a bunch of type errors or a bunch of noise.
+
+In that case, we'll probably want some indirection, something like `this.$scanned.push('count', ['incr', this.incrementAmount])`.

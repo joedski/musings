@@ -1489,6 +1489,8 @@ Anyway, I suspect this will happen for any TaggedSum types where any Tag has an 
 
 ### Improvements to Tag Predicates?
 
+> Conclusion: Not sure if this is exactly possible as I was trying to do it here, nor if it's actually all that useful.  The predicates are mostly a concession to JS not being pure or strictly typed.
+
 Currently, if you do something like this:
 
 ```typescript
@@ -1522,3 +1524,27 @@ type AsyncData {
 But that immediately gives the following error on the return type: `Type 'TaggedSum<"AsyncData", ["NotAsked"]> | TaggedSum<"AsyncData", ["Waiting"]> | TaggedSum<"AsyncData", ["Data", any]> | TaggedSum<"AsyncData", ["Error", any]>' is not assignable to type 'T'.`
 
 Which makes sense, really: T is only defaulting to `unknown`, but TS can't assume it will actually _be_ `unknown` at call time.  It could be anything, but by making it a param like this we're telling TS to lock it down.  Now, one could argue that this actually should work anyway, but Typescript has a very specific definition about what `is` means, and it means that for `T is U`, U is assignable to T, i.e. `t: T = u as U`.  So, bleh.
+
+
+### Tweak: Better Subclassing: No Need to Redefine Constructor Every Time
+
+More automatic behavior is better.  By just changing how the constructor works, and by defining the `sum` property's value using the property member syntax, I can avoid the need to redefine the constructor on every subclass!  Now if only I could do something like that for the predicates...
+
+```typescript
+export default abstract class TaggedSum<
+  TSumName extends string,
+  TTagDefs extends [string, ...any[]]
+> {
+  sum: TSumName;
+  type: TTagDefs;
+
+  constructor(...type: TTagDefs) {
+    this.type = type;
+  }
+}
+```
+
+
+### Tweak: Better Cata Support?
+
+Maybe I can tweak the Cata method and type to call each handler with a `this` type cast to the Tag-Specialized type?  Might make things a bit more fluid in some cases.

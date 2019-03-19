@@ -5,6 +5,9 @@ I wanted to do the equivalent of [this pattern](https://medium.com/javascript-in
 
 Since I need this sooner than later, I'll just try implementing a bespoke thing.
 
+- Here's one person's whack at it, using a union of classes with an enum for the tag: https://www.chriskrycho.com/2018/sum-type-constructors-in-typescript.html
+    - On the one hand I like it, but it makes it ~~impossible~~ much more boilerplaty to write new ~~operators~~ methods.  That's one of the things I'm trying to avoid.
+
 
 
 ## Try 1: Objects and Functions
@@ -1548,3 +1551,134 @@ export default abstract class TaggedSum<
 ### Tweak: Better Cata Support?
 
 Maybe I can tweak the Cata method and type to call each handler with a `this` type cast to the Tag-Specialized type?  Might make things a bit more fluid in some cases.
+
+Turns out that's pretty easy.  Hm.
+
+```typescript
+export type TaggedSumCataHandlers<TSum> = {
+  [HK in TaggedSumTagNames<TSum>]: (
+    this: TaggedSumSpecializedTo<TSum, HK>,
+    ...args: TaggedSumCataHandlerArgs<TSum, HK>
+  ) => any;
+};
+```
+
+Does it do what we actually want?  Alas, not quite:
+
+```
+class Maybe {
+  map<B>(fn: (a: A) => B): Maybe<B> {
+    return this.cata({
+      // Type 'TaggedSum<"Maybe", ["Nothing"]>' is missing the following properties from type 'Maybe<B>': map, flatten, flatMap
+      Nothing() { return this; },
+      Just: (a: A) => Maybe.Just(fn(a)),
+    })
+  }
+}
+```
+
+Trying to cast it just gets the same error that caused the cast-to-unknown in the first place: `Conversion of type 'TaggedSum<"Maybe", ["Nothing"]>' to type 'Maybe<B>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.`
+
+```
+class Maybe {
+  map<B>(fn: (a: A) => B): Maybe<B> {
+    return this.cata({
+      Nothing() { return this as Maybe<B>; },
+      Just: (a: A) => Maybe.Just(fn(a)),
+    })
+  }
+}
+```
+
+I guess the question is, can I actually get the `this` type of the current instance rather than the `this` type strictly in terms of `TaggedSum`?  Then we could get the methods as well, and avoid those "missing props" errors.
+
+Something to think about.
+
+
+### Run Time Type Safety?
+
+This is all well and good that the Types checkout at compile time, but there're no actual guarantees at Run Time.  I suppose it could be argued that at Run Time, it'll be faster, but I'd rather at least some modicum of type safety in the face of Javascript than not.
+
+This further wears down on concision, though:
+
+- We already must provide type parameters to the Class.
+- We already also define factories for better ergonomics.
+- This means we must further duplicate by specifying some sort of functions, because functions are the only way to defer type concretization.
+
+I suppose first I should start with what's even possible before trying to make things more concise.
+
+```
+class Either<L, R> extends TaggedSum {
+    protected sum = 'Either' as 'Either';
+    protected defs = [
+        ['Left', (l: L) => [l]],
+        ['Right', (r: R) => [r]],
+    ];
+}
+```
+
+Alas, TS infers a more generic type of `Array<[string, (l: L) => [L] | (r: R) => [R]]>`...  Not really what I want.
+
+```typescript
+// Purely speculative code...
+
+function EitherDefs<L, R>() {
+    return {
+        Left: (l: L): [L] => [l],
+        Right: (r: R): [R] => [r],
+    };
+}
+
+class Either<L, R>
+extends TaggedSum<'Either', ReturnType<EitherDefs<L, R>>> {
+    public static Left<L, R>(l: L) => new Either<L, R>('Left', l);
+    public static Right<L, R>(r: R) => new Either<L, R>('Right', r);
+
+    protected sum = 'Either' as 'Either';
+    protected defs = EitherDefs<L, R>();
+}
+```
+
+For something like that, I'd need something like
+
+```typescript
+// more speculative code...
+
+abstract class TaggedSum<
+    TSumName extends string,
+    TDefs extends { [k: string]: <A extends any[]>(...args: A) => A; }
+> {
+    protected abstract sum: TSumName;
+    protected abstract defs: TDefs;
+    protected abstract tag: AnyTaggedSumValue<TDefs>;
+
+    constructor(...args: TaggedSumCtorArgs<TDefs>) {
+        this.tag = args;
+    }
+}
+```
+
+#### More Concision: Base Class Expressions?
+
+Hm.
+
+```typescript
+abstract class Foo<TName extends string, T> {
+  public abstract name: TName;
+  public foo: T;
+  constructor(foo: T) {
+    this.foo = foo;
+  }
+}
+
+function BaseFoo<TName extends string, T>(name: TName, f: () => T) {
+  return class BaseFoo extends Foo<TName, T> {
+    public name = name;
+  }
+}
+
+// Error: T: Base class expressions cannot reference class type parameters.
+class ExtFoo<T> extends BaseFoo('ExtFoo', (...args: T[]): T[] => args) {}
+```
+
+Damn.  Kinda surprising they have an error just for that specific thing, though.

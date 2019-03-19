@@ -72,6 +72,13 @@ const maybe0value3 = maybe0.cata({
   Foo: () => true,
 });
 
+// Testing "this" typing of the cata handlers.
+// Nice.
+const maybe0Vaue4 = maybe0.cata({
+  Nothing() { return 0 },
+  Just() { return this.values[0].length; },
+});
+
 // Maybe.is
 const maybe0AsAny: any = maybe0;
 if (Maybe.is(maybe0AsAny)) {

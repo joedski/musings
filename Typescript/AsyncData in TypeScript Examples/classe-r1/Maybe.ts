@@ -45,7 +45,7 @@ extends TaggedSum<'Maybe',
     return Maybe.is(inst) && inst.type[0] === tagName;
   }
 
-  sum: 'Maybe';
+  sum = 'Maybe' as 'Maybe';
 
   constructor(...type: TaggedSumTagDefs<Maybe<A>>) {
     super(type);
@@ -54,7 +54,7 @@ extends TaggedSum<'Maybe',
   map<B>(fn: (a: A) => B): Maybe<B> {
     return this.cata({
       Nothing: () => this as unknown as Maybe<B>,
-      Just: (a: A) => new Maybe('Just', fn(a)),
+      Just: (a: A) => Maybe.Just(fn(a)),
     });
   }
 

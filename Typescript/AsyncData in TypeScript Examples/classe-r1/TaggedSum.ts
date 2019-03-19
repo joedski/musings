@@ -30,8 +30,8 @@ export default abstract class TaggedSum<
    *       }
    *     }
    */
-  sum: TSumName;
-  type: TTagDefs;
+  protected sum!: TSumName;
+  protected type: TTagDefs;
 
   constructor(type: TTagDefs) {
     this.type = type;
@@ -100,11 +100,12 @@ export type TaggedSumTagDefs<TSum> =
  * A Cata Handlers Object type for a given Tagged Sum.
  */
 export type TaggedSumCataHandlers<TSum> = {
-  [HK in TaggedSumTagNames<TSum>]: (...args: TaggedSumCataHandlerArgs<TSum, HK>) => any;
+  [HK in TaggedSumTagNames<TSum>]: (this: TaggedSumSpecializedTo<TSum, HK>, ...args: TaggedSumCataHandlerArgs<TSum, HK>) => any;
 };
 
 export type TaggedSumCataHandlersReturnType<TSum extends AnyTaggedSum, THandlers extends TaggedSumCataHandlers<TSum>> =
-  ReturnType<THandlers[TaggedSumTagNames<TSum>]>;
+  // Can't use ReturnType<T> because (...args: any[]) => any is not assignable to (tagName: string, ...args: any[]) => any.
+  THandlers[TaggedSumTagNames<TSum>] extends (tagName: string, ...args: any[]) => infer TReturn ? TReturn : never;
 
 /**
  * Get all the Tag Names of a Tagged Sum.

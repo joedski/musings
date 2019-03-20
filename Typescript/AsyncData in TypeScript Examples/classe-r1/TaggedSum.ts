@@ -41,6 +41,7 @@ export default abstract class TaggedSum<
   // but I was getting the following error:
   //   Error: Return type annotation circularly references itself
   // So I just used the type "this" ought to have... Seems to work.
+  // Or not even that works.  Just put in a bare conditional type.
   /**
    * Defines a catamorphism for every Tag in this Sum, or in not so many
    * syllables, defines how to handle each Tag case, usually by defining
@@ -59,7 +60,7 @@ export default abstract class TaggedSum<
     H extends TaggedSumCataHandlers<TaggedSum<TSumName, TTagDefs>>
   >(
     handlers: H
-  ): TaggedSumCataHandlersReturnType<TaggedSum<TSumName, TTagDefs>, H> {
+  ): (H[TTagDefs[0]] extends (...args: any[]) => infer TReturn ? TReturn : never) {
     return handlers[this.type[0]](...this.type.slice(1));
   }
 
@@ -102,10 +103,6 @@ export type TaggedSumTagDefs<TSum> =
 export type TaggedSumCataHandlers<TSum> = {
   [HK in TaggedSumTagNames<TSum>]: (this: TaggedSumSpecializedTo<TSum, HK>, ...args: TaggedSumCataHandlerArgs<TSum, HK>) => any;
 };
-
-export type TaggedSumCataHandlersReturnType<TSum extends AnyTaggedSum, THandlers extends TaggedSumCataHandlers<TSum>> =
-  // Can't use ReturnType<T> because (...args: any[]) => any is not assignable to (tagName: string, ...args: any[]) => any.
-  THandlers[TaggedSumTagNames<TSum>] extends (tagName: string, ...args: any[]) => infer TReturn ? TReturn : never;
 
 /**
  * Get all the Tag Names of a Tagged Sum.

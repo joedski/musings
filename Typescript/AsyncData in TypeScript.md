@@ -1658,6 +1658,45 @@ abstract class TaggedSum<
 }
 ```
 
+Not sure where I'm going with that at all.
+
+Maybe something like this?
+
+```typescript
+abstract class TaggedSum<
+  TSumName extends string,
+  TTagDefs extends | [string, ...any[]]
+> {
+  protected abstract sum: TSumName;
+  // protected abstract valuesGetters(): ({ [TTagName in TTagDefs[0]]: ValuesGetter<Tail<(TTagDefs & [TTagName, ...any[]])>> });
+  protected abstract valuesGetters: { [TTagName in TTagDefs[0]]: ValuesGetter<Tail<(TTagDefs & [TTagName, ...any[]])>> };
+}
+
+class Either<L, R> extends TaggedSum<'Either', ['Left', L] | ['Right', R]> {
+  public static Left = <L, R>(l: L) => new Either<L, R>('Left', l);
+  public static Right = <L, R>(r: R) => new Either<L, R>('Right', r);
+
+  protected sum = 'Either' as 'Either';
+
+  protected valuesGetters = {
+    Left(l: L): [L] { return [l]; },
+    Right(r: R): [R] { return [r]; },
+  };
+}
+
+export type Tail<T> =
+  T extends any[]
+  ? ((...args: T) => any) extends (h: any, ...rest: infer TRest) => any
+  ? TRest
+  : never
+  : never
+  ;
+
+export type ValuesGetter<T> = T extends any[] ? (...args: T) => T : never;
+```
+
+I mean, that works, but now things are repeated three times.  Also I'm pretty sure `valueGetters` gets created every instantiation.  Annoying, but I can't lazy-ify the type params `L` and `R` without a function call or something.  Supremely annoying.
+
 #### More Concision: Base Class Expressions?
 
 Hm.

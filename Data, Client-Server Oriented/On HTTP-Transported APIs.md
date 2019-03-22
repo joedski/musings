@@ -19,5 +19,6 @@ Also learning about what RESTfulness actually means.
 4. [JSON-LD](https://www.w3.org/TR/json-ld/), a W3C standard for standardizing link information in JSON documents.  Does not include permissable actions, though?
 5. [Roy Fielding's Dissertation on the REST Architecture](https://www.ics.uci.edu/~fielding/pubs/dissertation/top.htm), including as applied to HTTP.  Should probably read this.
 6. [A description of HATEOAS without calling it that](https://levelup.gitconnected.com/to-create-an-evolvable-api-stop-thinking-about-urls-2ad8b4cc208e) which is pretty readable, though I also read it much later.  I know more things, now, and have built more things, which may have made the reasoning more understandable.
-7. [JSON HAL](https://en.wikipedia.org/wiki/Hypertext_Application_Language) although the linked page may change from the terse description with examples I saw in 2019-03-22...
+7. [HAL](https://en.wikipedia.org/wiki/Hypertext_Application_Language) although the linked page may change from the terse description with examples I saw in 2019-03-22...
     1. [A better description](http://stateless.co/hal_specification.html) that's not just a Wikipedia Summary.
+    2. Also note that HAL is meant to be transmittable in both XML and JSON.

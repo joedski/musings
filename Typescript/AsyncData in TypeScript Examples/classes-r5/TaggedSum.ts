@@ -26,7 +26,7 @@
 export default abstract class TaggedSum<
   TSumName extends string,
   TTagDefs extends [string, ...any[]]
-  > {
+> {
   /**
    * The name of this Tagged Sum.
    * Specify the value in the subclass using a getter.

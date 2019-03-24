@@ -1,6 +1,8 @@
 AsyncData in Typescript
 =======================
 
+> This ultimately became "How do I implement Tagged Sums in TS?" and then "How do I implement Tagged Sums in TS in a Daggy-like manner?"
+
 I wanted to do the equivalent of [this pattern](https://medium.com/javascript-inside/slaying-a-ui-antipattern-in-react-64a3b98242c) in a Typescript project, but [daggy](https://github.com/fantasyland/daggy) doesn't have Typescript types, and honestly I'm not sure how to strongly specify how it would work.  Lots of `keysof` and such, but the biggest thing is I don't know how to take a tuple of strings and use that to specify object properties, which is one of the main parts of daggy's interface.
 
 Since I need this sooner than later, I'll just try implementing a bespoke thing.
@@ -1696,6 +1698,80 @@ export type ValuesGetter<T> = T extends any[] ? (...args: T) => T : never;
 ```
 
 I mean, that works, but now things are repeated three times.  Also I'm pretty sure `valueGetters` gets created every instantiation.  Annoying, but I can't lazy-ify the type params `L` and `R` without a function call or something.  Supremely annoying.
+
+After some tooling around, [here's ultimately what I ended up with](./AsyncData%20in%20TypeScript%20Examples/classes-r5/):
+
+```typescript
+export default abstract class TaggedSum<
+  TSumName extends string,
+  TTagDefs extends [string, ...any[]]
+> {
+  public readonly sum!: TSumName;
+  public readonly valuesFactories!: ValuesFactories<TTagDefs> | void;
+  public type: TTagDefs;
+
+  constructor(...type: TTagDefs) {
+    if (!this.sum) throw new Error(`Cannot create tagged sum instance with no sum (Did you forget to define a "public get sum()"?)`);
+    if (this.valuesFactories && !(type[0] in this.valuesFactories)) {
+      throw new Error(`"${type[0]}" is not a valid tag of sum "${this.sum}"`);
+    }
+    const tagName: TTagDefs[0] = type[0];
+    this.type = (
+      this.valuesFactories
+      ? [tagName, ...this.valuesFactories[tagName](...type.slice(1))] as TTagDefs
+      : type
+    );
+  }
+
+  public cata<
+    H extends CataHandlers<TTagDefs>
+  >(
+    handlers: H
+  ): (H[TTagDefs[0]] extends (...args: any[]) => infer TReturn ? TReturn : never) {
+    if (
+      this.valuesFactories
+      && ! Object.keys(this.valuesFactories).every(tagName => tagName in handlers)
+    ) {
+      const missingTags = Object.keys(this.valuesFactories).filter(tagName => !(tagName in handlers));
+      throw new Error(`Missing tag handlers: ${missingTags.map(t => `"${t}"`).join(', ')}`);
+    }
+    if (!(this.tag in handlers)) {
+      throw new Error(`"${this.tag}" not found in cata handlers`);
+    }
+    return handlers[this.tag](...this.values);
+  }
+}
+```
+
+Then, when defining a concrete TaggedSum type, you create getters for `sum` and, optionally, `valuesFactories`:
+
+```typescript
+import TaggedSum, { ValuesFactories } from './TaggedSum';
+
+type EitherTags<L, R> =
+  | ['Left', L]
+  | ['Right', R]
+  ;
+
+const eitherFactories = {
+  Left: <L, R>(l: L): [L] => [l],
+  Right: <L, R>(r: R): [R] => [r],
+};
+
+export default class Either<L, R> extends TaggedSum<'Either', EitherTags<L, R>> {
+  public static Left = <L, R>(l: L) => new Either<L, R>('Left', l);
+  public static Right = <L, R>(r: R) => new Either<L, R>('Right', r);
+
+  public get sum() {
+    return 'Either' as 'Either';
+  }
+  public get valuesFactories() {
+    return eitherFactories as ValuesFactories<EitherTags<L, R>>;
+  }
+}
+```
+
+Probably a bit overkill for one-offs, but useful for general types used across the whole codebase, and they can still be included only optionally.
 
 #### More Concision: Base Class Expressions?
 

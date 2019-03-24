@@ -1,11 +1,15 @@
 /*
- * This version adds some run-time safety at the cost of some
+ * This version adds some optional run-time safety at the cost of some
  * performance and extra definition noise.
+ *
  * The types have also been cleaned up to both fix some errors that
  * only surfaced in strict mode and make things a bit less indirect,
  * which hopefully speeds up TS's type processing a bit.
  * It's basically the same as [the r1 version](../classe-r1/TaggedSum.ts)
  * but with an extra valuesFactories prop.
+ *
+ * Lastly, `sum` and `type` were changed to `public` scope, and
+ * `sum` along with `valuesFactories` was made `readonly`.
  */
 
 /**
@@ -15,6 +19,9 @@
  * the same thing in this case.
  *
  * It can be used to implement things like Maybe<T>, Either<L, R>, etc.
+ *
+ * Since this is a class-based implementation, you can add your own operators
+ * by adding class methods instead of specifying free functions or module functions.
  */
 export default abstract class TaggedSum<
   TSumName extends string,
@@ -36,11 +43,16 @@ export default abstract class TaggedSum<
    */
   public readonly sum!: TSumName;
   /**
-   * Optional values factories.
+   * Optional values factories, if you'd like run-time tag checking.
+   * Define a getter to return this so that it's available to the TaggedSum constructor.
    * This is an object-map that maps each Tag Name to a Values Factory Function,
    * which is just a function that returns its args as a tuple (array).
    *
    * Example:
+   *
+   *     import TaggedSum, {
+   *       ValuesFactories,
+   *     } from './TaggedSum';
    *
    *     type AsyncDataTags<D, E> =
    *       | ['NotAsked']
@@ -49,10 +61,8 @@ export default abstract class TaggedSum<
    *       | ['Error', E]
    *       ;
    *
-   *     import TaggedSum, {
-   *       ValuesFactories,
-   *     } from './TaggedSum';
-   *
+   *     // Defining the values factories outside of the class meanst
+   *     // they're not created afresh every time you instantiate a TaggedSum.
    *     const asyncDataValuesFactories = {
    *       NotAsked: <D, E>(): [] => [],
    *       Waiting: <D, E>(): [] => [],
@@ -61,6 +71,9 @@ export default abstract class TaggedSum<
    *     };
    *
    *     class AsyncData<D, E> extends TaggedSum<'AsyncData', AsyncDataTags<D, E>> {
+   *       // Use the utility type ValuesFactories<TTagDefs> to ensure proper type checking.
+   *       // Can't use that type on the const above because we don't have the D and E type params,
+   *       // if we want those, we need it here.
    *       public get valuesFactories() { return asyncDataValuesFactories as ValuesFactories<AsyncDataTags<D, E>>; }
    *
    *       // ...
@@ -88,15 +101,21 @@ export default abstract class TaggedSum<
 
   /**
    * Defines a catamorphism for every Tag in this Sum, or in not so many
-   * syllables, defines how to handle each Tag case, usually by defining
-   * a value that each Tag maps to.
+   * syllables, defines a value to map each Tag to.  Of course, you can
+   * also use this to specify a side-effect for each Tag instead.
    *
    * Example:
    *
    *     const maybeNumber: Maybe<number> = Maybe.Just(4);
+   *     // Map each Tag to a value...
    *     const definitelyNumber: maybeNumber.cata({
    *       Nothing: () => 0,
    *       Just: (n: number) => n,
+   *     });
+   *     // Or perform a side effect...
+   *     maybeNumber.cata({
+   *       Nothing: () => console.log('Nothing!'),
+   *       Just: (n: number) => console.log(`It's Just ${n}!`),
    *     });
    * @param handlers Object-map of Handlers for each Tag of this Sum.
    */
@@ -105,6 +124,13 @@ export default abstract class TaggedSum<
   >(
     handlers: H
   ): (H[TTagDefs[0]] extends (...args: any[]) => infer TReturn ? TReturn : never) {
+    if (
+      this.valuesFactories
+      && ! Object.keys(this.valuesFactories).every(tagName => tagName in handlers)
+    ) {
+      const missingTags = Object.keys(this.valuesFactories).filter(tagName => !(tagName in handlers));
+      throw new Error(`Missing tag handlers: ${missingTags.map(t => `"${t}"`).join(', ')}`);
+    }
     if (!(this.tag in handlers)) {
       throw new Error(`"${this.tag}" not found in cata handlers`);
     }
@@ -135,10 +161,17 @@ export default abstract class TaggedSum<
 
 //// Utility Types
 
+/**
+ * Derives a ValuesFactories type from Tag Defs.
+ * Use this when defining the valuesFactories getter in your subclass.
+ */
 export type ValuesFactories<TTagDefs extends [string, ...any[]]> = {
   [HK in TTagDefs[0]]: ValuesFactory<Extract<TTagDefs, [HK, ...any[]]>>;
 };
 
+/**
+ * Single ValuesFactory in a ValuesFactories map.
+ */
 export type ValuesFactory<TTagDef> =
   TTagDef extends any[]
   ? ((...args: TTagDef) => any) extends ((k: infer TK, ...rest: infer TVs) => any)
@@ -147,12 +180,24 @@ export type ValuesFactory<TTagDef> =
   : never
   ;
 
+/**
+ * Generic shape of TaggedSum.
+ */
 export type AnyTaggedSum = TaggedSum<string, [string, ...any[]]>;
 
+/**
+ * Derives a CataHandlers type from Tag Defs.
+ */
 export type CataHandlers<TTagDefs extends [string, ...any[]]> = {
   [HK in TTagDefs[0]]: (...args: Tail<Extract<TTagDefs, [HK, ...any[]]>>) => any;
 };
 
+/**
+ * Given a Tuple type, derive a new Tuple type which is
+ * every element of the original except for the first one.
+ * Uses functions because TS has better behavior around
+ * rest-args in functions.
+ */
 export type Tail<T> =
   T extends any[]
   ? ((...args: T) => any) extends ((h: any, ...rest: infer TRest) => any)
@@ -182,7 +227,9 @@ export type TaggedSumTagNames<TSum> = TaggedSumTagDefs<TSum>[0];
  * Derives a TaggedSum type that is specialized to the named tag.
  */
 export type TaggedSumSpecializedTo<TSum, TTagName> =
-  TSum extends TaggedSum<infer TSumName, infer TTagDefs>
-  ? TTagName extends TaggedSumTagNames<TSum>
-  ? TaggedSum<TSumName, Extract<TTagDefs, [TTagName, ...any[]]>>
-  : never : never;
+  TaggedSum<TaggedSumName<TSum>, Extract<TaggedSumTagDefs<TSum>, [TTagName, ...any[]]>>;
+
+/**
+ * Convenience type to get the SumName of a TaggedSum type.
+ */
+export type TaggedSumName<TSum> = TSum extends TaggedSum<infer TSumName, [string, ...any[]]> ? TSumName : never;

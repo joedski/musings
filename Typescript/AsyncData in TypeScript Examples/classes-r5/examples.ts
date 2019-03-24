@@ -1,4 +1,11 @@
+import TaggedSum, { TaggedSumName, TaggedSumTagDefs, TaggedSumSpecializedTo } from './TaggedSum';
 import Either from './Either';
+
+
+
+//// TaggedSum
+
+type _EitherSpecialized0<L, R> = TaggedSumSpecializedTo<Either<L, R>, 'Left'>;
 
 
 

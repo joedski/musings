@@ -1,5 +1,4 @@
 import TaggedSum, {
-  TaggedSumTagDefs,
   TaggedSumTagNames,
   TaggedSumSpecializedTo,
   ValuesFactories,
@@ -32,8 +31,8 @@ extends TaggedSum<'AsyncData', AsyncDataTags<D, E>> {
 
   static isTag<
     TTagName extends TaggedSumTagNames<AsyncData<any, any>>
-  >(type: TTagName, inst: unknown): inst is TaggedSumSpecializedTo<AsyncData<any, any>, TTagName> {
-    return AsyncData.is(inst) && inst.type[0] === type;
+  >(tagName: TTagName, inst: unknown): inst is TaggedSumSpecializedTo<AsyncData<any, any>, TTagName> {
+    return AsyncData.is(inst) && inst.type[0] === tagName;
   }
 
   /**
@@ -70,39 +69,47 @@ extends TaggedSum<'AsyncData', AsyncDataTags<D, E>> {
   public get sum() { return 'AsyncData' as 'AsyncData'; }
   public get valuesFactories() { return asyncDataValuesFactories as ValuesFactories<AsyncDataTags<D, E>>; }
 
-  map<DB>(fn: (data: D) => DB): AsyncData<DB, E> {
+  public map<DB>(fn: (data: D) => DB): AsyncData<DB, E> {
+    type SpecificTag<TTagName> = TaggedSumSpecializedTo<AsyncData<D, E>, TTagName>;
+
     return this.cata({
       // In these cases, we know that "this" is compatible with AsyncData<DB, E>,
       // but TS has no way of knowing that in any given handler.
       // So, coerce, coerce, coerce.  Woo.
-      NotAsked: () => this as unknown as AsyncData<DB, E>,
-      Waiting: () => this as unknown as AsyncData<DB, E>,
-      Error: () => this as unknown as AsyncData<DB, E>,
+      NotAsked: () => this as SpecificTag<'NotAsked'> as AsyncData<DB, E>,
+      // NotAsked: () => this as unknown as AsyncData<DB, E>,
+      Waiting: () => this as SpecificTag<'Waiting'> as AsyncData<DB, E>,
+      Error: () => this as SpecificTag<'Error'> as AsyncData<DB, E>,
       // TS auto-infers AsyncData<DB, DB> for some reason, so being explicit.
       Data: (data: D) => new AsyncData<DB, E>('Data', fn(data)),
     });
   }
 
-  flatten<DI, EI>(this: AsyncData<AsyncData<DI, EI>, E>): AsyncData<DI, E | EI> {
+  public flatten<DI, EI>(this: AsyncData<AsyncData<DI, EI>, E>): AsyncData<DI, E | EI> {
+    type SpecificTag<TTagName> = TaggedSumSpecializedTo<AsyncData<D, E>, TTagName>;
+
     return this.cata({
-      NotAsked: () => this as unknown as AsyncData<DI, E | EI>,
-      Waiting: () => this as unknown as AsyncData<DI, E | EI>,
-      Error: () => this as unknown as AsyncData<DI, E | EI>,
+      NotAsked: () => this as SpecificTag<'NotAsked'> as AsyncData<DI, E | EI>,
+      Waiting: () => this as SpecificTag<'Waiting'> as AsyncData<DI, E | EI>,
+      Error: () => this as SpecificTag<'Error'> as AsyncData<DI, E | EI>,
       Data: (data: AsyncData<DI, EI>) => data as AsyncData<DI, E | EI>,
     });
   }
 
-  flatMap<DB, EB>(fn: (a: D) => AsyncData<DB, EB>): AsyncData<DB, E | EB> {
+  public flatMap<DB, EB>(fn: (a: D) => AsyncData<DB, EB>): AsyncData<DB, E | EB> {
     return this.map(fn).flatten();
   }
 
-  coalesce<Do, Eo, Dm>(other: AsyncData<Do, Eo>, merge: (thisData: D, otherData: Do) => Dm): AsyncData<Dm, E | Eo> {
-    if (AsyncData.isTag('Error', this)) return this as unknown as AsyncData<Dm, E | Eo>;
-    if (AsyncData.isTag('Error', other)) return other as unknown as AsyncData<Dm, E | Eo>;
-    if (AsyncData.isTag('Waiting', this)) return this as unknown as AsyncData<Dm, E | E | Eo>;
-    if (AsyncData.isTag('Waiting', other)) return other as unknown as AsyncData<Dm, E | Eo>;
-    if (AsyncData.isTag('NotAsked', this)) return this as unknown as AsyncData<Dm, E | E | Eo>;
-    if (AsyncData.isTag('NotAsked', other)) return other as unknown as AsyncData<Dm, E | Eo>;
+  public coalesce<Do, Eo, Dm>(other: AsyncData<Do, Eo>, merge: (thisData: D, otherData: Do) => Dm): AsyncData<Dm, E | Eo> {
+    type ThisTag<TTagName> = TaggedSumSpecializedTo<AsyncData<D, E>, TTagName>;
+    type OtherTag<TTagName> = TaggedSumSpecializedTo<AsyncData<Do, Eo>, TTagName>;
+
+    if (AsyncData.isTag('Error', this)) return this as ThisTag<'Error'> as AsyncData<Dm, E | Eo>;
+    if (AsyncData.isTag('Error', other)) return other as OtherTag<'Error'> as AsyncData<Dm, E | Eo>;
+    if (AsyncData.isTag('Waiting', this)) return this as ThisTag<'Waiting'> as AsyncData<Dm, E | E | Eo>;
+    if (AsyncData.isTag('Waiting', other)) return other as OtherTag<'Waiting'> as AsyncData<Dm, E | Eo>;
+    if (AsyncData.isTag('NotAsked', this)) return this as ThisTag<'NotAsked'> as AsyncData<Dm, E | E | Eo>;
+    if (AsyncData.isTag('NotAsked', other)) return other as OtherTag<'NotAsked'> as AsyncData<Dm, E | Eo>;
 
     // now both should be 'Data'.
     return this.flatMap(thisData => other.map(otherData => merge(thisData, otherData)));

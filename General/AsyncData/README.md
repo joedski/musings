@@ -131,7 +131,7 @@ coalesce mergeReses mergeErrors a b = match a:
 In more dynamic languages, this is easily implemented with the following behavior:
 
 ```js
-function coalesce(a, b, mergeReses) {
+function coalesce(a, b, mergeReses, mergeErrors) {
   if (AsyncData.Error.is(a) && AsyncData.Error.is(b))
     return AsyncData.Error(mergeErrors(a, b))
 
@@ -150,10 +150,16 @@ function coalesce(a, b, mergeReses) {
 
 Now, I only specified that there's a `mergeErrors` to handle the case of both values being Error cases, but what we probably need is both `mergeErrors` and `mapError`.  The formmer would still only be called if both values are Error cases, but the latter ensures we're able to render any errors into a consistent shape.  We don't need a separate `mapReses` because unlike the error cases, we only have one case where we deal with any reses at all: when both values are Result cases.
 
+Since errors tend to be pretty uniform, or ought to be, and merging them isn't always the most useful, I usually just return which ever error came first, making the type just this:
+
+```
+coalesce :: (ra -> rb -> rc) -> (AsyncData ra ea) -> (AsyncData rb eb) -> AsyncData rc (ea | eb)
+```
+
 
 ### All
 
-The `all` function uses `coalesce` to reduce a list of AsyncDatas an ideomatic way.
+The `all` function uses `coalesce` to reduce a list of AsyncDatas an ideomatic way.  It's quite useful for "something in this collection of things is still loading" or "something in there errored" type indications.
 
 ```
 -- Just keep the first one...
@@ -167,3 +173,5 @@ all datas = reduce (coalesce allMergeResults allMergeErrors) (AsyncData.Result [
 ```
 
 While the defined behavior is to discard any errors after the first (imitative of JS's Promise.all), it's unlikely in such a case you would not have access to those errors, and if there are specific errors messages, they should be rendered based on the specific errors, not from an aggergate.
+
+Obviously, if you need to check if a collection of elements has any `Waiting` in it without regard for `Error`, then just do `List.any (AsyncData.is AsyncData.Waiting) listOfAsyncData`.

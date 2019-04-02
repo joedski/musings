@@ -1,3 +1,11 @@
+function defaultSetTimeout(handler, timeout, ...args) {
+  return window.setTimeout(handler, timeout, ...args);
+}
+
+function defaultClearTimeout(timeoutId) {
+  return window.clearTimeout(timeoutId);
+}
+
 class AsyncPollingController {
   /**
    * Create a new AsyncPollingController.
@@ -10,8 +18,8 @@ class AsyncPollingController {
   constructor(options = {}) {
     this._subscriptionId = 1;
     this._subscriptions = new Map();
-    this._setTimeout = options.setTimeout || window.setTimeout;
-    this._clearTimeout = options.clearTimeout || window.clearTimeout;
+    this._setTimeout = options.setTimeout || defaultSetTimeout;
+    this._clearTimeout = options.clearTimeout || defaultClearTimeout;
   }
 
   /**

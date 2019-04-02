@@ -7,6 +7,18 @@ interface ISubscription {
   pollPromise: Promise<any> | null;
 }
 
+function defaultSetTimeout<TArgs extends any[]>(
+  handler: (...args: TArgs) => any,
+  timeout: number,
+  ...args: TArgs
+): number {
+  return window.setTimeout(handler, timeout, ...args);
+}
+
+function defaultClearTimeout(timeoutId: number): void {
+  return window.clearTimeout(timeoutId);
+}
+
 class AsyncPollingController {
   protected nextSubscriptionId: number;
   protected subscriptions: Map<number, ISubscription>;
@@ -29,8 +41,8 @@ class AsyncPollingController {
   ) {
     this.nextSubscriptionId = 1;
     this.subscriptions = new Map();
-    this.setTimeout = options.setTimeout || window.setTimeout;
-    this.clearTimeout = options.clearTimeout || window.clearTimeout;
+    this.setTimeout = options.setTimeout || defaultSetTimeout;
+    this.clearTimeout = options.clearTimeout || defaultClearTimeout;
   }
 
   /**
@@ -53,9 +65,6 @@ class AsyncPollingController {
        * so the actual time between calls may be longer than the specified timeout value.
        */
       timeout: number;
-      onPoll?: () => any;
-      onResolve?: (resolution: any) => any;
-      onReject?: (rejection: any) => any;
       pollImmediately?: boolean;
     }
   ): number {

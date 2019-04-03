@@ -74,3 +74,50 @@ There's still separate subscription IDs to track because each point of use needs
 The object provides the best extensibility, while the ID theoretically provides the same by delegating that extensibility to the Controller.  Granted, functions in JS are also objects, so technically the Function form also provides the same extensibility at the cost of being mildly funky.
 
 Anyway.  This is a separate item from the `AsyncPollingController` thingy, so it's fine.
+
+
+
+## New Feature: Dynamic Timing Adjustment
+
+I'd like to add support for the ability to specify any sort of dynamic timing adjustment of the timeout.  To facilitate stateful behavior in a standard way, I'll employ the use of Generator Functions.  This makes things like Fibonacci Decay easy to implement:
+
+```js
+function *fibonacciDecay({
+    /**
+     * Base timeout time, multiplied by the Fibonacci series.
+     * @type {Number}
+     */
+    base = 2000,
+    /**
+     * Maximum timeout to allow.
+     * @type {Number}
+     */
+    max = 30000,
+} = {}) {
+    let isMaxedOut = false;
+    const fib = [1, 1];
+    let current = base;
+
+    for (;;) {
+        // TODO: Shape of nextIntent?
+        const nextIntent = (yield current) || {};
+
+        if (nextIntent.lastPollWasManual) {
+            fib[0] = 1;
+            fib[1] = 1;
+            isMaxedOut = false;
+            current = base;
+        }
+        else if (! isMaxedOut) {
+            const next = fib[0] + fib[1];
+            fib[0] = fib[1];
+            fib[1] = next;
+            current = base * fib[0];
+            if (current > max) {
+                isMaxedOut = true;
+                current = max;
+            }
+        }
+    }
+}
+```

@@ -121,3 +121,5 @@ function *fibonacciDecay({
     }
 }
 ```
+
+Naturally, the interface passed in will really be `() => Iterator<number>`, because JS already provides the machinery necessary to bind parameters to a function call.  You can create a Generator Factory, or just plain create a Thunk for your one-off Generator Factory.  In any case, the Controller will not pass any arguments to the Generator-ish Function.

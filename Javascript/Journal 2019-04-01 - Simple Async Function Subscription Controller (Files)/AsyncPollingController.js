@@ -6,6 +6,12 @@ function defaultClearTimeout(timeoutId) {
   return window.clearTimeout(timeoutId);
 }
 
+function *constantGenerator(n) {
+  while (true) {
+    yield n;
+  }
+}
+
 class AsyncPollingController {
   /**
    * Create a new AsyncPollingController.
@@ -26,7 +32,10 @@ class AsyncPollingController {
    * Create a new polling subscription.
    * @param  {Function} fn      Function to poll periodically.  Can be sync or async.
    * @param  {Object}   options Optional options.
-   * @param {number} options.timeout Timeout in ms between each call to the poll function.
+   * @param {number | () => Iterator<number>} options.timeout Either a number representing the ms of the timeout,
+   *                                 or a Generator Function that yields numbers representing the ms of the timeout.
+   *                                 The Generator Function is called when the subscription is created, and the resultant
+   *                                 Iterator is used through out the life time of the subscription.
    *                                 The timeout is set after resolution or rejection of the last call to the poll function,
    *                                 so the actual time between calls may be longer than the specified timeout value.
    * @param {boolean} options.pollImmediately @optional Whether or not to call the poll function
@@ -38,16 +47,23 @@ class AsyncPollingController {
       throw new Error('Cannot subscribe to non-function');
     }
 
-    if (! Number.isFinite(options.timeout) || options.timeout < 0) {
-      // I mean, you can pass 0, but you shouldn't.
-      throw new Error('options.timeout must be a non-negative number');
-    }
+    const timeoutIterator = (() => {
+      if (typeof options.timeout === 'function') {
+        return options.timeout();
+      }
 
+      // I mean, you can pass 0, but you shouldn't.
+      if (typeof potions.timeout === 'number' && options.timeout >= 0) {
+        return constantGenerator(options.timeout);
+      }
+
+      throw new Error('options.timeout must be either a non-negative number or a generator function yielding non-negative numbers');
+    })();
     const subscriptionId = this._subscriptionId++;
     const subscription = {
       id: subscriptionId,
       poll: fn,
-      timeout: options.timeout,
+      timeoutIterator,
       pollImmediately: options.pollImmediately === true ? true : false,
       timeoutId: null,
       pollPromise: null,
@@ -56,10 +72,10 @@ class AsyncPollingController {
     this._subscriptions.set(subscriptionId, subscription);
 
     if (subscription.pollImmediately) {
-      this.poll(subscriptionId);
+      this.poll(subscriptionId, { lastPollWasManual: false });
     }
     else {
-      this._schedule(subscriptionId);
+      this._schedule(subscriptionId, { lastPollWasManual: false });
     }
 
     return subscriptionId;
@@ -113,7 +129,7 @@ class AsyncPollingController {
    * @param  {number} subscriptionId ID of the subscription to poll.
    * @return {void}
    */
-  poll(subscriptionId) {
+  poll(subscriptionId, options = { lastPollWasManual: true }) {
     const subscription = this._subscriptions.get(subscriptionId);
 
     if (! subscription) return;
@@ -128,38 +144,38 @@ class AsyncPollingController {
     const pollPromise = (async () => {
       try {
         // using await here normalizes behavior between sync and async functions.
-        const result = await subscription.poll();
-        this._handleResolution(subscriptionId, pollPromise, result);
+        await subscription.poll();
+        this._handleResolution(subscriptionId, pollPromise, options);
       }
-      catch (error) {
-        this._handleRejection(subscriptionId, pollPromise, error);
+      catch (_error) {
+        this._handleRejection(subscriptionId, pollPromise, options);
       }
     })();
 
     subscription.pollPromise = pollPromise;
   }
 
-  _handleResolution(subscriptionId, pollPromise, result) {
+  _handleResolution(subscriptionId, pollPromise, options) {
     const subscription = this._subscriptions.get(subscriptionId);
 
     if (! subscription) return;
     if (subscription.pollPromise !== pollPromise) return;
 
     subscription.pollPromise = null;
-    this._schedule(subscriptionId);
+    this._schedule(subscriptionId, options);
   }
 
-  _handleRejection(subscriptionId, pollPromise, error) {
+  _handleRejection(subscriptionId, pollPromise, options) {
     const subscription = this._subscriptions.get(subscriptionId);
 
     if (! subscription) return;
     if (subscription.pollPromise !== pollPromise) return;
 
     subscription.pollPromise = null;
-    this._schedule(subscriptionId);
+    this._schedule(subscriptionId, options);
   }
 
-  _schedule(subscriptionId) {
+  _schedule(subscriptionId, options) {
     const subscription = this._subscriptions.get(subscriptionId);
 
     if (! subscription) return;
@@ -170,9 +186,27 @@ class AsyncPollingController {
       subscription.timeoutId = null;
     }
 
+    const nextTimeoutResult = subscription.timeoutIterator.next(options);
+
+    if (nextTimeoutResult.done) {
+      this.unsubscribe(subscription.id);
+    }
+
+    const nextTimeout = nextTimeoutResult.value;
+
+    // I mean, in our code base, it should always be a number, but it's still JS...
+    if (typeof nextTimeoutResult.value !== 'number') {
+      console.error(`Non-Number yielded from Iterator created by Timeout Generator of Subscription #${subscription.id}.  Cancelling subscription.`);
+      this.unsubscribe(subscription.id);
+    }
+
+    if (! (nextTimeout >= 0)) {
+      console.warn(`Non-positive number yielded from Iterator created by Timeout Generator of Subscription #${subscription.id}.  Treating as zero.`);
+    }
+
     subscription.timeoutId = this._setTimeout(
       () => this._executeScheduledPoll(subscriptionId),
-      subscription.timeout
+      Math.max(0, nextTimeout)
     );
   }
 
@@ -182,6 +216,6 @@ class AsyncPollingController {
     if (! subscription) return;
 
     subscription.timeoutId = null;
-    this.poll(subscriptionId);
+    this.poll(subscriptionId, { lastPollWasManual: false });
   }
 }

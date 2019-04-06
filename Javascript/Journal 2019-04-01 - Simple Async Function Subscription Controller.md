@@ -93,6 +93,26 @@ function *fibonacciDecay({
      * @type {Number}
      */
     max = 30000,
+    /**
+     * By how much to scale the fibonacci numbers.
+     * It's used in the computation like so:
+     *
+     *     t = base * ((fib[n] - 1) * scale + 1)
+     *
+     * Example: Default scale of 1:
+     *
+     *     1, 1, 2, 3, 5, 8, 13, ...
+     *
+     * Example: Scale of 0.5:
+     *
+     *     1, 1, 1.5, 2, 3, 4.5, 7, ...
+     *
+     * Example: Scale of 0.25:
+     *
+     *     1, 1, 1.25, 1.5, 2, 2.75, ...
+     * @type {Number}
+     */
+    scale = 1,
 } = {}) {
     let isMaxedOut = false;
     const fib = [1, 1];
@@ -112,7 +132,7 @@ function *fibonacciDecay({
             const next = fib[0] + fib[1];
             fib[0] = fib[1];
             fib[1] = next;
-            current = base * fib[0];
+            current = base * ((fib[0] - 1) * scale + 1);
             if (current > max) {
                 isMaxedOut = true;
                 current = max;

@@ -1,6 +1,8 @@
 Journal 2019-03-31 - Python Passlib to What in Node
 ===================================================
 
+> At the moment, I'm not continuing this work.  It was decided that since we have no actual customer information we can change the hashing algorithm to whatever we want.
+
 In the midst of porting a prototype API from Flask to Node.  Sad I can't stick with SQLAlchemy, but oh well.  No time right this moment to fiddle with ORMs, I'll just be doing functions that spit out Knex queries.
 
 However, there's something I need to take care of first: Hashing passwords.
@@ -26,6 +28,7 @@ Looking at their quick-use snippet, I see this:
 
 It seems to output a string delimited by `$`, with the following values:
 
+- (One could argue there's a leading empty field, but I'm guessing that's not the case here.)
 - `5`
 - `rounds=84740`
 - `fYChCy.52EzebF51`

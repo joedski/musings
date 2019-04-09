@@ -1,6 +1,8 @@
 Journal 2019-04-03 - Transparent Request Caching, Featuring Axios
 =================================================================
 
+[Sample implementation](./Journal%202019-04-03%20-%20Transparent%20Request%20Caching%2C%20Featuring%20Axios%20%28Files%29/entityCacheAdapterEnhancer.ts)
+
 There are only two truly difficult things in computer science: Cache Invalidation and Naming Things.
 
 I'm looking at the former, here.
@@ -52,12 +54,14 @@ Research:
     1. [MDN Article: Using Service Workers](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API/Using_Service_Workers)
 3. Axios Source References:
     1. [Construction of Axios' `response` object in the XHR Adaptor][rs-3-1]
+    2. [The `settle` utility][rs-3-2]
 4. XMLHttpRequest Stuff:
     1. [XMLHttpRequest.responseType][rs-4-1]
 
 [rs-1-1]: https://github.com/kuitos/axios-extensions#cacheadapterenhancer
 [rs-1-1-4]: https://github.com/kuitos/axios-extensions/blob/master/src/cacheAdapterEnhancer.ts
 [rs-3-1]: https://github.com/axios/axios/blob/283d7b306ce231f092d28e01713905e5c1600d14/lib/adapters/xhr.js#L50 Construction of Axios' response object in the XHR adaptor
+[rs-3-2]: https://github.com/axios/axios/blob/283d7b306ce231f092d28e01713905e5c1600d14/lib/core/settle.js#L12
 [rs-4-1]: https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/responseType
 
 
@@ -176,4 +180,45 @@ While this might at first seem to eliminate global config, it actually makes it 
     - If one transforms the Config, stop at that one and return the transformed Config.
 - If `entityCache` is on the Config, then Do the Cache Thing.
 
-Thus, a clean way to have my cake and eat it too.
+Thus, a clean way to have my cake and eat it too.  In fact, I can just make an Arbitrary Request Transformer before then.  Function composition for the win.  Thus:
+
+- `conditionalRequestTransformersAdapterEnhancer` to conditionally transform incoming requests.
+- `entityCacheAdapterEnhancer` to do the cache thing.
+
+
+### Implementation: Caching
+
+Based on the needs outlined ... uh, somewhere above, my initial thought is this:
+
+- Given a Key and an ID:
+    - Check if a Key has a Cache Entry and the ID matches the ID in that Cache Entry:
+        - If Yes:
+            - Resolve with Cache Entry's Response.
+        - Else, Continue.
+    - Await on Base Adaptor.  When Resolved:
+        - Upsert Cache Entry for Key with ID and Serializable Response.
+
+Some things to note:
+
+- Rejections are never cached.
+    - This means we don't have to use [Settle][rs-3-2] because we only cache Resolutions.
+
+To integrate with Local Storage:
+
+- Initialization:
+    - Upon Enhancer Creation, pull current cache entries list from Local Storage.
+    - If there's a value, try to deserialize.
+    - If there's a deserialized value, create a new Map from it.
+- Upsertion:
+    - Set Cache Entry in Map.
+    - Serialize Map's Entries.
+    - Replace cache entries in Local Storage.
+
+That works well.  Dunno if I want to serialize every time considering I have to go from Map to Array, but bwuh.
+
+
+### Practical Considerations
+
+The props `request.config` and `request.headers` can potentially be pretty large, and also could hold sensitive information.  Though, given that Local Storage also gets used for storing tokens and such, maybe that's not a concern?
+
+Having a function to transform things before serialization may help, though, so that's a thought.

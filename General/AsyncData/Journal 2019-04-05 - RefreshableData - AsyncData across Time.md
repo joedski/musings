@@ -74,6 +74,11 @@ Pardon my pseudo-ML.
 This seems to better formalize the usual pattern of `{ status, data, error }`.  Well, mostly by just giving it a name, which I guess is what such formalization is about, most of the time.  That and extractors, although in JS implementations that's usually just Instance Properties.
 
 
+### Some Implementation Notes Regarding JS and other Null-Supporting Languages
+
+It may be tempting to use `d | null` (nullable `d`) instead of `Maybe d`, but I would recommend against that for the simple reason that, if your request resolves to `null`, then it looks like you've never successfully resolved a request.  Admittedly, quite an edge case, but a possibility never the less.
+
+
 
 ## Use Cases Supported
 

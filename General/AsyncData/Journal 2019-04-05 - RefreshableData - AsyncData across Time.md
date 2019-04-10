@@ -33,11 +33,11 @@ current = first
 lastSettled :: RefreshableData d e -> AsyncData d e
 lastSettled = second
 
-dataOf :: RefreshableData d e -> Maybe d
-dataOf = third
+lastDataOf :: RefreshableData d e -> Maybe d
+lastDataOf = third
 
-errorOf :: RefreshableData d e -> Maybe e
-errorOf = fourth
+lastErrorOf :: RefreshableData d e -> Maybe e
+lastErrorOf = fourth
 
 new :: RefreshableData d e
 new = (AsyncData.NotAsked, Maybe.Nothing, Maybe.Nothing)
@@ -63,10 +63,10 @@ next r a =
         na = coalesceAsyncData (current r) a
     in
     match a in:
-        AsyncData.NotAsked -> (a, na, dataOf r, errorOf r)
-        AsyncData.Waiting -> (a, na, dataOf r, errorOf r)
-        AsyncData.Error e -> (a, na, dataOf r, Maybe.Just e)
-        AsyncData.Data d -> (a, na, Maybe.Just d, errorOf r)
+        AsyncData.NotAsked -> (a, na, lastDataOf r, lastErrorOf r)
+        AsyncData.Waiting -> (a, na, lastDataOf r, lastErrorOf r)
+        AsyncData.Error e -> (a, na, lastDataOf r, Maybe.Just e)
+        AsyncData.Data d -> (a, na, Maybe.Just d, lastErrorOf r)
 ```
 
 Pardon my pseudo-ML.
@@ -114,3 +114,29 @@ In this case, the following values will be used:
 - Current, to decide whether any Loading Indicator needs to show.
 - Last Settled, to decide whether or not the Error should still show during Refresh.
 - Last Data, to decide whether to show the Data or the Over All Loading Indicator.
+
+
+
+## Another Thought: Maybe Not Maybes
+
+Stepping away for a moment, I think that perhaps using Maybes there wasn't the right choice.  It makes it a bit more work to support common rendering flows, by requiring using more of the props in mapping.  If instead we just left everything `AsyncData`, and used a separate `dataOf (AsyncData d e) -> Maybe d` intsead, we could better handle things like initial loading status.
+
+However, that does introduce some ambiguity: What happens to `dataOf (RefreshableData d e)` when the first settled value is an error?  What about `errorOf` when it's data?  That could be too much to consider, even if `AsyncData` does accurately represent all the cases.
+
+I think UIs might end up as:
+
+```
+view rd = match (dataOf rd) in:
+    NotAsked -> loadingComponent
+    Waiting -> loadingComponent
+    Error e -> errorMessageComponent e
+    Data d -> [
+        -- double errorOf, wooo.
+        match (errorOf (lastErrorOf rd)) in:
+            Just e -> errorMessageComponent e
+            Nothing -> emptyComponentOrSomethingIDontKnow
+        , dataComponent d
+    ]
+```
+
+I guess that's not too bad, except that double `errorOf`.

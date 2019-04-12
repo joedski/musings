@@ -82,3 +82,60 @@ function reviver(key, value) {
 ```
 
 Obviously, this can be used to serialize/deserialize class-based things, though depending on what you're doing with them you might want to use `toJSON` anyway?  For my part, it's mostly about using it with things that are basically "Data Objects That Carry Their Methods With Them", like `AsyncData` or other such things.
+
+
+### Porque No Los Dos: toJSON + Replacer
+
+Another option is to do both, though I'm not sure if that's better or worse?  Basically, the Replacer Function calls the `toJSON()` method (if it exists) or else just uses it as a source in `Object.assign` or an object spread.
+
+It could be argued to be the most correct way to do it: You're separating _what_ gets serialized from _how_ the serialization is tagged.  However, that breaks the symmetry unless you add an additional static method `fromJSON` to map a serializable entity back to an instance entity.
+
+I'm not sure how worth it that is, especially if the way Replacer works doesn't really change, but it does appeal to my separate-the-concerns twitch.
+
+#### Potentially Less Actual Coding: More Declarative
+
+It could potentially lead to more a more declarative style of code:
+
+```js
+import Bar from 'src/stuff/Bar';
+import AsyncData from 'src/stuff/AsyncData';
+
+const { replacer, reviver } = createSerializationPair(
+    classSerialization('Bar', Bar),
+    classSerialization('AsyncData', AsyncData)
+);
+```
+
+Where that would just be an alias for something like this:
+
+```js
+function classSerialization(className, classCtor) {
+    if (typeof classCtor.fromJSON !== 'function') {
+        throw new Error('Class must define static method "fromJSON()"');
+    }
+
+    return {
+        shouldStringify(key, value) {
+            return (
+                value
+                && typeof value === 'object'
+                && value instanceof classCtor
+            );
+        },
+        toJSON(key, value) {
+            return { ...objectToJSON(value), '@@Class': className };
+        },
+        shouldParse(key, value) {
+            return (
+                value
+                && typeof value === 'object'
+                && value['@@Class'] === className
+            );
+        },
+        fromJSON(key, value) {
+            const { '@@Class': _, ...props }
+            return classCtor.fromJSON(props);
+        },
+    };
+}
+```

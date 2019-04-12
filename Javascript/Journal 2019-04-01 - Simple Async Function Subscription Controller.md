@@ -3,11 +3,11 @@ Journal 2019-04-01 - Simple Async Function Subscription Controller
 
 A micro-utility: Subscription Management Service Controller for polling an Async Function on a given timeout.
 
-- Standard pub-sub.
+- ~~Standard pub-sub.~~ Nah, leave that to something else.
 - Can call poll function on subscribing.
 - Can immediately poll function on demand.
 - Timeout for next call is set after function settling.
-- Specify resolution and rejection handlers.
+- ~~Specify resolution and rejection handlers.~~ Nah, leave that to the dev.
 
 I don't think I'll worry about deduplication/single-function-many-subscribers yet.  Theoretically it should be easy to do, though, either by function-identity-checking or by pre-registration of poll functions.
 

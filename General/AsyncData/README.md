@@ -5,6 +5,8 @@ Place for thoughts on [AsyncData](https://medium.com/javascript-inside/slaying-a
 
 > NOTE: Examples written in a mishmash of pseudo-Haskell/Elm/Whatever.
 
+> NOTE: I try to maintain consistent naming, but sometimes slip up between Result and Data.  Those two should be considered the same case.
+
 At minimum, it's represented by the following ADT:
 
 ```
@@ -91,6 +93,27 @@ Even less to say here.
 
 ```
 flatMap = join . map
+```
+
+
+### Data Of, Error Of
+
+A simple extractors, because sometimes you just want maybe a value, and mapping all the cases is annoying.  What do we do with annoying repetitious things?  Stick them in a function.
+
+```
+dataOf :: AsyncData d e -> Maybe d
+dataOf ad = match ad:
+    Result d -> Maybe.Just d
+    Error _ -> Maybe.Nothing
+    Waiting _ -> Maybe.Nothing
+    NotAsked _ -> Maybe.Nothing
+
+errorOf :: AsyncData d e -> Maybe e
+errorOf ad = match ad:
+    Result _ -> Maybe.Nothing
+    Error e -> Maybe.Just e
+    Waiting _ -> Maybe.Nothing
+    NotAsked _ -> Maybe.Nothing
 ```
 
 

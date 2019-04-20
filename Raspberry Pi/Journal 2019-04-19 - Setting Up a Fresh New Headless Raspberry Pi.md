@@ -282,8 +282,40 @@ I guess I'll try just retry... again?
 
 Apparently a `SSH2_MSG_KEXINIT sent` followed by the connection being closed or reset means that there's an issue loading the system SSH keys.  They then tailed `auth.log`, which I can't do...
 
+Okay, I've tracked down a monitor with an HDMI port, and, yep, the pi sure does boot.
+
+
+### Aside: Dvorak
+
+I went through an experimental phase in college...
+
+Anyway, [Debian has a pretty friendly way to set that up](https://wiki.debian.org/Keyboard).  However, that doesn't seem to affect the login prompt, so that's a bit odd.  Oh well.  Back to important things.
+
+
+### Back to Our Show
+
+Looks like all the `ssh_host_*_key` files are 0 bytes... yep, just like in that post.
+
+```
+$ sudo rm /etc/ssh/ssh_host_* && sudo dpkg-reconfigure openssh-server
+```
+
+And now, they're fat and happy non-zero-length files.  Yay.  Does this make SSH work?
+
+Yes.  Finally!  Eesh.  Seems like it needs a head before you can go headless.  That's really annoying, but it's hopefully a one-time thing.
+
 
 
 ## Step Scramble: Change Everything
 
-We should then be able to do `sudo rapsi-config` to change a bunch of things, including hostname and password.
+We should then be able to do `sudo raspi-config` to change a bunch of things:
+
+- Network > Hostname
+- Advance > Gobble Up All SD Card Space
+
+And then, once we're all fat and happy, we can update ALL THE THINGS.
+
+```
+$ sudo apt-get update -y
+$ sudo apt-get upgrade -y
+```

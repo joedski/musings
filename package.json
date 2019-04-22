@@ -16,6 +16,11 @@
     "url": "https://github.com/joedski/musings/issues"
   },
   "homepage": "https://github.com/joedski/musings#readme",
+  "dependencies": {
+    "@joedski--local/async-queue": "file:local_node_modules/@joedski--local/async-queue",
+    "@joedski--local/deferred": "file:local_node_modules/@joedski--local/deferred",
+    "@joedski--local/timeout-mock": "file:local_node_modules/@joedski--local/timeout-mock"
+  },
   "devDependencies": {
     "babel-eslint": "^8.2.2",
     "eslint": "^4.18.2",

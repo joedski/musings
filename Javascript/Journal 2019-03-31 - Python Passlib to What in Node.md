@@ -46,3 +46,12 @@ Given the naming, perhaps `sha256_crypt` is itself the name of some standard alg
 Looking at those two, at least, there's no built in module for this.  Bleh.  Guess I'll just copy someone's code and hope for the best?  Or use something else?
 
 Might be something to ask, I don't think we have any existing user accounts, and I'm honestly not sure how well we can port the DB over since I don't know what all SQLAlchemy does behind the scenes.  If it produces ordinary tables, there's no problem.  Probably.
+
+
+### Further Thoughts
+
+Having read more about things generally, (no sources, I know, naughty me) I believe the `5` noted above is the internal algorithm version, that is it's a version number specific to Passlib's implementation, telling Passlib what version among its own algos the given password string was implemented with.
+
+There's a simple way to confirm that, though: Just look at the actual source code you lazy bum.
+
+Maybe later.

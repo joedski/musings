@@ -1,0 +1,108 @@
+const assert = require('assert');
+
+const createDeferred = require('@joedski--local/deferred');
+const createAsyncQueue = require('@joedski--local/async-queue');
+const createTimeoutFns = require('@joedski--local/timeout-mock');
+
+const { createDebounceTrailingWithAsyncReplacement } = require('./debounce-trailing-with-replacement');
+
+
+Promise.resolve()
+.then(function creatingTheDebounceCreator() {
+  assert.doesNotThrow(() => {
+    const timeouts = createTimeoutFns();
+    const debounce = createDebounceTrailingWithAsyncReplacement({
+      setTimeout: timeouts.setTimeout,
+      clearTimeout: timeouts.clearTimeout,
+    });
+  },
+    'Creating a debouncer should not throw'
+  );
+})
+.then(function creatingDebouncedFn() {
+  assert.doesNotThrow(() => {
+    const timeouts = createTimeoutFns();
+    const debounce = createDebounceTrailingWithAsyncReplacement({
+      setTimeout: timeouts.setTimeout,
+      clearTimeout: timeouts.clearTimeout,
+    });
+    const fn = () => Promise.resolve();
+    const debounced = debounce(fn, 500);
+  },
+    'Creating a debounced function should not throw'
+  );
+})
+.then(function basicUsage() {
+  const timeouts = createTimeoutFns();
+  const queue = createAsyncQueue();
+  const debounce = createDebounceTrailingWithAsyncReplacement({
+    setTimeout: timeouts.setTimeout,
+    clearTimeout: timeouts.clearTimeout,
+  });
+  let resolutions = 0;
+  const fn = () => queue.enqueue().then((v) => { resolutions += 1; return v; });
+  const debounced = debounce(fn, 500);
+
+  const promise = debounced();
+
+  assert.equal(
+    resolutions, 0,
+    'Nothing should resolve immediately'
+  );
+
+  assert.equal(
+    queue.queue.length, 0,
+    'Nothing should be called until the timeout elapses'
+  );
+
+  assert.equal(
+    timeouts.pending.length, 1,
+    'There should be 1 timeout after a single call'
+  );
+
+  timeouts.advanceTime(500);
+
+  assert.equal(
+    resolutions, 0,
+    'Nothing should resolve on timeout (timeout should be async)'
+  );
+
+  assert.equal(
+    timeouts.pending.length, 0,
+    'There should be 0 timeouts after debounce time has elapsed'
+  );
+
+  assert.equal(
+    queue.queue.length, 1,
+    'After timeout, the async call should be executed'
+  );
+
+  queue.resolveNext('yay');
+
+  return promise.then((v) => {
+    assert.equal(
+      queue.queue.length, 0,
+      'After resolution, there should be no pending promises'
+    );
+
+    assert.equal(
+      resolutions, 1,
+      'After resolution, there should be 1 counted resolution'
+    );
+
+    assert.equal(
+      v, 'yay',
+      'Value resolved to by debounced function should be expected value resolved to by called function'
+    );
+  });
+})
+.then(() => {
+  console.log('Pass!');
+  process.exit(0);
+})
+.catch(error => {
+  console.error('A test failed:');
+  console.error(error);
+  process.exit(1);
+})
+;

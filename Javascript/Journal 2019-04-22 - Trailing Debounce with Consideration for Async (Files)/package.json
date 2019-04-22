@@ -1,0 +1,15 @@
+{
+  "name": "debounce-trailing-with-async-replacement",
+  "version": "0.0.0",
+  "description": "Debounce, Trailing, with Async Replacement; i.e. if a prior call was started but is still pending, it gets replaced by a next call",
+  "main": "debounce-trailing-with-replacement.js",
+  "scripts": {
+    "test": "node debounce-trailing-with-replacement.spec.js"
+  },
+  "keywords": [
+    "debounce",
+    "async"
+  ],
+  "author": "Joseph Sikorski <joedski@gmail.com>",
+  "license": "ISC"
+}

@@ -32,7 +32,7 @@ Promise.resolve()
     'Creating a debounced function should not throw'
   );
 })
-.then(function basicUsage() {
+.then(function basicUsage_noArgs() {
   const timeouts = createTimeoutFns();
   const queue = createAsyncQueue();
   const debounce = createDebounceTrailingWithAsyncReplacement({
@@ -51,13 +51,13 @@ Promise.resolve()
   );
 
   assert.equal(
-    queue.queue.length, 0,
-    'Nothing should be called until the timeout elapses'
+    timeouts.pending.length, 1,
+    'There should be 1 timeout after a single call'
   );
 
   assert.equal(
-    timeouts.pending.length, 1,
-    'There should be 1 timeout after a single call'
+    queue.queue.length, 0,
+    'Nothing should be called until the timeout elapses'
   );
 
   timeouts.advanceTime(500);
@@ -93,6 +93,165 @@ Promise.resolve()
     assert.equal(
       v, 'yay',
       'Value resolved to by debounced function should be expected value resolved to by called function'
+    );
+  });
+})
+.then(function basicUsage_noArgs_nextCallDuringTimeout() {
+  const timeouts = createTimeoutFns();
+  const queue = createAsyncQueue();
+  const debounce = createDebounceTrailingWithAsyncReplacement({
+    setTimeout: timeouts.setTimeout,
+    clearTimeout: timeouts.clearTimeout,
+  });
+  let resolutions = 0;
+  const fn = () => queue.enqueue().then((v) => { resolutions += 1; return v; });
+  const debounced = debounce(fn, 500);
+
+  const promise1 = debounced();
+
+  timeouts.advanceTime(250);
+
+  assert.equal(
+    resolutions, 0,
+    'Nothing should resolve immediately'
+  );
+
+  assert.equal(
+    timeouts.pending.length, 1,
+    'There should be 1 timeout after a single call'
+  );
+
+  assert.equal(
+    queue.queue.length, 0,
+    'Nothing should be called until the timeout elapses'
+  );
+
+  const promise2 = debounced();
+
+  assert.equal(
+    promise1, promise2,
+    'A second call made when the timeout of the first call has not elapsed should result in the same promise'
+  );
+
+  assert.equal(
+    timeouts.pending.length, 1,
+    'There should be 1 timeout after a second call'
+  );
+
+  assert.equal(
+    queue.queue.length, 0,
+    'Nothing should be called until the timeout elapses, even on a second call'
+  );
+
+  timeouts.advanceTime(250);
+
+  assert.equal(
+    timeouts.pending.length, 1,
+    'There should be 1 timeout after a single call, where the second call timeout has not yet elapsed'
+  );
+
+  assert.equal(
+    queue.queue.length, 0,
+    'Nothing should be called until the timeout elapses, where a second call has reset the timeout'
+  );
+
+  timeouts.advanceTime(250);
+
+  assert.equal(
+    timeouts.pending.length, 0,
+    'There should be 0 timeouts after debounce time has elapsed'
+  );
+
+  queue.resolveNext('yay');
+
+  return promise2.then((v) => {
+    assert.equal(
+      queue.queue.length, 0,
+      'After resolution, there should be no pending promises'
+    );
+
+    assert.equal(
+      resolutions, 1,
+      'After resolution, there should be 1 counted resolution'
+    );
+
+    assert.equal(
+      v, 'yay',
+      'Value resolved to by debounced function should be expected value resolved to by called function'
+    );
+  });
+})
+.then(function basicUsage_noArgs_nextCallDuringPending() {
+  const timeouts = createTimeoutFns();
+  const queue = createAsyncQueue();
+  const debounce = createDebounceTrailingWithAsyncReplacement({
+    setTimeout: timeouts.setTimeout,
+    clearTimeout: timeouts.clearTimeout,
+  });
+  let resolutions = 0;
+  const fn = () => queue.enqueue().then((v) => { resolutions += 1; return v; });
+  const debounced = debounce(fn, 500);
+
+  const promise1 = debounced();
+
+  timeouts.advanceTime(500);
+
+  assert.equal(
+    resolutions, 0,
+    'Nothing should resolve on timeout (timeout should be async)'
+  );
+
+  assert.equal(
+    timeouts.pending.length, 0,
+    'There should be 0 timeouts after debounce time has elapsed'
+  );
+
+  assert.equal(
+    queue.queue.length, 1,
+    'After timeout, the async call should be executed'
+  );
+
+  const promise2 = debounced();
+
+  assert.equal(
+    promise1, promise2,
+    'A second call made when the timeout of the first call has elapsed but not yet settled should result in the same promise'
+  );
+
+  assert.equal(
+    timeouts.pending.length, 1,
+    'There should be 1 timeout after a second call is made'
+  );
+
+  timeouts.advanceTime(500);
+
+  assert.equal(
+    timeouts.pending.length, 0,
+    'There should be 0 timeouts after second debounce time has elapsed'
+  );
+
+  assert.equal(
+    queue.queue.length, 2,
+    'A second call made when the first call has not yet settled should result in a separate actual call'
+  );
+
+  assert.equal(
+    resolutions, 0,
+    'Nothing should resolve on timeout (timeout should be async)'
+  );
+
+  queue.resolveNext('first');
+  queue.resolveNext('second');
+
+  return promise2.then((res) => {
+    assert.equal(
+      resolutions, 2,
+      'After all resolutions, there should be 2 counted resolutions'
+    );
+
+    assert.equal(
+      res, 'second',
+      'Promise should settle with the settlement last-most call'
     );
   });
 })

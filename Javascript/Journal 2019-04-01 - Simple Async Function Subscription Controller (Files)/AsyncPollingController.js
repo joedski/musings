@@ -53,7 +53,7 @@ class AsyncPollingController {
       }
 
       // I mean, you can pass 0, but you shouldn't.
-      if (typeof potions.timeout === 'number' && options.timeout >= 0) {
+      if (typeof options.timeout === 'number' && options.timeout >= 0) {
         return constantGenerator(options.timeout);
       }
 

@@ -255,6 +255,172 @@ Promise.resolve()
     );
   });
 })
+.then(function basicUsage_noArgs_clear_timeout() {
+  const timeouts = createTimeoutFns();
+  const queue = createAsyncQueue();
+  const debounce = createDebounceTrailingWithAsyncReplacement({
+    setTimeout: timeouts.setTimeout,
+    clearTimeout: timeouts.clearTimeout,
+  });
+  let resolutions = 0;
+  const fn = () => queue.enqueue().then((v) => { resolutions += 1; return v; });
+  const debounced = debounce(fn, 500);
+
+  const promise1 = debounced();
+
+  assert.doesNotThrow(() => {
+    debounced.clear();
+  },
+    'debounced.clear() should not error on call'
+  );
+
+  assert.equal(
+    timeouts.pending.length, 0,
+    'There should be 0 timeouts after debounced.clear() is called'
+  );
+
+  timeouts.advanceTime(500);
+
+  assert.equal(
+    queue.queue.length, 0,
+    'There should be 0 enqueued async operations after debounced.clear() is called, even after the timeout would have elapsed'
+  );
+})
+.then(function basicUsage_noArgs_clear_promise() {
+  const timeouts = createTimeoutFns();
+  const queue = createAsyncQueue();
+  const debounce = createDebounceTrailingWithAsyncReplacement({
+    setTimeout: timeouts.setTimeout,
+    clearTimeout: timeouts.clearTimeout,
+  });
+  let resolutions = 0;
+  const fn = () => queue.enqueue().then((v) => { resolutions += 1; return v; });
+  const debounced = debounce(fn, 500);
+
+  const promise1 = debounced();
+
+  timeouts.advanceTime(500);
+
+  assert.equal(
+    queue.queue.length, 1,
+    'There should be 1 enqueued async operation after the timeout would have elapsed'
+  );
+
+  assert.doesNotThrow(() => {
+    debounced.clear();
+  },
+    'debounced.clear() should not error on call'
+  );
+
+  assert.equal(
+    queue.queue.length, 1,
+    'debounced.clear() cannot cancel async operations'
+  );
+
+  const promise2 = debounced();
+
+  assert.notEqual(
+    promise1, promise2,
+    'after debounced.clear(), a new promise should be returned by subsequent invocations of debounced()'
+  );
+
+  timeouts.advanceTime(500);
+
+  queue.resolveNext('first');
+  queue.resolveNext('second');
+
+  return promise2.then(res => {
+    assert.equal(
+      res, 'second',
+      'Should resolve to the second value'
+    );
+  }).then(() => Promise.race([
+    promise1,
+    Promise.resolve('third'),
+  ])).then(res => {
+    assert.equal(
+      res, 'third',
+      'First promise should never resolve despite underlying async operation resolving'
+    );
+  });
+})
+.then(function callbacksUsage() {
+  const timeouts = createTimeoutFns();
+  const queue = createAsyncQueue();
+  const debounce = createDebounceTrailingWithAsyncReplacement({
+    setTimeout: timeouts.setTimeout,
+    clearTimeout: timeouts.clearTimeout,
+  });
+  let resolutions = 0;
+  const fn = () => queue.enqueue();
+  const debounced = debounce(
+    fn, 500,
+    function onResolve() {
+      resolutions += 1;
+    }
+  );
+
+  const promise1 = debounced();
+
+  timeouts.advanceTime(500);
+  queue.resolveNext('yay');
+
+  return promise1.then(res => {
+    assert.equal(
+      res, 'yay',
+      'should resolve with expected value'
+    );
+
+    assert.equal(
+      resolutions, 1,
+      'handler should have been called'
+    );
+  });
+})
+.then(function callbacksUsage_twoCalls() {
+  const timeouts = createTimeoutFns();
+  const queue = createAsyncQueue();
+  const debounce = createDebounceTrailingWithAsyncReplacement({
+    setTimeout: timeouts.setTimeout,
+    clearTimeout: timeouts.clearTimeout,
+  });
+  let resolutions = 0;
+  const fn = () => queue.enqueue();
+  const debounced = debounce(
+    fn, 500,
+    function onResolve() {
+      resolutions += 1;
+    }
+  );
+
+  const promise1 = debounced();
+
+  timeouts.advanceTime(500);
+
+  const promise2 = debounced();
+
+  assert.equal(
+    promise1, promise2,
+    'A second call made when the timeout of the first call has elapsed but not yet settled should result in the same promise'
+  );
+
+  timeouts.advanceTime(500);
+
+  queue.resolveNext('first');
+  queue.resolveNext('second');
+
+  return promise2.then(res => {
+    assert.equal(
+      res, 'second',
+      'should resolve with expected value'
+    );
+
+    assert.equal(
+      resolutions, 1,
+      'handler should have been called only once'
+    );
+  });
+})
 .then(() => {
   console.log('Pass!');
   process.exit(0);

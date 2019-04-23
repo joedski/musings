@@ -60,3 +60,73 @@ That decided, we now have this State Machine:
         - This puts things into State 2.
 
 
+
+## Should It Return a Promise?
+
+This is an interesting question.  Originally, I'd intended to use the Promise to do conditional callback calling, the intention being to only call that callback if both the callback is called and its particular async task settles without being replaced.
+
+The way this is handeled with the returned promise is basically:
+
+```js
+let promise = debounced();
+(() => {
+    const currentPromise = promise;
+    currentPromise.then(res => {
+        if (currentPromise === promise) {
+            doTheThingWithTheRes(res);
+        }
+    });
+})();
+```
+
+It'd really be better to have that managed for us since otherwise it's just pointless repetition for the same behavior everywhere.
+
+Why's it need to happen like this, after the original function is called and settles?  Because the function itself can't tell if its supposed to be discarded or not.  We could only do that if we either wrapped the original underlying async service calls, or if we did something funky with generators, and even that wouldn't cover all use cases.
+
+Basically, we need to be able to decide after the fact if we can actually use the settlement of a given thing or not, without affecting the implementation of the thing itself.
+
+
+### Solution 1: Literally Just the Promises Thing
+
+```js
+function debounceWithCallbacks(
+    fn,
+    ms,
+    handleResolution,
+    handleRejection
+) {
+    let lastPromise = null;
+    const debounced = trailingDebounceWithAsyncReplacement(fn, ms);
+
+    return (...args) => {
+        const currentPromise = debounced(...args);
+        if (currentPromise !== lastPromise) {
+            lastPromise = currentPromise;
+            currentPromise.then(
+                res => {
+                    if (handleResolution && currentPromise === lastPromise) {
+                        handleResolution(res);
+                    }
+                },
+                error => {
+                    if (handleRejection && currentPromise === lastPromise) {
+                        handleRejection(error);
+                    }
+                }
+            );
+        }
+        return currentPromise;
+    };
+}
+```
+
+Given those are just extra arguments... maybe I should just bodge those on to the original?   Hm.
+
+
+### Solution 2: ...?
+
+I'm not sure there is another way without having those hooks exposed on the basic utility itself.
+
+Given that, though, it seems that those handlers are pretty intrisic to the intended use case, and can't really be implemented unless you have that promise being returned.
+
+I think I'll add those as a core feature, then.

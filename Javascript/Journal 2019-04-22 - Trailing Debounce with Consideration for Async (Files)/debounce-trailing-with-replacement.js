@@ -13,7 +13,24 @@ function createDebounceTrailingWithAsyncReplacement({
   setTimeout = (...args) => window.setTimeout(...args),
   clearTimeout = (...args) => window.clearTimeout(...args),
 } = {}) {
-  return function debounceTrailingWithAsyncReplacement(fn, n) {
+  return function debounceTrailingWithAsyncReplacement(
+    /**
+     * Async function to debounce.
+     */
+    fn,
+    /**
+     * Debounce time.
+     */
+    ms,
+    /**
+     * Optional handler for when the actually-settled call resolves.
+     */
+    onResolve,
+    /**
+     * Optional handler for when the actually-settled call rejects.
+     */
+    onReject
+  ) {
     const name = `debounceTrailingWithAsyncReplacement(${fn.name || 'anonymous'})`;
 
     let outerDeferred = null;
@@ -21,26 +38,38 @@ function createDebounceTrailingWithAsyncReplacement({
     let fnPromise = null;
 
     function executeFn(context, args) {
-      const currentPromise = fnPromise = (async () => fn.apply(context, args))();
-      fnPromise
-        .then(res => {
-          if (outerDeferred && currentPromise === fnPromise) {
-            outerDeferred.resolve(res);
-            outerDeferred = null;
-            fnPromise = null;
+      const currentPromise = fnPromise = (async () => fn.apply(context, args))()
+        .then(
+          res => {
+            if (outerDeferred && currentPromise === fnPromise) {
+              outerDeferred.resolve(res);
+              if (onResolve) onResolve(res);
+              outerDeferred = null;
+              fnPromise = null;
+            }
+          },
+          error => {
+            if (outerDeferred && currentPromise === fnPromise) {
+              outerDeferred.reject(error);
+              if (onReject) onReject(res);
+              outerDeferred = null;
+              fnPromise = null;
+            }
           }
-        })
-        .catch(error => {
-          if (outerDeferred && currentPromise === fnPromise) {
-            outerDeferred.reject(error);
-            outerDeferred = null;
-            fnPromise = null;
-          }
-        });
+        );
       return currentPromise;
     }
 
-    return {[name](...args) {
+    function clear() {
+      outerDeferred = null;
+      if (timeoutId != null) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      fnPromise = null;
+    }
+
+    const debounced = {[name](...args) {
       if (! outerDeferred) {
         outerDeferred = createDeferred();
       }
@@ -54,10 +83,14 @@ function createDebounceTrailingWithAsyncReplacement({
       timeoutId = setTimeout(() => {
         timeoutId = null;
         executeFn(this, args);
-      }, n);
+      }, ms);
 
       return outerDeferred.promise;
     }}[name];
+
+    debounced.clear = clear;
+
+    return debounced;
   };
 }
 

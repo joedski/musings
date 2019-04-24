@@ -23,6 +23,17 @@ You then update those two state values on Animation Frame, which then lets you u
 Not sure there's any more to worry about than that.
 
 
+### On Generalization
+
+It seems like it should be pretty simple, actually, to generalize this, at least somewhat:
+
+- We care about if the bottom of the Contents matches with the bottom of the Contents Container in absolute coordinates.
+- The same for the tops thereof.
+- And for the left and right sides, if doing horizontal scrolling.
+
+From there, we can easily implement either "Are contents scrollable period" or "Are contents at either end" checks.
+
+
 ### On Efficient Implementation, With Example in Vue
 
 In full, there are a few things we need to consider ancillary to the above tracking:

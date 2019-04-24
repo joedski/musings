@@ -39,6 +39,23 @@ From there, we can easily implement either "Are contents scrollable period" or "
 In full, there are a few things we need to consider ancillary to the above tracking:
 
 - Throttling calls and therefore updates to/with RAF
+    - This is doable by just checking if a call has been scheduled.  If so, we don't need to schedule another.
 - Cleaning up any pending call
 
-> TBD!
+To determine the above things, we also need to have these inputs:
+
+- Content Element
+- Container Element
+- Handler to Call when Scroll Stuff Changes
+- Some misc options:
+    - Should Schedule Immediately (default: true)
+    - Should Check Immediately (default: false)
+        - Setting this to true ignores "Should Schedule Immediately".
+
+When to actually schedule a check:
+
+- On Content Element Scroll, since that's one of the main bases we want to cover.
+- On Window Resize, since that can cause reflows.
+- On Content Resize, for obvious reasons.
+
+I'd probably use a `ResizeObserver` for the last one, but currently that must be poly/ponyfilled, and I don't really feel like installing something for that right off for my current specific use case, especially when I know what will affect the size of the content.  So, I'll content myself with Window Resize, Element Scroll, and a bit of extra manual stuff.

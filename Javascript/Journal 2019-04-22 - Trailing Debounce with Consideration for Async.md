@@ -1,6 +1,8 @@
 Journal 2019-04-22 - Trailing Debounce with Consideration for Async
 ===================================================================
 
+> NOTE: See the bottom for an implementation that wraps `lodash.debounce`.
+
 Debounces generally come in two flavors: Leading and Trailing.  You can also do both, but most cases I've seen call for one exclusive-or the other.  In this case, I'll be considering only Trailing Debounces.
 
 The specific case I'm thinking about is this: Call a remote API to perform Async Validation on User Input.

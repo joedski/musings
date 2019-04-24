@@ -130,3 +130,51 @@ I'm not sure there is another way without having those hooks exposed on the basi
 Given that, though, it seems that those handlers are pretty intrisic to the intended use case, and can't really be implemented unless you have that promise being returned.
 
 I think I'll add those as a core feature, then.
+
+
+### Why Is This Fine?
+
+It's fine because the debounced function itself is all about kicking off a side effect.  With normal debounces, both initiation of the side effect and the reaction-side-effect to the result of the original side effect are in the same function, whereas in this setup, those two are separated.
+
+
+### Could It Be Done Differently?  Built Upon Normal Debounce?
+
+It's all well and good to build my own thing, but can this be done without so much work on my part?  Even though I've already written and tested my own...
+
+```js
+const debounce = require('lodash/debounce');
+
+function debounceWithAsyncReplacement(fn, ms, options) {
+    const { onResolve, onReject, ...lodashOptions } = options;
+    let lastPromise = null;
+    const wrappedFn = (...args) => {
+        const currentPromise = lastPromise = fn(...args).then(
+            res => {
+                if (currentPromise === lastPromise) {
+                    if (onResolve) onResolve(res);
+                    lastPromise = null;
+                }
+            },
+            error => {
+                if (currentPromise === lastPromise) {
+                    if (onReject) onReject(res);
+                    lastPromise = null;
+                }
+            }
+        );
+    };
+    const dfn = debounce(wrappedFn, ms, lodashOptions);
+    const dfnCancel = dfn.cancel;
+    dfn.cancel = function cancel() {
+        lastPromise = null;
+        dfnCancel.call(dfn);
+    };
+    return dfn;
+}
+```
+
+It's not quite the same interface: You don't have a promise being returned.
+
+At the same time, it's simpler: You can't chain off that promise.  It's purely impure, which is probably less confusing.
+
+Testing wise, though, you have to outright replace the global `setTimeout/clearTimeout` functions to mock them, which is probably easier to understand for most people than injecting them, but eh.  That's also what most test setups do, so, whatever.

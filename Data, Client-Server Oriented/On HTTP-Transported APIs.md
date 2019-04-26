@@ -66,4 +66,5 @@ Also learning about what RESTfulness actually means.
             1. This is done via the CURIES mechanism, which allows you to define a CURIE key that can be prefixed to a Rel Key.  This CURIE Key is associated with a URL Template, into which the Rel Key can be substituted to yield a Documentation URL.
             2. This thus provides a standard way to create documentation links, making such documentation in-band information.  Or at least, less out-of-band.
             3. One could imagine some of this same machinery could be leveraged with Swagger documents.
+    4. Consider: While a standard such as JSON-LD may be vaguely-potentially useful in the long term, [it can also mean a lot of work up front at a time when you might not fully know what you're trying to do][ss-11-3].  That is, it can bog you down and prevent you from actually doing the Useful Thing.
 2. HATEOAS

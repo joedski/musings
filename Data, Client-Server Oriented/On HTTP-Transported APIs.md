@@ -9,6 +9,7 @@ Also learning about what RESTfulness actually means.
 
 1. While verbose, it may be worth using [JSON-API](http://jsonapi.org/) along with the attendant media types as a way to structure JSON responses.
     1. You can include a decent amount of metadata in the resposnes... or you can include them, but only optionally if they're unnecessary. (you only need pagination links sometimes, e.g.)
+    2. [Discussion on how to deal with complex actions in JSON-API][ss-1-2]
 2. [Roy talking about how most web APIs aren't REST](http://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven).
     1. Think I need to read up more on what REST actually means.  Granted, I'm much better equipped to understand such things, now.
         1. NOTE: He does make a point to state that the REST architecture is not The One And Only Way, but merely a way to build APIs with longevity.  Other APIs over HTTP aren't wrong per se, they just aren't REST.
@@ -24,12 +25,29 @@ Also learning about what RESTfulness actually means.
 7. [HAL][ss-7--hal-wikipedia] although the linked page may change from the terse description with examples I saw in 2019-03-22...
     1. [A better description][ss-7-1--hal] that's not just a Wikipedia Summary.
     2. Also note that HAL is meant to be transmittable in both XML and JSON.
+    3. A post on [why Drupal went with HAL+JSON rather than JSON-LD][ss-7-3]
 8. I'm still trying to figure out what the hell I'm supposed to do with `content-type`.
     1. [This post][ss-8-1] actually gives a somewhat practical explanation, along with the suggestion that "using what \[they]’ve called standard media types give a client developer a leg-up".  Things like [JSON-API][ss--json-api] or [JSON+HAL][ss-7-1].
+9. Random blog post [on choosing a hypermedia format][ss-9]
+10. [Tools to make HATEOAS Compliance Easier][ss-10]
+11. Reddit discussion on [JSON-LD vs JSON-HAL][ss-11]
+    1. Therein, Manu Sporny says that JSON-LD is good for very-linked data, but maybe not for those who don't need the full complexity it can entail.
+    2. Unfortunately, a post they posted was on G+ and, well, that's been long kerput as of 2019-04, so... Dang.
+        1. It is however [on the WaybackMachine][ss-11-2-1]!  Huzzah, Archive.org!
+    3. Also linked, [a weighing of avoiding JSON-LD][ss-11-3]:
+        1. Focusing too much on trying to stick to a predefined grammar and vocabulary can slow you down
+        2. and really you can almost always convert stuff at a later date once the thing has hit its stride.  It's mostly additional mapping data, after all.
 
+[ss-1-2]: https://discuss.jsonapi.org/t/how-to-deal-with-complex-actions/255/9
 [ss-7--hal-wikipedia]: https://en.wikipedia.org/wiki/Hypertext_Application_Language
 [ss-7-1--hal]: http://stateless.co/hal_specification.html
+[ss-7-3]: https://groups.drupal.org/node/283413
 [ss-8-1]: https://akrabat.com/restful-apis-and-media-types/
+[ss-9]: https://sookocheff.com/post/api/on-choosing-a-hypermedia-format/
+[ss-10]: https://nordicapis.com/tools-to-make-hateoas-compliance-easier/
+[ss-11]: https://www.reddit.com/r/javascript/comments/1j08ov/hal_vs_jsonld/
+[ss-11-2-1]: https://web.archive.org/web/20180124173238/https://plus.google.com/102122664946994504971/posts/T5WkpieNrjJ
+[ss-11-3]: https://berjon.com/linked-data/
 [ss--json-api]: http://jsonapi.org/
 
 

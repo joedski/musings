@@ -67,4 +67,6 @@ Also learning about what RESTfulness actually means.
             2. This thus provides a standard way to create documentation links, making such documentation in-band information.  Or at least, less out-of-band.
             3. One could imagine some of this same machinery could be leveraged with Swagger documents.
     4. Consider: While a standard such as JSON-LD may be vaguely-potentially useful in the long term, [it can also mean a lot of work up front at a time when you might not fully know what you're trying to do][ss-11-3].  That is, it can bog you down and prevent you from actually doing the Useful Thing.
+        1. To that point, it could be more useful to blat out the project first, get it into a useful state, then create a separate output modality, likely by specifying a different content type.
 2. HATEOAS
+    1. Byep.

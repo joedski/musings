@@ -79,6 +79,10 @@ lua: cannot open init.lua
 
 Odd that low turns it on, but eh.  It matches their example, so whatever.  I guess it's sinking the cathode of the LED.
 
+UPDATE: Okay, so I tried again the next day, and couldn't get it to work on reset.  But, if I just plug it in, then open `screen` and don't reset, it works.  If I want that first arrow prompt, I can hit enter, I guess.  Lemme see if this consistently works...
+
+I guess?  `screen` doesn't seem to be handling the restarts gracefully today, unlike yesterday.  Not sure why.
+
 
 ### Try to Take a Mile...
 
@@ -167,7 +171,7 @@ sed -E ':x
     s///; bx
 }
 $! {
-    /then$|else$|do$/ {
+    /then$|else$|do$|function +[^()]*\([^()]*\)$/ {
         N; s/\n */ /g; bx
     }
     N; s/\n */; /; tx
@@ -177,3 +181,71 @@ $! {
 Oh well.  Now it's all one command, but possibly more confusing?  Also, lesson learned: don't use `N` on the last line.  That seems to break things.
 
 Also, this totally won't work with strings that contain double-dashes, but if you're to that point, you should probably be just uploading a file to there anyawy.
+
+
+
+## Connecting to Wifi
+
+To connect to Wifi, you can do something like this, starting with just listing APs:
+
+```lua
+wifi.setmode(wifi.STATION)
+wifi.sta.getap(function (t)
+    for k,v in pairs(t) do
+        print(k .. " : " .. v)
+    end
+end)
+```
+
+Then connect like this:
+
+```lua
+wifi.sta.config("accesspointname","yourpassword")
+wifi.sta.connect()
+tmr.delay(5000000)   -- wait 5,000,000 us = 5 second
+print(wifi.sta.status())
+print(wifi.sta.getip())
+```
+
+Subbing in the appropriate values, of course.  It took longer than 1 second for me, so I just changed the above example to 5 seconds.
+
+Now to actually do something with that connection.  I have a Raspberry Pi named `datamunch` that I have a test web server running on, so let's try `GET`ting that.
+
+```lua
+sk=net.createConnection(net.TCP, 0)
+sk:on("receive", function(sck, c) print(c) end)
+sk:connect(8000,"datamunch.local")
+sk:send("GET / HTTP/1.1\r\nHost: datamunch.local\r\nConnection: keep-alive\r\nAccept: */*\r\n\r\n")
+```
+
+Aww, poo, it can't do that.  May have to look up if NodeMCU can do Bonjour support.  For now, I'll just get the IP manually since our wifi uses DHCP for IP assignment.
+
+```lua
+> sk:connect(8000,"192.168.200.73")
+> sk:send("GET / HTTP/1.1\r\nHost: 192.168.200.73\r\nConnection: keep-alive\r\nAccept: */*\r\n\r\n")
+-- HTTP/1.1 200 OK
+-- Content-Type: text/plain; charset=utf-8
+-- Content-Length: 15
+-- Date: Wed, 01 May 2019 01:56:11 GMT
+-- Connection: keep-alive
+--
+-- Hello world! :D
+```
+
+Nice.
+
+
+### Bonjour Support?
+
+Curiously, there's [a built in C-module that lets you run an mDNS _Server_](https://nodemcu.readthedocs.io/en/master/modules/mdns/), but not a client.  They do however point to [this repo here](https://github.com/udaygin/nodemcu-mdns-client) as a possible client to use.  Aight then, I'm not actually doing much with the Feather itself, and it comes with relative scads of flash space compared to an Arduino.  I mean, it can run a Lua interpreter for heaven's sake.
+
+The other option of course is to just ping everyone on the network then interrogate each one at a given port with a given request, expecting a given response, which wouldn't look suspicious at all.  Not one bit.
+
+
+### So Far, So Good
+
+All in all, that's enough to get started.  I guess this also means I can just print stuff to the console and maybe make a top level module thingy for interrogating the current status?  Hmmmm.
+
+Though, for my intended use case, I also wonder if I can actually use NodeMCU the way I want to: Shut down most of the time, but wake up, take a reading, connect to wifi, shoot the reading on over, disconnect, then go back to sleep.  Hmm, hmm, hmm.
+
+Make it work, first, then make it secure, then make it efficient.  I may also want to [create a custom build](https://nodemcu-build.com/index.php) at some point so I don't need to have anything I'm not using, and can ensure TLS support.

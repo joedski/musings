@@ -171,10 +171,11 @@ sed -E ':x
     s///; bx
 }
 $! {
-    /then$|else$|do$|function +[^()]*\([^()]*\)$/ {
-        N; s/\n */ /g; bx
+    N
+    /then\n|else\n|do\n|function +[^()]*\([^()]*\)\n/ {
+        s/\n */ /g; bx
     }
-    N; s/\n */; /; tx
+    s/\n */; /g; tx
 }'
 ```
 
@@ -241,6 +242,8 @@ Curiously, there's [a built in C-module that lets you run an mDNS _Server_](http
 
 The other option of course is to just ping everyone on the network then interrogate each one at a given port with a given request, expecting a given response, which wouldn't look suspicious at all.  Not one bit.
 
+I'll have to try putting this in and loading it up from the `init.lua` file, see if it works.
+
 
 ### So Far, So Good
 
@@ -249,3 +252,62 @@ All in all, that's enough to get started.  I guess this also means I can just pr
 Though, for my intended use case, I also wonder if I can actually use NodeMCU the way I want to: Shut down most of the time, but wake up, take a reading, connect to wifi, shoot the reading on over, disconnect, then go back to sleep.  Hmm, hmm, hmm.
 
 Make it work, first, then make it secure, then make it efficient.  I may also want to [create a custom build](https://nodemcu-build.com/index.php) at some point so I don't need to have anything I'm not using, and can ensure TLS support.
+
+
+### Serializing to JSON
+
+Lua just uses Tables as its generic data structure, for handling lists and dictionaries both.  In fact, you can index a table with anything in Lua except for `nil`...  But JSON only does arrays and objects, so none of that silliness here.
+
+NodeMCU has, as of writing, [sjson](https://nodemcu.readthedocs.io/en/master/modules/sjson/) to handle serialization and deserialization.  It supports streaming to handle JSON data larger than memory, though my use case doesn't require this.  Still, nice to have.
+
+You can construct tables thusly in Lua:
+
+```lua
+dictTable = { foo = "Foo!", bar = "Bar!" }
+listTable = { "Foo!", "Bar!" }
+```
+
+Let's see if `sjson` distinguishes between those two things as expected...
+
+```lua
+dictTable = { foo = "Foo!", bar = "Bar!" }
+listTable = { "Foo!", "Bar!" }
+bothTable = { dict = dictTable, list = listTable }
+ok, result = pcall(sjson.encode, bothTable)
+if ok then
+    print("json: " .. result)
+else
+    print("error! " .. result)
+end
+```
+
+> NOTE: [`pcall`](https://www.lua.org/pil/8.4.html) returns either `true, value` or `false, error`.
+
+Hmm, seems `sjson` is `nil`.  I guess I'll need to update the firmware for that... Let's see, `NodeMCU 0.9.5 build 20150318`?  Oooh, yeah, that's about 2 years out of date.
+
+How about `cjson`?
+
+```
+> print(cjson)
+romtable: 4023d348
+```
+
+Okay, so I can try that out, at least.  I don't even need to update anything, though I can't guarantee it'll act exactly the same.  That said, the `sjson` docs say that [`sjson.encode()` is provided as a convenience method for backwards compatability with `cjson`](https://nodemcu.readthedocs.io/en/master/modules/sjson/#sjsonencode).
+
+```lua
+dictTable = { foo = "Foo!", bar = "Bar!" }
+listTable = { "Foo!", "Bar!" }
+bothTable = { dict = dictTable, list = listTable }
+ok, result = pcall(cjson.encode, bothTable)
+if ok then
+    print("json: " .. result)
+else
+    print("error! " .. result)
+end
+```
+
+```json
+{"dict":{"bar":"Bar!","foo":"Foo!"},"list":["Foo!","Bar!"]}
+```
+
+Nice.

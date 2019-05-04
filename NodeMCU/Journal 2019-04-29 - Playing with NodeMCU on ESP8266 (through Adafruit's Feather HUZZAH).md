@@ -58,6 +58,9 @@ Next, gonna try `screen` I guess.
 # 9600: even though that's the default
 # onlcr: as per `man stty`: Map NL to CR-NL on output. (or `-onlcr` to not map)
 sudo screen /dev/tty.SLAB_USBtoUART 9600,onlcr
+# I tried these settings from here: http://www.noah.org/wiki/Screen_notes#using_screen_as_a_serial_terminal
+# But they don't seem to help.  Alas.
+sudo screen /dev/tty.SLAB_USBtoUART 9600,onlcr,cs8,-parenb,-cstopb,-hupcl
 ```
 
 I also added [a `.screenrc`](http://www.noah.org/engineering/src/dotfiles/.screenrc) I found that, among other things, changes `^c k` to `^c K`, with a big K for emphasis.  You have to really mean it if you wanna kill it.
@@ -311,3 +314,33 @@ end
 ```
 
 Nice.
+
+> Note that in the serialization of `dictTable`, `bar` came before `foo`.  Not unexpected, of course, just another reminder that tables' string-keys aren't really ordered, nor technically are JSON objects' keys.
+
+For my one sensor thing, I was thinking originally of just using array records because those would be easy to stringify, but this is probably safer and ultimately more flexible.  That and honestly, it's not that much memory for a single record regardless.
+
+Original thought, formatted:
+
+```json
+[
+    "esp8266#1",
+    "BME680",
+    ["T","C",21.5],
+    ["P","kPa",101.3],
+    ["H","R%",45]
+]
+```
+
+Current thought, formatted:
+
+```json
+{
+    "id": "esp8266#1",
+    "sensor": "BME680",
+    "readings": [
+        ["T","C",21.5],
+        ["P","kPa",101.3],
+        ["H","R%",45]
+    ]
+}
+```

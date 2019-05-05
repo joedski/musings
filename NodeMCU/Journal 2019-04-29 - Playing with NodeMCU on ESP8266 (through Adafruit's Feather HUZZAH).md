@@ -60,7 +60,9 @@ Next, gonna try `screen` I guess.
 sudo screen /dev/tty.SLAB_USBtoUART 9600,onlcr
 # I tried these settings from here: http://www.noah.org/wiki/Screen_notes#using_screen_as_a_serial_terminal
 # But they don't seem to help.  Alas.
-sudo screen /dev/tty.SLAB_USBtoUART 9600,onlcr,cs8,-parenb,-cstopb,-hupcl
+#sudo screen /dev/tty.SLAB_USBtoUART 9600,onlcr,cs8,-parenb,-cstopb,-hupcl
+# NOTE: Newest version uses this as the default baud rate.
+sudo screen /dev/tty.SLAB_USBtoUART 115200,onlcr,cs8,-parenb,-cstopb,-hupcl
 ```
 
 I also added [a `.screenrc`](http://www.noah.org/engineering/src/dotfiles/.screenrc) I found that, among other things, changes `^c k` to `^c K`, with a big K for emphasis.  You have to really mean it if you wanna kill it.

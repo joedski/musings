@@ -228,7 +228,7 @@ WITH RECURSIVE foo (value) AS (
     VALUES
         (1)
     UNION ALL
-        SELECT value + 1 AS value
+    SELECT value + 1 AS value
         FROM foo
         WHERE value < 10
 )
@@ -288,7 +288,7 @@ WITH RECURSIVE node_and_ancestors (id, parent_id, depth) AS (
         -- use `\set id 6` for instance.
         WHERE id = :id
     UNION
-        SELECT some_tree.id, some_tree.parent_id, depth - 1 AS depth
+    SELECT some_tree.id, some_tree.parent_id, depth - 1 AS depth
         FROM node_and_ancestors
         JOIN some_tree ON some_tree.id = node_and_ancestors.parent_id
 )
@@ -312,7 +312,7 @@ WITH RECURSIVE node_and_descendants (id, parent_id, depth) AS (
         FROM some_tree
         WHERE id = :id
     UNION
-        SELECT some_tree.id, some_tree.parent_id, depth + 1 AS depth
+    SELECT some_tree.id, some_tree.parent_id, depth + 1 AS depth
         FROM node_and_descendants
         JOIN some_tree ON some_tree.parent_id = node_and_descendants.id
 )
@@ -333,7 +333,7 @@ WITH RECURSIVE node_and_ancestors (id, parent_id, depth) AS (
         FROM some_tree
         WHERE id = :id
     UNION
-        SELECT some_tree.id, some_tree.parent_id, depth - 1 AS depth
+    SELECT some_tree.id, some_tree.parent_id, depth - 1 AS depth
         FROM node_and_ancestors
         JOIN some_tree ON some_tree.id = node_and_ancestors.parent_id
 ),
@@ -342,7 +342,7 @@ node_descendants (id, parent_id, depth) AS (
         FROM some_tree
         WHERE parent_id = :id
     UNION
-        SELECT some_tree.id, some_tree.parent_id, depth + 1 AS depth
+    SELECT some_tree.id, some_tree.parent_id, depth + 1 AS depth
         FROM node_descendants
         JOIN some_tree ON some_tree.parent_id = node_descendants.id
 )

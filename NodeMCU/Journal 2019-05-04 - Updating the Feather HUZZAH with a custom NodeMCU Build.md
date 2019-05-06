@@ -21,6 +21,8 @@ Some Board-Specific Notes:
 
 Modules to Include:
 
+> I left all the default ones, merely adding the ones I needed atop those.
+
 - bme680
 - crypto
 - file

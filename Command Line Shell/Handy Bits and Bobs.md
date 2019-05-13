@@ -54,3 +54,31 @@ See also:
 ```sh
 openssl rand -base64 12
 ```
+
+
+
+## Line-by-Line Loop in Bash
+
+Pulled from [this answer](https://stackoverflow.com/a/10929511/4084010), and also attested to in [this BashFAQ page](http://mywiki.wooledge.org/BashFAQ/001):
+
+```sh
+#!/bin/bash
+while IFS='' read -r line <&9 || [ -n "$line" ]; do
+    if [ -n "$line" ]; then
+        echo "Line >>>$line<<<"
+    else
+        echo "Blank Line"
+    fi
+done 9< "$file"
+```
+
+The explanations provided:
+
+- `IFS=''` (or `IFS=`) prevents leading/trailing whitespace from being trimmed.
+- `-r` prevents backslash escapes from being interpreted.
+- `|| [[ -n $line ]]` prevents the last line from being ignored if it doesn't end with a `\n` (since `read` returns a non-zero exit code when it encounters EOF).
+- `<&9` and `9< "$file"` uses a file descriptor that's not stdin for input.
+    - This is really only necessary if you're doing other things in the loop that need access to stdin.  If you don't do anything like that, you can omit different FDs.
+    - NOTE: you can also use `read -u 9 -r line` instead of `read -r line <&9` to make `read` use FD 9.
+
+The BashFAQ link also has some snippets for loops that need to execute a body on a per-line basis, including a version which does _not_ open a subshell, thereby losing any context changes caused by the body.

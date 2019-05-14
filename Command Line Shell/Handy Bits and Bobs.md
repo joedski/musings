@@ -79,6 +79,43 @@ The explanations provided:
 - `|| [[ -n $line ]]` prevents the last line from being ignored if it doesn't end with a `\n` (since `read` returns a non-zero exit code when it encounters EOF).
 - `<&9` and `9< "$file"` uses a file descriptor that's not stdin for input.
     - This is really only necessary if you're doing other things in the loop that need access to stdin.  If you don't do anything like that, you can omit different FDs.
-    - NOTE: you can also use `read -u 9 -r line` instead of `read -r line <&9` to make `read` use FD 9.
+    - NOTE: you can also use `read -u 9 -r line` instead of `read -r line <&9` to make `read` use FD 9, but apparently that's not portable across all shells?
 
 The BashFAQ link also has some snippets for loops that need to execute a body on a per-line basis, including a version which does _not_ open a subshell, thereby losing any context changes caused by the body.
+
+
+
+## Local Variables in Functions: Visible to Other Called Functions
+
+As noted in the Bash manual: "Local can only be used within a function; it makes the variable name have a visible scope restricted to that function and its children."
+
+It seems then that it's used to set a "local" env that's local to just that function (and its children) rather than to the environment that the function is executed in.
+
+```sh
+function outer() {
+    local local_var=foo
+    echo "outer: local_var = $local_var"
+    inner
+}
+
+function inner() {
+    echo "inner: local_var = $local_var"
+}
+```
+
+Calling `outer` then shows that `inner` can see that local var:
+
+```
+$ outer
+outer: local_var = foo
+inner: local_var = foo
+```
+
+Calling `inner` directly, of course, there is no local var:
+
+```
+$ inner
+inner: local_var = 
+```
+
+Is this a feature?  Or a bug?  It could be considered both, but while possibly handy may lead to more fun bugs than not in the long term.  Alas, that's the specified behavior, for better or for worse.

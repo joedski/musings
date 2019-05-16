@@ -121,6 +121,8 @@ I can't seem to find any immediate gratification by reading the spec or by searc
 
 I'm not as used to C as written there, lots of pointer math.  Never the less, I'm able to more or less understand what's happening after finding the macros and [whatnot](https://github.com/nodemcu/nodemcu-firmware/blob/4905381c004bdeaf744a60bb940c1906c2e052d4/app/include/lwip/dns.h#L49).  There's some [mysterious endian flipping](https://github.com/nodemcu/nodemcu-firmware/blob/4905381c004bdeaf744a60bb940c1906c2e052d4/app/include/lwip/def.h#L112), but apparently that's because network stuff is big endian while CPUs tend to be little endian?  Either way, there's an endian mismatch, and the flip needed to happen.
 
+> EDIT: RFC1035 says all numbers should be written Big Endian.  While writing a NodeJS based toy implementation, I was able to just use `Buffer#readUInt16BE()` as well as the `UInt32` variant, so I didn't need to worry about flipping endianness myself as it was already abstracted.
+
 
 ### The Structure: The Request
 
@@ -169,3 +171,23 @@ Looking at [the response parser `mdns_parse_query`](https://github.com/joedski/n
 - A check for Flags-1 `TRUNC = 0x02`, which tells us something got truncated somewhere.  If yes, bail.
 - A check of Answer Count.  If it's 0, bail, because there are no answers.
 - If everything is fine, parse the answers!
+
+
+
+## Other Details
+
+
+### On Domain Names an Character Strings
+
+Domain Names and Character Strings are sorta defined (referred to as `<domain-name>`s and `<character-string>`s respectively) in _Section 3.3. Standard RRs_ of [RFC 1035](https://tools.ietf.org/html/rfc1035.html).
+
+- A Domain Name is defined as "a series of labels", terminated by "a label of zero length".
+    - This is why Domain Names are frequently rendered with a terminal `.`, like `_printer._tcp.local.`
+    - A Label is defined in _Section 3.1. Name space definitions_ as "a one octet length field followed by that number of octets".
+        - A Label's Length Field cannot exceed the value 63, as the 2 MSB are reserved and must both be 0.
+    - An additional restriction of 256 octets total is imposed on the entire Domain Name.
+        - Where "total" here means "including both length-field octets and content octets."
+- A Character String is similar to a Domain Name, but without the MSB restriction: it's "a single length octet followed by that number of characters."
+    - It's "treated as binary information, and can be up to 256 characters in length (including the length octet)."
+
+The definition of a Character String is important when you consider various Resource Record Types.  Most important to me, at least, is the TXT Type, whose RData is defined as "One or more `<character-string>`s".

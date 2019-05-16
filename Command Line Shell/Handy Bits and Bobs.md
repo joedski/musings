@@ -5,6 +5,12 @@ A list of small snippets I've found variably useful over the years.  I've found 
 
 
 
+## Errata
+
+- 2019-05-16: Removed `function` key word on bash function definitions.  Apparently that's the most portable according to [Bash Pitfalls](http://mywiki.wooledge.org/BashPitfalls).
+
+
+
 ## Find files which contain all of a number of discrete strings
 
 Here, this can be rearranged to be "Find files which contain one string, and find files out of those which contain another string, and..."
@@ -92,13 +98,13 @@ As noted in the Bash manual: "Local can only be used within a function; it makes
 It seems then that it's used to set a "local" env that's local to just that function (and its children) rather than to the environment that the function is executed in.
 
 ```sh
-function outer() {
+outer() {
     local local_var=foo
     echo "outer: local_var = $local_var"
     inner
 }
 
-function inner() {
+inner() {
     echo "inner: local_var = $local_var"
 }
 ```
@@ -133,7 +139,7 @@ A common pattern when grouping a bunch of commands in a similar domain under one
 Obviously, this is overkill for small commands, but anything with 2 or more sub-commands may benefit from this pattern, and parts of it can be taken as needed since it was written with robustness in mind.
 
 ```sh
-function basecommand() {
+basecommand() {
   # Tested in bash 3.2.57
 
   local dispatch_command=

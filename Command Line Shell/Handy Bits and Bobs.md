@@ -258,3 +258,36 @@ BASECOMMAND_DISPATCH_HELP
 - `hash <command-or-function> 2>/dev/null` will work in Bash, with the benefit of caching the path.
 
 The dependable exit statuses means we can do things like `if hash foo 2>/dev/null; then ...`.
+
+
+
+## On Temorarily Manipulating IFS
+
+As noted in [Bash Pitfalls item #49](http://mywiki.wooledge.org/BashPitfalls), an Empty Var is different from an Unset Var, and `IFS` is no different here.
+
+If doing something based on IFS that needs to affect the current environment, meaning you can't just use a subshell, then you'll need to do something to distinguish between Empty and Unset:
+
+```sh
+oIFS=${IFS+_${IFS}}
+IFS=/; echo "${array[*]}"
+${oIFS:+'false'} unset -v IFS || IFS=${oIFS#_}
+```
+
+If using a function, you can do this more easily by using `local`:
+
+```sh
+f() {
+  # remember there are caveats to trying to set a value
+  # in the `local` command line.
+  local IFS
+  IFS=/
+  echo "${array[*]}"
+}
+f
+```
+
+If you don't need to be able to manipulate the current environment, you can just use a subshell:
+
+```sh
+( IFS=/; echo "${array[*]}" )
+```

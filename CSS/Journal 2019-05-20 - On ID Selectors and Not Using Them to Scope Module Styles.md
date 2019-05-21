@@ -30,15 +30,20 @@ The technical arguments regarding were thus:
 - It doesn't actually protect from style overrides arising from name conflicts.
     - One person who advocated for this strategy said it was to protect a component's own styles from a parent component's styles.  It might have worked incidentally, but it didn't actually solve the underlying issue, which is that _common class names greatly increase the chance of style leakage_ regardless of how specific your selector is!  In fact, I would argue that over the lifetime of a project, it makes it inevitable.
         - Indeed, it doesn't solve that issue of common-class-name-induced style leakage at all, just makes occurrences more subtle when they do arise.  It is only guaranteed to work if it assumes a certain order of selector declaration in the HTML Document!
-            - This is intrinsically tied to the next point.
+            - Which is, in fact, the next point.
         - Remember also that `#parent .bar .foo` is more specific than `#child .foo`!
-- It assumes a certain module loading/bundling/importing order, and assumes whatever bundling methodology is being used will insert the styles into the document in a specific order.
+- It assumes a certain module loading/bundling/importing order, and assumes whatever bundling methodology is being used will insert the styles from separately loaded modules into the document in a specific order.
     - That is, given `#first .foo` and `#second .foo`, if the `#second` declaration comes later in the Document than the `#first` declaration, the `#second` one will always win for _any_ element that matches `#second .foo`, regardless of how deeply nested that `.foo` is.
-    - Anything that assumes a certain code order like that is just asking for subtle errors down the road.  _This is absolutely not something we should be thinking about when writing styles for components._
-        - Further, it assumes this order in perpetuity.  (or at least over the lifetime of the project.)
+        - That is, `#second .foo` wins in both of these cases:
+            - `<div id="first"><div id="second"><div class="foo">`
+            - `<div id="second"><div id="first"><div class="foo">`
+        - More generally, given two selectors of the same specificity which apply directly to an element, which ever comes later in the Document wins.
+    - Anything that assumes a certain code order in the face of asynchronously loaded modules like that is just asking for subtle errors down the road.  _This is absolutely not something we should be thinking about when writing styles for components._
+        - Further, it assumes this order in perpetuity.  (or at least over the lifetime of the project, which for for all intents and purposes here is the same thing.)
     - Any changes to the ordering can cause unexpected style overrides to occur.  In fact, it should be considered a source of non-determinism, especially when loading components async.
     - While one may argue that the application will always have a given order of styles just due to the order of imports, this is both true and exactly the problem.
         - In a single file, we can assume, provided whatever is actually processing the styles for our bundler works in this manner, that the styles so-named will be loaded in the order they appear in that specific single file.
+            - Sometimes even that order is not guaranteed, which is annoying when overriding framework styles.
         - What this says nothing about is the order of styles loaded _in entirely different modules whose loading orders are not necessarily related to each other._
 - It ~~can~~ will inevitably leak a component's own styles out into any children.
     - The only way to prevent this is to either use a direct-child combinator, or to give things globally unique names, at which point you've defeated the original point of using ID selectors.

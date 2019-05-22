@@ -1,6 +1,8 @@
 Layout Grids and CSS
 ====================
 
+> NOTE: See also [this document for more general thoughts on Layout and Spacing](./On%20Creating%20Maintainable%20CSS%20Layout%20Styles.md)
+
 Putting aside that using separate classes rather than child/descendent selectors is much more efficient, it should be possible to create a generic flex layout component that covers common cases and allows for using the less common ones more easily.
 
 

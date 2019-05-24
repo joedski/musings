@@ -5,6 +5,22 @@ With an eye towards Typescript support, AsyncData, and RefreshableData.  Maybe I
 
 
 
+## Validation and Typing
+
+It's one thing to manage all that data coming from the server, it's another to ensure it's actually the shape we expect, and at the very least, it'd be nice to have a type annotation somewhere that we can use with TS utilities.
+
+I imagine a Validate utility would do something like `<T>(v: any) => Either<T, ValidationError>`.  Or it could just throw, either way.  Then, that can be used by the fetch machinery to map a result to `AsyncData.Data` or `AsyncData.Error` as appropriate.
+
+The very bestest would be to automatically codegen this stuff from a Swaggerdoc or other such thing.
+
+
+
+## Permissions and Capabilities: Can the User Do X?
+
+Another thing to do is to be able to uniformly manage Permissions and Capabilities queries, which to my mind are the same thing as far as the UI is concerned.  Sure, there might be a difference of _why_ the User can or cannot do X, but at the end of the day that's just a Negative Response versus a Positive Response.
+
+
+
 ## Typescript Faffing
 
 ```

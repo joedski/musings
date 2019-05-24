@@ -420,4 +420,4 @@ Implementation wise, the above interface is probably most easily done by using `
 
 As noted in [all the discussion on this issue](https://github.com/Microsoft/TypeScript/issues/2521), as of 2019-03-18 it's unlikely that TypeScript is going to have any support for get/set pairs that have different types, which means the above will cause either a bunch of type errors or a bunch of noise.
 
-In that case, we'll probably want some indirection, something like `this.$scanned.push('count', ['incr', this.incrementAmount])`.
+In that case, we'll probably want some indirection, something like `this.$scanned.push('count', ['incr', this.incrementAmount])`, or else `this.$scanned.count = ['incr', this.incrementAmount]`, etc.  Something to separate the setter from the getter.

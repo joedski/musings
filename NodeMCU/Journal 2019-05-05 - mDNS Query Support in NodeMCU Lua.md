@@ -190,4 +190,4 @@ Domain Names and Character Strings are sorta defined (referred to as `<domain-na
 - A Character String is similar to a Domain Name, but without the MSB restriction: it's "a single length octet followed by that number of characters."
     - It's "treated as binary information, and can be up to 256 characters in length (including the length octet)."
 
-The definition of a Character String is important when you consider various Resource Record Types.  Most important to me, at least, is the TXT Type, whose RData is defined as "One or more `<character-string>`s".
+The definition of a Character String is important when you consider various Resource Record Types.  Most important to me, at least, is the TXT Type, whose RData is defined as "One or more `<character-string>`s, the last being a zero-length `<character-string>`".  An empty RDATA for the TXT type then is just the single octet `0x00`.

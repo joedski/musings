@@ -46,6 +46,15 @@ The address of each item is a bit trickier, but mostly because we have to jog ov
 Mostly that's it.
 
 
+### Extracting Addresses
+
+So, this is mildly complicated no matter how I slice it.
+
+Basically I need to keep track of how many of each thing I've read for anything to make sense.  Thankfully, that's the hard part; past that, it's all delegated to functions.
+
+Thus, I start by reading the entry counts from the header into local state, and go on from there.  Tedious, but not at all difficult.
+
+
 
 ## Sundry Utilities
 
@@ -87,12 +96,12 @@ end
 The flags in a given header are bits, anyway, or at best two bits.  Calling it twice is not bad, and there's no local values, nor upvalue references.
 
 
-### Bitwise And, Bitwise Or
+### Extracting a Contiguous Run of Bits.
 
 Admittedly, not really needed for the most common cases here, but I am curious.
 
 - The `is_bit_set` thing works thusly:
-    - If `val % 0b0100` is the same as `val & 0b0011`.
+    - `val % 0b0100` is the same as `val & 0b0011`.
     - If a `val` is only a single bit, then `val + val` is the same as `val << 1`.
     - Thus, `val % (mask + mask) >= mask` is basically the same as `val & mask != 0` if `mask` is a single bit.
         - e.g. if `mask = 0b0010`, and `val = 0b0111`, then we end up with:
@@ -100,3 +109,40 @@ Admittedly, not really needed for the most common cases here, but I am curious.
             - `0b0111 % 0b0100 > 0b0010`
             - `0b0011 > 0b0010`
             - `true`
+
+We can use some extensions to that to extract an arbitrary bit field:
+
+- `val % 0b0100` is the same as `val & 0b0011`.
+- `val - (val % 0b0100)` is the same as `val & 0b1100`, or `val & ~0b0011`.
+- This being the case, we can extract, say, `0b01111000` thusly:
+    - `((val & 0b01111000) >> 3)`
+    - `((val & 0b01111111) - (val % 0b00000111)) / 2^3`
+    - `((val % 0b10000000) - (val % 0b00001000)) / 8`
+        - NOTE: Could use `math.floor()` for extra safety, but power-of-two divisions should hopefully be safe, especially if the value is already a multiple of 8.
+        - NOTE: You could use `val // 8` in Lua 5.3, but alas I'm targeting 5.1 or else I'd just use the bitwise operators directly.
+
+Since I don't have Lua 5.3 install, and I'm lazy, so I validated this in JS:
+
+```js
+var mask = 0b01111000;
+
+var maskMsb = (mask & ~(mask >> 1));
+var maskLsb = (mask & ~(mask << 1));
+
+var val1 = 0b10101010;
+var val2 = 0b01010101;
+
+console.log('(val1 & mask) === ((val1 % (maskMsb << 1)) - (val1 % (maskLsb)))', (val1 & mask) === ((val1 % (maskMsb << 1)) - (val1 % (maskLsb))));
+// => true
+console.log('(val2 & mask) === ((val2 % (maskMsb << 1)) - (val2 % (maskLsb)))', (val2 & mask) === ((val2 % (maskMsb << 1)) - (val2 % (maskLsb))));
+// => true
+```
+
+So, yep.  That works.
+
+Also for good measure:
+
+```js
+console.log((0b01111000 / 8) === (0b01111000 >> 3));
+// => true
+```

@@ -56,6 +56,91 @@ Thus, I start by reading the entry counts from the header into local state, and 
 
 
 
+## How Bout Them Writing Things?
+
+Need to also be able to create DNS Messages, which is mostly Questions, thankfully.  Still, that means domain names, at least.
+
+I've read that creating separate strings is slow, and that doing `strA = strA..strB` repeatedly is the worst, due to how Lua creates new strings.  It's apparently more performant to create a Table and just dump a bunch of strings in there, then do a single `table.concat()` call.  So, I'll do that, then.
+
+Alright, so... how's it work from there?
+
+I don't think I'll bother with compression, since for Name fields at least, that requires scanning over other Name fields, and I don't feel like doing that.
+
+Otherwise, much like how all the Readers take the Message String as their main argument and further parametrize after that, I guess all the Writers will take a Message Table as their main argument.  Or they just return a string, I dunno.
+
+
+### Thought One
+
+```lua
+local message = {
+    dnsFns.writeHeader(
+        0xbeef,
+        0, -- Flags.  Queries can almost always just have no flags!
+        -- Counts.  Usually only 1 question, unless you're getting frisky.
+        1, 0, 0, 0
+    ),
+    dnsFns.writeQuestion(
+        -- Dot-delimited String or array of strings.
+        "datamunch.local",
+        1, -- Type = A for Address.
+        1 -- Class = IN, pretty much always.
+    )
+}
+local messageString = table.concat(message, '')
+```
+
+```lua
+local message = {}
+dnsFns.writeHeader(
+    message,
+    0xbeef,
+    0, -- Flags.  Queries can almost always just have no flags!
+    -- Counts.  Usually only 1 question, unless you're getting frisky.
+    1, 0, 0, 0
+)
+dnsFns.writeQuestion(
+    message,
+    -- Dot-delimited String or array of strings.
+    "datamunch.local",
+    1, -- Type = A for Address.
+    1 -- Class = IN, pretty much always.
+)
+local messageString = table.concat(message, '')
+```
+
+```lua
+local message = {
+    header = {
+        id = 0xbeef,
+        flags = 0,
+    },
+    questions = {
+        dnsFns.writeQuestion("datamunch.local", 1, 1),
+        -- or even
+        { name = "datamunch.local", type = 1, class = 1 }
+    },
+}
+local messageString = dnsFns.serializeMessage(message)
+```
+
+Honestly, if I had to pick one that I liked interface wise, I'd pick the third one, the table-message one, though it does create 4 tables.  The second one would be more flexible, actual serialization wise, since I could entirely decide the implementation, but it's kind of annoying to use.  Of course, it's not meant to be entirely convenient, more it's supposed to provide utils upon which convenience can be built easily.
+
+Hm.
+
+```lua
+local message = dnsFns.initMessage(0xbeef, 0)
+dnsFns.writeQuestion(message, "datamunch.local", 1, 1)
+local messagestring = dnsFns.serializeMessage(message)
+```
+
+This isn't too bad, seems like it might be fine-grained enough for writing?  Keeps the message format opaque, more or less.  (it's secretly just a table of strings and numbers.)
+
+The Writers won't be as atomic as the Readers since we're starting with all the information and turning it into a string, rather than reading only bits we care about out of an existing string.  So, perhaps it's not so surprising here that things aren't as fine-grained.
+
+> Aside: `string.char(n, n, n, ...)` is used to create an arbitrary octet string from a bunch of numbers.  Thus: `function serializeUInt16BE(n) return string.char(math.floor(n / 256), n % 256) end`
+
+
+
 ## Sundry Utilities
 
 Lua 5.1, which NodeMCU uses, doesn't have all those nice bit operations, making any low level things a bit annoying to work with.  The prior `nodemcu-mdns-client` lib had to deal with this, too, so I can scour it for some useful things.
@@ -110,7 +195,7 @@ Admittedly, not really needed for the most common cases here, but I am curious.
             - `0b0011 > 0b0010`
             - `true`
 
-We can use some extensions to that to extract an arbitrary bit field:
+We can use some extensions to that to extract an arbitrary contiguous bit field:
 
 - `val % 0b0100` is the same as `val & 0b0011`.
 - `val - (val % 0b0100)` is the same as `val & 0b1100`, or `val & ~0b0011`.
@@ -121,7 +206,7 @@ We can use some extensions to that to extract an arbitrary bit field:
         - NOTE: Could use `math.floor()` for extra safety, but power-of-two divisions should hopefully be safe, especially if the value is already a multiple of 8.
         - NOTE: You could use `val // 8` in Lua 5.3, but alas I'm targeting 5.1 or else I'd just use the bitwise operators directly.
 
-Since I don't have Lua 5.3 install, and I'm lazy, so I validated this in JS:
+Since I don't have Lua 5.3 installed, and I'm lazy, I validated this in JS:
 
 ```js
 var mask = 0b01111000;
@@ -132,9 +217,15 @@ var maskLsb = (mask & ~(mask << 1));
 var val1 = 0b10101010;
 var val2 = 0b01010101;
 
-console.log('(val1 & mask) === ((val1 % (maskMsb << 1)) - (val1 % (maskLsb)))', (val1 & mask) === ((val1 % (maskMsb << 1)) - (val1 % (maskLsb))));
+console.log(
+    '(val1 & mask) === ((val1 % (maskMsb << 1)) - (val1 % (maskLsb)))',
+    (val1 & mask) === ((val1 % (maskMsb << 1)) - (val1 % (maskLsb)))
+);
 // => true
-console.log('(val2 & mask) === ((val2 % (maskMsb << 1)) - (val2 % (maskLsb)))', (val2 & mask) === ((val2 % (maskMsb << 1)) - (val2 % (maskLsb))));
+console.log(
+    '(val2 & mask) === ((val2 % (maskMsb << 1)) - (val2 % (maskLsb)))',
+    (val2 & mask) === ((val2 % (maskMsb << 1)) - (val2 % (maskLsb)))
+);
 // => true
 ```
 

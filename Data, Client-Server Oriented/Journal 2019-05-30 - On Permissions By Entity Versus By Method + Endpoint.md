@@ -1,5 +1,6 @@
 ---
 tags:
+    - "client-server:client"
     - permissions
     - capabilities
     - remote-data
@@ -13,6 +14,8 @@ The main reason I prefer Permission by Method + Endpoint is that, ultimately, th
 Any permissions-related thing on the client ultimately degrades to "Can User Call This Method" in the given transport mechanism, which on HTTP based APIs basically means "Can Use Call Endpoint with HTTP Method X", and no amount of diddling around with things will get around that.  This means any abstraction on the client will have to eventually allow querying of such method-by-method permissions, since that's what it really needs to know.  The fact that this is governed by some other mechanism in the API internally is irrelevant, and ideally should be kept as irrelevant as possible.
 
 > Aside: While I prefer that, it's not really as important for non-publicly-consumed APIs, which most internal apps are.  Ergo, one could argue that complaining about the API not doing something that's most sensical to the UI is itself irrelevant.  Additionally, not every HTTP-transported API needs to pretend to be a REST API.
+>
+> The other possibility for publicly consumed APIs is some standard envelope format like HAL, JSON-API, JSON-LD, etc, but there doesn't seem to be clear guidance on any of those for specifying actions.  Links seem to be the closest bet, but they don't specify parametrization which is necessary for actual RESTfulness.
 
 
 
@@ -67,6 +70,8 @@ Also, Pipe + Partial Application for delicious `|> foo(bar, ?)` goodness?  Mmmmm
 
 Anyway.
 
+#### What Might It Look Like
+
 I guess then that the mapping would be defined thusly:
 
 ```typescript
@@ -80,7 +85,7 @@ const permissionsMap = {
   getFoo: {
     request: 'getFoo',
     predicate: Boolean,
-  }
+  },
   deleteBar: {
     request: 'getFoo',
     predicate: canDo(
@@ -95,4 +100,4 @@ const permissionsMap = {
 };
 ```
 
-This is more complicated than just ``deleteFoo: (p) => ['DELETE', `/foos/${p.fooId}`]`` but it's still a map, it just changes the type-definition of `PermissionDefinition`.
+This is more complicated than just doing an `OPTIONS` request to the target endpoint since there's now a separate map of permissions extractors and predicates.

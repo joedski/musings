@@ -1,13 +1,15 @@
 Unboxing Types from Parametrized Boxes
 ======================================
 
+> Summary: `type UnboxFoo<T> = T extends Foo<infer U> ? U : never;`
+
 Typescript gives you tools for building up types, as should be expected in any mature JS-With-Types language.  Flow usually has theirs prefixed with a `$`, but Typescript just adds more unprefixed key words.
 
 I suppose for this, we'd need to use the key-iteration-and-indexing trick, `{ [K in keyof T]: T[K]... }`.
 
 To start with, I'll need to just draft what I want to happen, then see if I can rigorously describe that.
 
-```js
+```typescript
 // asyncData can be either arity-0 or arity-1, where the 1 argument is the current props.
 // Note that accepting props means it will be re-evaluated every time props change,
 // thus every time the component is redrawn.
@@ -27,7 +29,7 @@ export default withAsyncData(connect(mapState, mapDispatch)(Component));
 
 Since `mapToAsyncGetterProps` may be either 0-arity or 1-arity, we'll need a couple interfaces.
 
-```js
+```typescript
 interface MapToAsyncGetterProps<T> {
   (): T;
 }
@@ -39,7 +41,7 @@ interface MapPropsToAsyncGetterProps<T, BaseProps> {
 
 Dunno if they can be named the same thing or not.  Anyway, those are really pretty boring, and don't do anything about the cached-selector usage, though I don't think that'll be necessary since all the callbacks will be hidden behind bound-callbacks.
 
-```js
+```typescript
 interface AsyncProps<T, K extends keyof T, > {
   [K in keyof T]: // ... ?
 }
@@ -83,7 +85,7 @@ Return: <T> {
 
 Hm.  Well, the `pluck` example they have goes like this:
 
-```js
+```typescript
 function pluck<T, K extends keyof T>(o: T, names: K[]): T[K][] {
   return names.map(n => o[n]);
 }
@@ -125,7 +127,7 @@ Apparently they're declared in [`src/lib/es5.d.ts`](https://github.com/Microsoft
 
 Anyway, we see a bunch of those utility things, including `ReturnType<T>`:
 
-```js
+```typescript
 /**
  * Obtain the return type of a function type
  */
@@ -145,7 +147,7 @@ So, to reiterate:
   - `<R, E>(...args: any[]) => Promise<AsyncData<R, E>, ...?>`
     - We convert errors to `AsyncData.Error` so we don't (shouldn't) ever encounter the error case of a Promise.  Would `never` be appropriate there or just `any`?  Or `Error`?  Hm.
 
-```js
+```typescript
 interface Requestor<AsyncFn extends (...args: any[]) => Promise<infer R, infer E>> {
   (...args: any[]): Promise<AsyncData<R, E>, Error>;
 }
@@ -158,7 +160,7 @@ No, that doesn't work for a couple reasons:
 
 Okay, maybe I can simplify this a bit?  Maybe just create two boxes:
 
-```js
+```typescript
 interface BoxA<T> {
   a: T;
 }
@@ -173,7 +175,7 @@ type BoxerBofA<T extends () => BoxA<any>> =
 
 Okay, not quite, it can't find R.
 
-```js
+```typescript
 interface BoxA<T> {
   a: T;
 }
@@ -188,7 +190,7 @@ type BoxerBofBoxerA<T extends () => BoxA<any>> =
 
 That parses, but the two `R` parametrizations are unrelated, which is not what we want.  We want to be able to just do `BoxerBofBoxerA<FnBA>`
 
-```js
+```typescript
 type BoxerA<T> = () => BoxA<T>;
 type BoxerB<T> = () => BoxB<T>;
 
@@ -200,7 +202,7 @@ type BoxerBofBoxerA<T, BoxerA<T>> = BoxerB<T>;
 
 Hm.
 
-```js
+```typescript
 interface Boxers<C> {
   //                      ????
   [Ka in keyof C]: C[Ka] extends BoxerA<T> ? BoxerBofBoxerA<C[Ka]> : never;
@@ -215,7 +217,7 @@ Still not quite understanding things here.  Hmmmmmmmmmmm.
 
 After poking random strings of code for a bit, I realized I can just [do the exact same thing as `ReturnType<T>` to unbox types](https://gist.github.com/joedski/5607d1310971e2d0ce8ad3747cb5805b):
 
-```js
+```typescript
 interface Box<T> {
   foo: T;
 }
@@ -225,7 +227,7 @@ type Unbox<T> = T extends Box<infer V> ? V : never;
 
 As a more extended example (summarized from the Gist above):
 
-```js
+```typescript
 interface BoxA<T> {
   a: T;
 }
@@ -290,7 +292,7 @@ For my next trick... component props, just like React-Redux Connect.
 
 You can use this trick to get the inferred type of the wrapped component in a composition of HOFs... I'm not sure this is such a good idea from a documentation standpoint, but there you go.
 
-```js
+```typescript
 // Hassles the HOF for the props type of the wrapped component.
 type WrappedComponentPropsType<THOF> =
   // NOTE: Should try for a more general type than ComponentClass.

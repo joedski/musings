@@ -5,6 +5,27 @@ Motley collection of things that I've learned while using TypeScript.
 
 
 
+## Some General Advice
+
+- To start, not all of these things are actually useful.  Note that "Amusements" appears in the title of this file.
+- Remember that TypeScript is Structurally Typed.
+    - Focus on the Structure, not on Names.
+    - This is especially important with Conditional Types.
+    - Also, don't constrain or conditionally-type what you don't care about.
+    - If something seems like too much work or is killing the TS Server, consider if the types being used are too complicated and if there are too many indirections.
+- Any Constraints to a Type Parameter must be satisfied in any usage of the Type containing that Parameter.
+    - This is obvious, but also annoying if you overconstrain everything.
+    - Also remember this if you have a type which uses another type that doesn't have a constraint and then try to use yet another type which does.
+    - Conditional Types can in some situations be easier to use, then, where you can treat them as "lazy constraints".
+- Object Literals default to having a type that is what is written.
+- Array Literals default to an Array of a Union of the Default-Inferred Types of all members.
+- The `object` builtin type is basically an alias for `{ [key: string]: any }` plus the Object Prototype Methods.  Don't use `object` unless you really mean `{ [key: string]: any }`.
+    - In most cases, you probably mean one of these two things:
+        - A specific Interface or Type Alias.
+        - `{ [key: string]: SomeSpecificType }`
+
+
+
 ## Type Parameter Beholden to a Shape
 
 Suppose you have a type `SomeShape<T>` that you want a type parameter beholden to, but you also need to pass that type parameter into `SomeShape<T>`.  Circular?  Sort of, but not technically.
@@ -57,6 +78,8 @@ function getPropValue<
   return o[key];
 }
 ```
+
+Note that we don't just given the parameter `key` a type of `keyof TObject`.  This is because we want `key` to be able to be a specific key, not just a union of all keys that `keyof TObject` is.
 
 
 

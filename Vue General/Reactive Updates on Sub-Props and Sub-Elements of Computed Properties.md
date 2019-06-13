@@ -1,7 +1,9 @@
 Reactive Updates on Sub-Props and Sub-Elements of Computed Properties
 =====================================================================
 
-> NOTE: My conclusion here is, well, I haven't yet found a good ideomatic way to do assignments to elements of computed collections, outside of setter methods.
+> NOTE: My second conclusion here is that about the best way to do it is using a record with a get/set pair for any values you want to update.
+
+> NOTE: My first conclusion here is, well, I haven't yet found a good ideomatic way to do assignments to elements of computed collections, outside of setter methods.
 
 Computed props are great, they allow automatic derivation of source data, meaning less manual transformation work on your part.  Even better, they have a get/set form which allows for bidirectional automatic derivation, greatly simplifying things like complex form elements.
 
@@ -37,24 +39,24 @@ const TestComponent = {
   computed: {
     coalescedSettings: {
       get() {
-        console.log('computed(coalescedSettings) get()')
+        console.log('computed(coalescedSettings) get()');
         return this.defaultSettings.map(defaultItem => {
-          const setItem = this.settings.find(item => item.name === defaultItem.name)
+          const setItem = this.settings.find(item => item.name === defaultItem.name);
           // NOTE: For the sake of example, purposefully creating
           // new objects to prevent automatic updates.
-          if (setItem) return { ...defaultItem, value: setItem.value }
-          return { ...defaultItem }
+          if (setItem) return { ...defaultItem, value: setItem.value };
+          return { ...defaultItem };
         })
       },
       set(next) {
-        console.log('computed(coalescedSettings) set()')
+        console.log('computed(coalescedSettings) set()');
         this.settings = next.filter(nextItem => {
-          const defaultItem = this.defaultSettings.find(item => item.name === nextItem.name)
-          if (nextItem.value === defaultItem.value) return false
-          return true
-        })
+          const defaultItem = this.defaultSettings.find(item => item.name === nextItem.name);
+          if (nextItem.value === defaultItem.value) return false;
+          return true;
+        });
       },
-    }
+    },
   },
 
   template: `
@@ -72,7 +74,7 @@ const TestComponent = {
       </ul>
     </div>
   `,
-}
+};
 ```
 
 This doesn't work: Since `coalescedSettings` is a computed property, reactivity-wise its substituents are not related at all to the original source data.  Updating `setting.data` thus doesn't result in any updates.  Only `computed(coalescedSettings) get()` gets logged, never `computed(coalescedSettings) set()`.
@@ -90,10 +92,10 @@ const TestComponent = {
           return {
             ...coalescedItem,
             value: nextValue,
-          }
+          };
         }
 
-        return coalescedItem
+        return coalescedItem;
       })
     }
   },
@@ -114,7 +116,7 @@ const TestComponent = {
       </ul>
     </div>
   `,
-}
+};
 ```
 
 
@@ -135,17 +137,17 @@ const TestComponent = {
     coalescedSettings: {
       deep: true,
       handler(next) {
-        console.log('watch(coalescedSettings)')
+        console.log('watch(coalescedSettings)');
         // Substituent was updated rather than self.
         if (next === this.coalescedSettings) {
           // Copy so we don't infinite-loop.
-          this.coalescedSettings = next.slice()
+          this.coalescedSettings = next.slice();
         }
       },
     }
   },
   // ...
-}
+};
 ```
 
 In this case, nothing happened.  Looks like my hypothesis was incorrect.  It is probably implemented in some more efficient scheme under the hood and, anyway, this hypothesis itself was presumptive of internal implementation details, which is usually a bad idea to depend on.
@@ -184,13 +186,13 @@ const TestComponent = {
         })
       },
       set(next) {
-        console.log('computed(coalescedSettings) set()')
+        console.log('computed(coalescedSettings) set()');
         this.settings = next.filter(nextItem => {
           const defaultItem = this.defaultSettings.find(item => item.name === nextItem().name)
           if (nextItem().value === defaultItem.value) return false
           return true
         })
-        .map(item => item())
+        .map(item => item());
       },
     },
   },
@@ -211,7 +213,7 @@ const TestComponent = {
       </ul>
     </div>
   `),
-}
+};
 ```
 
 There's room for concision, but as can be seen, this breaks from Vue's usual modality of plain values and assignments.  Not to mention, since the actual substituent value is obscured by a getter function, we lose the benefits of computed props in the Vue Dev Tools.  It's also infectious, not to mention just plain difficult to remember to do.
@@ -273,7 +275,7 @@ const TestComponent = {
       </ul>
     </div>
   `),
-}
+};
 ```
 
 Still really ugly to implement and use, though.
@@ -344,7 +346,64 @@ const TestComponent = {
       </ul>
     </div>
   `),
-}
+};
 ```
 
 This is probably the easiest to work with, but also presents the least advantage.  Might as well just use a method!
+
+
+
+## A Better Way Using Records?
+
+How about instead of trying to set array elements, just use records:
+
+```js
+new Vue({
+  data() {
+    return {
+      todos: [
+        { text: 'Get bacon', done: true },
+        { text: 'Cook bacon', done: false },
+        { text: 'Eat bacon', done: false },
+      ],
+    };
+  },
+
+  computed: {
+    todoRecords() {
+      const toggle = this.toggle;
+      return this.todos.map((todo, todoIndex) => {
+        return {
+          todo,
+          // Prop is now "reactive" on assignment.
+          get done() { return todo.done; },
+          set done(next) { toggle(todoIndex, ! todo.done); }
+        };
+      });
+    },
+  },
+
+  methods: {
+    toggle: function(index, next){
+        /* todo.done = !todo.done */
+      this.todos[index].done = next;
+    }
+  },
+
+  template: `
+    <div>
+      <ul>
+        <li
+          v-for="record in todoRecords"
+          :key="record.todo.text"
+        >
+          <input type="checkbox" v-model="record.done" />
+          {{ record.todo.text }}
+        </li>
+      </ul>
+    </div>
+  `,
+});
+```
+
+Of course, technically in this specific case we can just do `todo.done = next` directly, but the point is by converting each item into a record with editable props exposed as get/set pairs, we can then use `v-model`.  It's a bit noisy, but not as bad as the above things.  If you're just replacing each item itself, then, well, the record will have only one entry: the value itself.  So, eh?

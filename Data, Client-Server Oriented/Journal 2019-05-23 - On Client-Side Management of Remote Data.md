@@ -35,4 +35,4 @@ This is quite a bit to hold, though, and honestly isn't really needed most of th
 
 The first thing that comes to mind is to make it a separate module: Instead of `request(someRequest, ...)` you have `requestRefreshable(someRequest, ...)`.  That would allow a globally managed RefreshableData state, which would itself depend on the base AsyncData state.
 
-The second thing that comes to mind is that many times this isn't necessary to hold in the global state, it can be simply held in some component's local state, if that's a thing you have.  Naturally, in pure functional contexts, that's not a thing, so global state is the only state.
+The second thing that comes to mind is that many times this isn't necessary to hold in the global state, it can be simply held in some component's local state, if that's a thing you have.  Naturally, in pure functional contexts, that's not a thing, so global state is the only state, but in imperative contexts it means you don't need to worry about resetting anything.

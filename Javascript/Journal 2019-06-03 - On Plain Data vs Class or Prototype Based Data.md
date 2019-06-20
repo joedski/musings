@@ -12,6 +12,9 @@ Pro-Class:
 - Datatype operators come with every instance, no need to import each one.
 - Fluent APIs are possible through method chaining, which some might consider "more Javascripty".
 - Method names don't collide with things in the current execution context, because they are all already namespaced by the instance itself.
+- Vue-Specific:
+    - Can use methods in the template.
+        - However, this can lead to polluting the template with too much transformation that could be trivially hidden in a Computed Prop.  Use sparingly.
 
 Contra-Class:
 
@@ -37,3 +40,6 @@ Contra-Plain-Data:
     - This isn't actually as common of a problem as one might imagine, but it still can occur.
 - Data instantiation either requires memorizing a shape or using a factory function.
     - FP oriented people will shrug at this, while Class-OOP oriented people might look mildly frowny.  However, it's unlikely most JS devs will care all that much as long as the API is documented just because JS allows so many different API styles exist in the JS environment.
+- Vue-Specific:
+    - Can't just use imported functions in templates, have to bind those functions to the instance somehow.
+        - Some might say this is a good thing: You should define all your data manipulation in the component via Computed Props, not in the Template.

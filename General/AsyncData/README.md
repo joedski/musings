@@ -116,6 +116,16 @@ errorOf ad = match ad:
     NotAsked _ -> Maybe.Nothing
 ```
 
+In places where you have a Maybe implemented, you'd just do something like this:
+
+```
+dataOr elseValue = (or elseValue) . dataOf
+```
+
+where `or` there is `or :: u -> Maybe t -> (t | u)` and just does `or elseValue maybeValue = match maybeValue: Just v -> v; Nothing -> elseValue;`.
+
+In more imperative contexts like JS, simply defining `dataOr` and `errorOr` up front is very helpful.
+
 
 ### Coalesce
 

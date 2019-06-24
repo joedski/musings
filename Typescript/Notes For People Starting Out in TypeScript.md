@@ -17,6 +17,50 @@ Notes For People Starting Out in TypeScript
 
 
 
+## Writing the Types: Type Annotations
+
+When you write the Type of a variable, function parameter, function return value, and so on, you're writing a Type Annotation.  For the most part, annotations are started with a Colon `:` followed by the Type.
+
+For example, suppose we have a type `FooType`:
+
+> TODO: Separate Functions out into their own section because they're a whole nother can of worms.
+
+```typescript
+// Annotating a var, const, or let.
+let foo: FooType;
+// Compare this to an un-annotated let:
+let foo2;
+
+// Annotating a let with an object-literal type,
+// with a property "objProp" that has type "FooType".
+let obj: { objProp: FooType; };
+
+// Annotating a function's parameter "a" as "FooType",
+// and annotating the function's return type as "FooType".
+function doThing(a: FooType): FooType {
+    // ...
+}
+// Compare this to a function with to param annotations:
+function doThing2(a): FooType {
+    // ...
+}
+// ... or to a function with no return-type annotation:
+function doThing3(a: FooType) {
+    // ...
+}
+
+// Annotating a const as a Function.
+// Notice how the function-type annotation itself uses Arrow Function Syntax.
+const fooFunc: (a: FooType) => FooType = doThing;
+
+// Annotating a const as an Array of FooType.
+const fooArr: FooType[] = [];
+// Exact same thing, but more verbose.
+const fooArr2: Array<FooType> = [];
+```
+
+
+
 ## TypeScript Is Structural: Think in Shapes, not Names
 
 In TypeScript, a Type is defined not by the name given to it, but by the shape that it represents.  If two types are [compatible in shape](http://www.typescriptlang.org/docs/handbook/type-compatibility.html), it doesn't matter what they're being called at the moment, they're considered compatible.
@@ -27,7 +71,7 @@ For primitive values, the shape is just a simple type: `number`, `boolean`, `nul
 
 > Aside: For numbers, remember that `Infinity`, `-Infinity`, and `NaN` are all `number`s too!  You won't encounter them most of the time, though.  If you really think you'll encounter them you can check for them with `Number.isFinite()`.
 
-For non-primitive values, though, shape gets a little more complex: there are Objects, Arrays, and related to the latter, Tuples.  Objects are usually defined by a set of properties, Arrays by the shape of the elements inside them, and Tuples by the shape of each element at each given position.
+For non-primitive values, though, shape gets a little more complex: there are Objects, Arrays, Tuples which are somewhat related to Arrays, and Functions.  Objects are usually defined by a set of properties, Arrays by the shape of the elements inside them, Tuples by the shape of each element at each given position, and Functions by the set of Parameters and the Return Type.
 
 
 ### Object Shapes: Interfaces vs Types

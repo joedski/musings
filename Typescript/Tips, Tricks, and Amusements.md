@@ -328,3 +328,72 @@ type DispatchOfPair<TKey, TFn> =
 ```
 
 Man, if we had higher order types, we could totally wrap that around any type specifier that takes a Key type and a Value type... Pretty sure the TS team isn't interested in that, though.
+
+
+
+## Interfaces: Class Constructors, Optionally With Prototypes
+
+> For more on this topic, see [the handbook](http://www.typescriptlang.org/docs/handbook/interfaces.html#class-types).
+
+You can define an interface for Class Constructors by defining a `new` "method" in your interface:
+
+```typescript
+interface FrangibleContext {
+    foo: string;
+    bar: number;
+}
+
+// We can accept any _class_ whose constructor
+// follows the given interface.
+interface FrangibleClass {
+    // NOTE: no return type!
+    new(context: FrangibleContext);
+}
+
+class Foo {
+    constructor(protected context: FrangibleContext) {}
+}
+
+class Bar {
+    constructor(protected context: FrangibleContext) {}
+}
+
+const things: FrangibleClass[] = [Foo, Bar];
+```
+
+Nothing exciting, but you can also type the prototype...
+
+```typescript
+interface FrangibleContext {
+  foo: string;
+  bar: number;
+}
+
+// We can accept any _class_ whose constructor
+// follows the given interface.
+interface FrangibleClass {
+  // NOTE: no return type!
+  new(context: FrangibleContext);
+  prototype: {
+    op(s: string): string;
+  };
+}
+
+class Foo {
+  constructor(protected context: FrangibleContext) { }
+  op(s: string): string {
+    return `foo ${this.context.foo}: ${s}`;
+  }
+}
+
+class Bar {
+  constructor(protected context: FrangibleContext) { }
+  op(s: string): string {
+    return `bar ${this.context.bar}: ${s}`;
+  }
+}
+
+const things: FrangibleClass[] = [Foo, Bar];
+```
+
+Note that this type about the Class, not the Instance, so you can't say `Foo extends FrangibleClass` here.

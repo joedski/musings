@@ -13,34 +13,34 @@ Rather, you need to "reify" the array by passing it through something that expec
 
 ```js
 // Array (rather, Iterable) spread
-const arr = [...Array(100)]
+const arr = [...Array(100)];
 
 // Argument spread
-const arr = Array(...Array(10))
+const arr = Array(...Array(10));
 
 // Or, ES5 style
 // Also useful in Typescript.
-const arr = Array.apply(null, Array(10))
+const arr = Array.apply(null, Array(10));
 
 // This can also be done using a for-of loop.
 for (const x of Array(10)) {
   // NOTE: x will be `undefined`.
-  console.log("thing!")
+  console.log("thing!");
 }
 
 // Very verbose way to do the first three statements.
 function arrayWithLength(n) {
-  const arr = []
+  const arr = [];
   for (const x of Array(10)) {
     // x is `undefined`.
-    arr.push(x)
+    arr.push(x);
   }
-  return arr
+  return arr;
 }
 
 // create a n->m range
 function range(n, m) {
-  return [...Array(m - n)].map((e, i) => i + n)
+  return [...Array(m - n)].map((e, i) => i + n);
 }
 ```
 
@@ -60,6 +60,18 @@ function *foos() { yield 'foo'; yield 'Foo'; yield 'FOO'; }
 
 console.log(...foos())
 // logs: foo Foo FOO
+
+var beep = {
+    [Symbol.iterator]() {
+        return [this.foo, this.bar, this.baz][Symbol.iterator]();
+    },
+
+    foo: 'Foo!',
+    bar: 'Bar!',
+    baz: 'Baz!',
+};
+
+[...beep];
 ```
 
 
@@ -79,17 +91,53 @@ class Foo extends Function {
 }
 
 var foo = new new Foo(':D')('D:');
-console.log(foo.val) // -> 'D:'
+console.log(foo.val); // -> 'D:'
 delete foo.val;
-console.log(foo.val) // -> ':D'
+console.log(foo.val); // -> ':D'
 ```
 
 Can we go... farther?  Without stack-overflowing, I mean.  Hm.
 
 ```js
-Function.prototype.constructor === Function
+Function.prototype.constructor === Function;
 // -> true
 ```
+
+
+### Even Newer Things
+
+In all of my excitement about classes extending Function, I forgot the simplest solution: Return something else from the constructor.
+
+I'm not sure if I agree with ever doing this in a practical case, and I mean, extending Function is already pretty terrible as it is, but since the `this` value being returned by default from the `new Fn()` expression can be overridden by explicitly returning something else from the Constructor...
+
+```js
+var VeryConstructable = class VeryConstructable {
+  constructor(val) {
+    // Use the same constructor here.
+    class $VeryConstructable extends VeryConstructable {}
+
+    // Create the updated value.
+    const lastVals = this.vals || [];
+    $VeryConstructable.prototype.vals = [...lastVals, val];
+
+    // Convenience static accessor.
+    Object.defineProperty($VeryConstructable, 'vals', {
+      get() {
+        return $VeryConstructable.prototype.vals;
+      },
+    });
+
+    // Madness.
+    return $VeryConstructable;
+  }
+}
+
+var vvvv = new new new new VeryConstructable('a')(3)({ wow: 'what a waste of time' })(['hey', 'ho', 'hey', 'ho']);
+
+console.log(vvvv.vals);
+```
+
+Now you have the a running contender for Most Obnoxious Interface.
 
 
 
@@ -102,6 +150,11 @@ function callAsync(syncFn) {
 
 function asyncify(syncFn) {
   return (...args) => callAsync(() => syncFn(...args));
+}
+
+// Or if you want to carry `this` over...
+function asyncify(syncFn) {
+  return (...args) => callAsync(() => syncFn.apply(this, args));
 }
 ```
 
@@ -126,13 +179,13 @@ In fact, the only time I think you shouldn't do this is in any performance criti
 // due to keeping the same `this` binding as their parent function.
 const someValue = (() => {
     if (something === 'thing!') {
-        return 'something else entirely'
+        return 'something else entirely';
     }
 
     if (isFrabjous(something)) {
-        return 'callou callay'
+        return 'callou callay';
     }
 
-    return 'boo'
-})()
+    return 'boo';
+})();
 ```

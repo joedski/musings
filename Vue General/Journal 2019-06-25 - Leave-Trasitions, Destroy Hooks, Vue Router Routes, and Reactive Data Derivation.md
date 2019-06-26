@@ -36,6 +36,8 @@ I think this could be solved somewhat handily if I use something along the lines
 
 Of course, Vue is not FRP, so how to do this here?
 
+#### Proposal 1 Implementation 1: Scanned Prop
+
 Well, a Scanned Prop would certainly do:
 
 ```js
@@ -53,4 +55,117 @@ export default {
 };
 ```
 
-But I don't have the wherewithall to make a Component Decorator for that.  So, what's the easiest way to set that up besides?
+But I don't have the wherewithall to make a Component Decorator for that, and the current Scanned Prop spec I have in mind doesn't really acommodate a common scenario: deriving straight off other props.  So, what's the easiest way to set that up besides?
+
+#### Proposal 1 Implementation 2: Just Use a Controller?
+
+Just create a controller object that exposes the following interface:
+- `value: T` Reactive prop of the appropriate type.
+- `next: (v: U) => T` Update value by scanning the next value.
+- `reset: () => T` Reset value to the initial value.
+
+Obvious, unfancy.
+
+Where to do this?  Dunno.  In Vue Class Component, maybe like this?
+
+```js
+export default class Foo extends Vue {
+    entityId = scanned.keepLastNonNil(
+        () => castToFiniteNumberOrNull(this.$route.params.entityId)
+    );
+
+    get thingDerivedFromEntityId() {
+        if (this.entityId.value != null) {
+            return this.$store.state.entities[this.entityId.value];
+        }
+        return null;
+    }
+}
+```
+
+In Vue Object Component form, it'd be like this:
+
+```js
+export default {
+    data() {
+        return {
+            entityId: scanned.keepLastNonNil(
+                () => castToFiniteNumberOrNull(this.$route.params.entityId)
+            ),
+        };
+    },
+
+    computed: {
+        thingDerivedFromEntityId() {
+            if (this.entityId.value != null) {
+                return this.$store.state.entities[this.entityId.value];
+            }
+            return null;
+        },
+    },
+};
+```
+
+We'd just depend on the Vue runtime to reactify `this.entityId.current` while leaving `this.entityId.next` and `this.entityId.reset` alone.
+
+I guess that could be guaranteed by creating the controller like this:
+
+```js
+// Vue automatically skips anything beginning with $.
+const scannedPropProto = {
+  $next(v) {
+    this.value = this.$scan(this.value, v);
+    return this.value;
+  },
+  $reset() {
+    this.value = this.$init();
+    return this.value;
+  },
+};
+
+function scanned(vm, init, scan) {
+  return Object.assign(
+    Object.create(scannedPropProto),
+    {
+      value: init.call(vm),
+      $init: init.bind(vm),
+      $scan: scan.bind(vm),
+    }
+  );
+}
+```
+
+If we want to use that in the `data()` call, we'd have to do something like this:
+
+```js
+function scannedFromWatch(vm, watchFn, init, scan) {
+  const $prop = scanned(vm, init, scan);
+
+  // Has to be setup next tick because we're (probably)
+  // in the data() call.
+  // Would probably be better to have some sort of utility
+  // that can collect them then add all the watches
+  // in the created() hook.
+  vm.$nextTick(() => {
+    vm.$watch(watchFn, (next) => {
+      $prop.$next(next);
+    });
+  });
+
+  return $prop;
+}
+```
+
+But then we could define `keepLastNonNil` like so:
+
+```js
+function keepLastNonNil(vm, watchFn) {
+    return scannedFromWatch(vm, watchFn,
+        () => null,
+        (value, next) => {
+            if (next != null) return next;
+            return value;
+        }
+    );
+}
+```

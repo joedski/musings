@@ -54,3 +54,7 @@ This allows multiple Specialized modules to react to a given Action Name, but re
     - This is because each one may have different behaviors and different local state around the same Actions.
 
 > Aside: This is also where something like Typesafe Vuex kind of falls apart by imposing its own restrictions on how to interact with Vuex: It defines Actions to be tied specifically to one module only, but Vuex doesn't impose any such restriction.  Add to that the mildly surprising return type thing... you can't trust the return value, outside of it being a Promise.  `Promise<unknown>` would be the correct return type.
+
+Of course, one could namespace the App Vuex Store Module, then just _not_ namespace the submodules of that.  That's probably the way to go, there.  Either way, the end result is a loose coupling between Actions and Handlings, which is ultimately what we wanted by using the Event Bus pattern.
+
+If this sounds even vaguely familiar, it's because it's a good way to organize Application State in the _View (Vue?) as Function of State_ architecture, or the only way to organize state in a pure-functional approach.

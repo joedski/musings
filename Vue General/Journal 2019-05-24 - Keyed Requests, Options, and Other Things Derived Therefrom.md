@@ -271,6 +271,205 @@ Given Vue's reactivity system, we could send a new request each time the request
 
 
 
+## Implementation
+
+
+### Implementation: Dispatch Request
+
+This is the main thing part of this module: The part that actually dispatches requests!
+
+It encodes the following behavior:
+
+1. If there's a pending request, return a promise for that request.
+    - Otherwise, continue.
+2. Create a promise for the actual underlying request:
+    - For Resolutions:
+        1. Validate the data.
+            - NOTE: If the validation fails, it should throw an error.  This is because the rest of the code is depending on incoming data matching the defined types, and the only way we know that is if it validates.
+        2. Save the Validated Data to the State and null-out the pending Promise.
+            - NOTE: If for some reason the Response is needed, that can also be saved to the state here.  In my initial implementation, it's discarded.  This is because the Response and the Validated Data are two separate things.
+        3. Return the Validated Data for imperative flows.
+    - For Rejections:
+        1. Save the Error to the State and null-out the pending Promise.
+        2. Rethrow the same error.
+3. Save that created and mapped pending Promise to the State.
+
+#### Consideration: Uncaught Rejections
+
+> TL;DR: Gonna stick with the current behavior of throwing on error conditions, even though just always resolving to AsyncData instead of throwing errors would be Better-with-a-capital-B.
+
+Technically, the browser won't stop on uncaught rejections, but they will still show up in the console, even though if a request rejects it's not really a show stopper for us.
+
+I wonder, then, if it wouldn't be more appropriate to have the request return `Promise<AsyncData<D, E>>`?
+
+That would cause issues with imperitive workflows such as form submission, though.
+
+I think, then, that perhaps it'd be better to not throw by default, but rather opt into that?  Hm.
+
+```js
+export default class Foo extends Vue {
+    handleSubmit() {
+        const data = this.createNormalizedData();
+
+        try {
+            await this.dispatchValidation(data);
+            await this.dispatchSubmission(data);
+            dispatchAddNotice(this.$store, {
+                style: 'success',
+                text: 'You succeeded at winning the mission!',
+            });
+            this.$emit('foo-complete');
+        } catch (error) {
+            dispatchAddNotice(this.$store, {
+                style: 'error',
+                text: `Not so fast, Gordan!  ${error.message}`,
+            });
+            this.$emit('foo-error');
+        }
+    }
+
+    async dispatchValidation(data) {
+        // For this example, dispatchRequest returns Promise<AsyncData<D, E>>
+        const result = await dispatchRequest(
+            this.$store,
+            requests.validateFoo({
+                foo: data,
+            })
+        );
+
+        return result
+            .flatMap(validationResult => {
+                if (validationResult.status === 'PASS') {
+                    return AsyncData.Data(validationResult);
+                }
+                return AsyncData.Error(Object.assign(
+                    new Error('Validation failed'),
+                    {
+                        validation: validationResult,
+                    }
+                ));
+            })
+            // NOTE: New method on AsyncData.
+            .getDataOrThrow();
+    }
+
+    async dispatchSubmission(data) {
+        // For this example, dispatchRequest returns Promise<AsyncData<D, E>>
+        const result = await dispatchRequest(
+            this.$store,
+            requests.putFoo({
+                id: this.fooId,
+                foo: data,
+            })
+        );
+
+        return result.getDataOrThrow();
+    }
+}
+```
+
+Or, more explicitly,
+
+```js
+@Component()
+export default class Foo extends Vue {
+    get dataForSubmission() {
+        return this.createNormalizedData();
+    }
+
+    get validationRequest() {
+        return requests.validateFoo({
+            id: this.fooId,
+            foo: this.dataForSubmission,
+        });
+    }
+
+    get submissionRequest() {
+        return requests.putFoo({
+            id: this.fooId,
+            foo: this.dataForSubmission,
+        });
+    }
+
+    dispatchValidation() {
+        // For this example, dispatchRequest returns Promise<AsyncData<D, E>>
+        return dispatchRequest(
+            this.$store,
+            this.validationRequest
+        )
+        .then(data => data
+            .flatMap(validationResult => {
+                if (validationResult.status === 'PASS') {
+                    return AsyncData.Data(validationResult);
+                }
+                return AsyncData.Error(Object.assign(
+                    new Error('Validation failed'),
+                    {
+                        validation: validationResult,
+                    }
+                ));
+            })
+        );
+    }
+
+    dispatchSubmission(data) {
+        // For this example, dispatchRequest returns Promise<AsyncData<D, E>>
+        return dispatchRequest(
+            this.$store,
+            this.submissionRequest
+        );
+    }
+
+    handleSubmit() {
+        try {
+            await this.dispatchValidation()
+                .then(data => data.getDataOrThrow());
+            await this.dispatchSubmission()
+                .then(data => data.getDataOrThrow());
+            dispatchAddNotice(this.$store, {
+                style: 'success',
+                text: 'You succeeded at winning the mission!',
+            });
+            this.$emit('foo-complete');
+        } catch (error) {
+            dispatchAddNotice(this.$store, {
+                style: 'error',
+                text: `Not so fast, Gordan!  ${error.message}`,
+            });
+            this.$emit('foo-error');
+        }
+    }
+}
+```
+
+As much as I personally like that, I'm not sure that'll fly with other developers.  All of this is a balance between what I view (currently) as a more ideal interface and what I think I can get away with putting on to other devs who possibly aren't as enamored with functional style programming as I am.
+
+So, as sad as it makes me, I'll stick with the current approach of just having `dispatchRequest` throw.  I'll keep that `AsyncData#getDataOrThrow()` method in mind, though, that might still be handy.
+
+
+### Circling Back Around to Permissions
+
+Permissions... With the current setup, doing Requests uniformly is easy, but being able to tell if a User can call an endpoint isn't as easy, if only for the reason that you don't necessarily need the whole request.  Rather, you only need part of it.
+
+On top of that, in our API we have certain permissions that aren't actually method-level, rather they're feature-level.  That is, you might be able to call a certain endpoint or get certain data, but there's another permission that affects what you can do called something like `READ_SECRET_VALUES`.
+
+Because of things like this, and the fact that we didn't have a dedicated Requests module before, our project currently has Permissions setup entirely separately from everything else.
+
+However, that's not to say we couldn't do something to make things easier.
+
+Part of the current Permissions setup is that our Requests stuff was handled piecemeal all over the place, everything was arbitrary.  Now, however, we have a central location for Request data.  Further more, we also have entirely separate Request Config Creators.  These things let us vastly simplify permissions definitions.
+
+Now, definitions will have these parts:
+
+- The Request that gets the data that has the desired permissions information.
+    - Now we know both where to get the data, _and_ how to request it.
+- An Extractor that gets the target data from the Request Data rather than going the extra step of picking an arbitrary location in the state.
+- The Permission Type we want to check.
+
+This doesn't actually differ much from the existing setup except that the Permission Definition knows, as a matter of actually getting the source data, just which Request gets that data.  Further, that Request dependency is actually shown in the code via an import.  This is so much more explicit.
+
+
+
 ## Typescript Faffing
 
 

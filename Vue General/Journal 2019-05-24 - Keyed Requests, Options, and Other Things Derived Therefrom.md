@@ -5,6 +5,22 @@ With an eye towards Typescript support, AsyncData, and RefreshableData.  Maybe I
 
 
 
+## Over All Usage Concerns
+
+- Data access should use AsyncData because there is no value outside of the AsyncData.Data case.
+    - RefreshableData will not be considered here at all.  That is a specialized concern.
+- Request Actions however will follow the typical imperative style of possibly-rejecting `Promise<T>`, rather than always returning `Promise<AsyncData<T, AxiosError>>`.
+    - It _should_ always give us back `Promise<T>` but it's entirely possible we may get `Promise<void>` (or `Promise<unknown>`) due to how Vuex creates its return value based on whether or not more than one action matches a given dispatch.  That said, we control the names here, so that shouldn't be a concern.  If it is, it's an error.
+
+Some things that would be nice, but probably won't occur:
+
+- Values in AsyncData should be immutable.
+    - The Client should never mutate data coming from the server.  Rather, it should always clone such data since any mutation is likely for the purposes of some other state which is only tangentially related to the original data sent from the server.  Form State is probably the most common case.
+    - It might be possible to assert this with some custom `DeepReadonly<T>` type, but I'm not sure I want to try that immediately.  Maybe as a later thing?
+        - Could lead to a constant need to do `deepCloneWritable<T>(o: T) => DeepWritable<T>` or something.  Annoying, but explicit.  Maybe not too annoying, then?
+
+
+
 ## Validation and Typing
 
 It's one thing to manage all that data coming from the server, it's another to ensure it's actually the shape we expect, and at the very least, it'd be nice to have a type annotation somewhere that we can use with TS utilities.
@@ -21,10 +37,253 @@ Another thing to do is to be able to uniformly manage Permissions and Capabiliti
 
 
 
-## Typescript Faffing
+## Actual Usage
+
+The exact shape of the `RequestDef` type doesn't really matter so long as all the necessary features are covered.  All that matters is that regardless of the target request interface, all Requests are defined using the same `RequestDef` type.  Let implementation code map everything to the target environment.
+
+> That said, we're using Axios so our `RequestDef` will probably be pretty close to that.
+
+While below I used a tuple shape, what I'll probably use is something more like this:
 
 ```
+<TData>{
+    method: 'POST' | 'GET' | ...;
+    url: string;
+    // Values will all be cast with `String()`.
+    query: { [key: string]: any };
+    // other stuff...
+    validate?: (data: unknown) => TData;
+}
+```
+
+Actual usage will likely not ever reference the `RequestDef` type at all.  Rather, at most it'll be used to assert that the shape of the incoming definition conforms to the shape of `RequestDef` (that is, `T extends RequetsDef`) but will otherwise be treated as itself rather than as `RequestDef`.  It's easier that way, and requires less faffing.
+
+Uniformity in Request Definitions could be handled by actual Request Definer Functions, but otherwise I'm not sure there's much to do.  Keeping it simple is its own reward.  And, using tuples, as cute as they are, is a false economy here.
+
+
+### Actual Definition of Actual Usage
+
+This was meant to look more at practical usage of the above blather, so here we go.
+
+First and foremost, we have to define all our requests.  Since the API doesn't provide any sort of schema or interface definition (such as a Swaggerdoc/OpenAPI Doc) all our validation is manual.
+
+Theoretically, we should throw an error for any schema mismatches, and indeed the validate functions will be setup thus, either returning the value or throwing.
+
+Practically, I'm not sure if this is the behavior we want, but to start I'll do it.  I'm not sure quite yet about the actual validation definition, but for now I'm just using the generic `<T>(v: unknown) => T` definition because that's all we need.  Anything inside is an implementation detail, and for the invalid case it throws.
+
+> NOTE: I think most schemas will be extensible, that is they won't throw if there are extra props because for the most part we don't care about those.  We only care about the props we require, or for optional props, that if present they conform to the expected shape.
+
+First thought:
+
+```
+const requests = {
+    getFoo: (params: { id: number }) => defRequest.get(
+        `/api/service/foo/${params.id}`,
+        {
+            // validateFoo = ???
+            validate: validateFoo,
+        }
+    ),
+}
+```
+
+Second thought:
+
+```
+const requests = {
+    getFoo: defRequest.get(
+        (params: { id: number }) => [
+            `/api/service/foo/${params.id}`,
+        ],
+        {
+            // validateFoo = ???
+            validate: validateFoo,
+        }
+    ),
+}
+```
+
+Theoretically, the second could have fewer allocations, but practically I'm not sure such allocations are avoidable.  The only truely annoying allocation is the validate function, and that's entirely dependent on how you create those validate functions.
+
+If we wanted to avoid having to assume caching, we could use a defaults type thing, though that's noisy:
+
+```
+const requests = {
+    getFoo: requestWithDefaults(
+        (params: { id: number }) => defRequest.get(
+            `/api/service/foo/${params.id}`
+        ),
+        {
+            validate: validateFoo,
+        }
+    )
+}
+```
+
+Where `requestWithDefaults` is just `<P, R>(f: (p: P) => R, ds: Partial<R>) => ((p: P) => R) & { $defaults: Partial<R> }`.
+
+#### On `requestDef.get()` and Friends
+
+Here, `requestDef.get()` and its friends for each other HTTP method intentionally copy the same shorthands from Axios: Methods with no body accept a URL and Options, while Methods with a body accept URL, Body, then Options.  All of them return an Axios Request Options object, with some extra stuff for our use case.  Mostly validation.
+
+Thus:
+
+- `requestDef.get = (url, options?) => RequestDef`
+    - Same for `head`, `delete`, and `options`.
+- `requestDef.post = (url, body?, options?) => RequestDef`
+    - Same for `put` and `patch`.
+
+> _Entirely coincidentally_, `RequestDef` will most likely be `AxiosOptions` plus the above-stated extra stuff, such as Validation.
+
+Ultimately, I came up with this:
+
+```
+import { AxiosRequestConfig } from 'axios';
+
+export enum HttpMethod {
+  head = 'head',
+  options = 'options',
+  get = 'get',
+  delete = 'delete',
+  post = 'post',
+  put = 'put',
+  patch = 'patch',
+}
+
+export interface RequestConfig<TData = unknown> extends AxiosRequestConfig {
+  params?: URLSearchParams | object;
+  validate?: (datum: unknown) => TData;
+}
+
+// We use `extends RequestConfig` because we want to have literal types
+// for type derivation reasions.
+// This requires TS >= 3.2
+export default function createDefRequest<TDefaults extends RequestConfig>(
+  defaults: TDefaults
+) {
+  function $defRequest<TConfig extends RequestConfig>(
+    options: TConfig = {} as TConfig
+  ) {
+    return {
+      ...defaults,
+      ...options,
+    };
+  }
+
+  // Short-Hands
+
+  $defRequest.head = <TConfig extends RequestConfig>(
+    url: string,
+    options: TConfig = {} as TConfig
+  ) => $defRequest({ ...options, method: HttpMethod.head, url });
+
+  // repeat for options, get, delete...
+
+  $defRequest.post = <TConfig extends RequestConfig>(
+    url: string,
+    data: any,
+    options: TConfig = {} as TConfig
+  ) => $defRequest({ ...options, method: HttpMethod.post, url, data });
+
+  // repeat for put and patch...
+
+  return $defRequest;
+}
+```
+
+#### On Validated Values
+
+A few practical concerns to cover here.
+
+- Initially, there will be no actual validation.  This mirrors the current setup.  Validation will be added later, and should not be necessary now to actually start using the new setup.
+- As an implementation detail, values will only be validated once: When the response is initially received.  After that, it's assumed the value is valid, so no additional validation will occur, only type corecion for TSServer.
+
+
+### Actual Usage of Actual Usage
+
+- `dispatchRequest(store, requestDef, params?): Promise<T>` does the actual diddlydo of requesting.  This is one of the most common things to use.
+    - This returns `Promise<T>` and possibly throws to support the normal imperative mode of operation, which is useful for avoiding having to monadize every single stinkin sequence of steps.  I mean, we could, but it's annoying and asking people to use AsyncData is already a reach.
+- `getRequestData(store, requestDef, params?): AsyncData<T, Error>` does the getting of actual request data from the store, with a default value of `NotAsked` for any as-of-yet unasked requests of course.
+- `getHasPermission(store, requestDef, params?): boolean` does a permission check based on the current state.  Default value is false, because if you have to ask you can't do it.  That said, permissions just are not used for many things yet.
+- `dispatchClearRequestData(store, requestDef, params?): void` deletes the store record for the given request data, effectively resetting it to `NotAsked`.  This isn't usually needed, but is provided because `NotAsked` is an inititial state and there are a few cases where it's meaningful.
+
+> If we wanted to have `dispatchRequest` return `Promise<void>` we'd have to do something like `getRequestDataOrThrow()`, but anyway.  In our actual code, we'll only have a single namespaced module for requests, so no other action handlers should trigger as a result of `dispatchRequest` being called, meaning we can proceed with the current implementation idea.
+
+
+### Actual Usage of Actual Usage of Actual Usage
+
+That's 3 deep, so far!
+
+Coming to the actual store module, after faffing about with request definition creation, I think just doing this is fine:
+
+- `dispatchRequest(store, requestDef): Promise<T>`
+- `getRequestData(store, requestDef): AsyncData<T, Error>`
+- `getHasPermission(store, requestDef): boolean`
+- `dispatchClearRequestData(store, requestDef): void`
+
+That saves us from having to do weird things with the actions and getters, and additionally keeps it to the expected Vuex Dispatch interface of just a single payload, which I accidentally violated in the prior interface.
+
+Anyway, the prior one shoulda been `requestDefCreator` anyawy, because `requestDef` is what gets created.  Here, we're delegating the creation of the requestDef to the point of use, saving us having to do that in the action.  After all, we don't really care how the request is created, or even if it's defined elsewhere, all we care about is the request.  Fewer assumptions!
+
+
+### Point of Use of Actual Usage of Actual Usage of Actual Usage
+
+```js
+import { Vue, Component } from 'vue-property-decorator';
+
+@Component({ name: 'FooComponent' })
+export default class FooComponent extends Vue {
+    // First we get any parameter requirements.
+    get fooId() {
+        if (this.$route.params.fooId) {
+            return Number(this.$route.params.fooId);
+        }
+
+        return null;
+    }
+
+    // Then we create the request def itself.
+    get getFooRequest() {
+        if (this.fooId != null) {
+            return requests.getFoo({ id: this.fooId });
+        }
+
+        return null;
+    }
+
+    // Then we use it.
+    created() {
+        if (this.getFooRequest) {
+            dispatchRequest(this.$store, this.getFooRequest);
+        }
+    }
+
+    get getFooData() {
+        // Returns an AsyncData so we always have a value present.
+        // It'll be either NotAsked or Waiting until the request
+        // settles, at which point it'll become Data or Error.
+        return readRequestData(this.$store, this.getFooRequest);
+    }
+}
+```
+
+Given Vue's reactivity system, we could send a new request each time the request def changes, but more commonly that's based on other things, such as user interaction and/or timers.
+
+
+
+## Typescript Faffing
+
+
+### Round 1: Fight!
+
+> NOTE: As noted somewhere above, I ended up just using a record rather than tuple+record, because dealing with only one shape is much easier and records are more obvious.  KISS is its own reward.  (The band or the principle?  You decide.)
+
+> NOTE 2: Most of the funny typing below didn't get used.  The most I did was `TConfig extends RequestConfig` because that's really about all we need to do.  By maintaining literal/const types and using that `extends` constraint, we get both an enforce shape and exact types.  Score.
+
+```
+// TODO: This type.
 type RequestOptions = object;
+
 type RequestDef = [
     'GET' | 'OPTIONS' | 'DELETE' | 'PUT' | 'POST' | 'PATCH' | 'HEAD',
     string,

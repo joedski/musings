@@ -278,7 +278,7 @@ Given Vue's reactivity system, we could send a new request each time the request
 
 > NOTE: As noted somewhere above, I ended up just using a record rather than tuple+record, because dealing with only one shape is much easier and records are more obvious.  KISS is its own reward.  (The band or the principle?  You decide.)
 
-> NOTE 2: Most of the funny typing below didn't get used.  The most I did was `TConfig extends RequestConfig` because that's really about all we need to do.  By maintaining literal/const types and using that `extends` constraint, we get both an enforce shape and exact types.  Score.
+> NOTE 2: Most of the funny typing below didn't get used.  (It was fun, though.)  The most I did was `TConfig extends RequestConfig` because that's really about all we need to do.  By maintaining literal/const types and using that `extends` constraint, we get both an enforce shape and exact types.  Score.
 
 ```
 // TODO: This type.

@@ -14,6 +14,7 @@ Notes For People Starting Out in TypeScript
 - Always think in Shapes, not Names.
 - The best code is no code.
 - For the most part you don't need to be clever with the type system.  If you think you do, there's usually a simpler way to architect your code to remove the need for that cleverness.
+- Always poke your types in the editor while you're writing them to make sure they do what you want!
 
 
 

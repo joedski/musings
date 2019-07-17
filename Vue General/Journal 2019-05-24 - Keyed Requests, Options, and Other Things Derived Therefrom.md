@@ -469,6 +469,15 @@ Now, definitions will have these parts:
 This doesn't actually differ much from the existing setup except that the Permission Definition knows, as a matter of actually getting the source data, just which Request gets that data.  Further, that Request dependency is actually shown in the code via an import.  This is so much more explicit.
 
 
+### Store-Derived Data?
+
+Or, do I want to auto-inject Store stuff into Request stuff?
+
+As neat as that sounds, it is a further weird thing to do, and I'm not sure there's much gain aside from "Selected Entity" type things.  And, honestly, not sure I care about that that much.
+
+I'll leave it aside, for now, the current interface is quite simple and I quite like it therefore.  Another benefit: Don't need to think about how to handle no-currently-selected-entity cases.  (On the other hand, that gets repeated everywhere in the views, and the case is basically handled by just not requesting the data.)
+
+
 
 ## Typescript Faffing
 

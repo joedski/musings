@@ -207,7 +207,7 @@ A few practical concerns to cover here.
 - `getHasPermission(store, requestDef, params?): boolean` does a permission check based on the current state.  Default value is false, because if you have to ask you can't do it.  That said, permissions just are not used for many things yet.
 - `dispatchClearRequestData(store, requestDef, params?): void` deletes the store record for the given request data, effectively resetting it to `NotAsked`.  This isn't usually needed, but is provided because `NotAsked` is an inititial state and there are a few cases where it's meaningful.
 
-> If we wanted to have `dispatchRequest` return `Promise<void>` we'd have to do something like `getRequestDataOrThrow()`, but anyway.  In our actual code, we'll only have a single namespaced module for requests, so no other action handlers should trigger as a result of `dispatchRequest` being called, meaning we can proceed with the current implementation idea.
+> If we wanted to have `dispatchRequest` return `Promise<void>` we'd have to do something like `getRequestDataOrThrow()`, but anyway.  (EDIT: Or `AsyncData#getDataOrThrow()` as shown below)  In our actual code, we'll only have a single namespaced module for requests, so no other action handlers should trigger as a result of `dispatchRequest` being called, meaning we can proceed with the current implementation idea.
 
 
 ### Actual Usage of Actual Usage of Actual Usage
@@ -462,8 +462,8 @@ Part of the current Permissions setup is that our Requests stuff was handled pie
 Now, definitions will have these parts:
 
 - The Request that gets the data that has the desired permissions information.
-    - Now we know both where to get the data, _and_ how to request it.
-- An Extractor that gets the target data from the Request Data rather than going the extra step of picking an arbitrary location in the state.
+    - Now we know both where to get the data, _and_ how to request it, because as far as the Requests module is concerned, those are the same thing.
+- An Extractor that gets the target data from the Request Data rather than going the extra step of picking an arbitrary location in the state. (or what getter to use, as the case was)
 - The Permission Type we want to check.
 
 This doesn't actually differ much from the existing setup except that the Permission Definition knows, as a matter of actually getting the source data, just which Request gets that data.  Further, that Request dependency is actually shown in the code via an import.  This is so much more explicit.

@@ -1,5 +1,16 @@
+---
+tags:
+    - functional-documentation
+    - openapi
+    - nodejs
+    - nodejs:koa
+    - nodejs:koa-router
+---
+
 Journal 2019-07-21 - On Swaggerdocifying Koa and Koa Router
 =========
+
+> See also [a journal on client request codegen from Swaggerdocs](./Journal%202019-07-18%20-%20OpenAPI%20%28Swagger%29%20Codegen.md).
 
 I'd previously given a tiny bit of thought to [automatic param extraction](Journal 2019-04-28 - Extracting Params Automatably - Koa.md), though I didn't proceed very far in there, and it's really only helpful in my opinion if you sprinkle a bit of Typescript or Flow on it.  Something to give you hinting/autosuggestion.
 

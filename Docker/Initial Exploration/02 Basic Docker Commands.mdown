@@ -1,0 +1,127 @@
+Basic Docker Commands
+---------------------
+
+This runs the busybox Docker image.  If you don't have one downloaded locally, it checks Dockerhub for one, and if it finds one it downloads it.
+
+```
+docker run busybox
+```
+
+Interactive mode.  You can type stuff in, and it actually reports stuff!
+
+```
+docker run -i busybox
+```
+
+Runs in TTY mode.
+Note that even though you can enter input, nothing comes out...
+
+```
+docker run -t busybox
+```
+
+Runs in detached mode.  Returns immediately, but leaves it running in the background.  Useful if you have a process like a server.  Busybox's dockerfile specifies just the command `sh`, though...
+
+```
+docker run -d busybox
+```
+
+Interactive just pipes input through STDIN, and output to STDOUT.  TTY mode makes it act like a terminal... What about both?  Indeed, this gives you an interactive terminal with colors and everything!  (if the system's shell is configured for it)
+
+```
+docker run -it busybox
+```
+
+Okay, cool, what if we didn't want to go into it immediately?  Suppose we could just detach it then attach later...
+
+```
+$ docker run -itd busybox
+354a34fad5d3566257ca41c57564817f67bad6687ecc8461bda87e399b15dc3c
+$ _
+```
+
+Now we have a CID.  If we `docker ps` we'll see it's still running!
+
+```
+$ docker ps
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+354a34fad5d3        busybox             "sh"                35 seconds ago      Up 33 seconds                           cranky_thompson
+$ docker ps --no-trunc=true
+CONTAINER ID                                                            IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+354a34fad5d3566257ca41c57564817f67bad6687ecc8461bda87e399b15dc3c        busybox             "sh"                35 seconds ago      Up 33 seconds                           cranky_thompson
+$ docker attach 354a34fad5d3
+/ # ls
+bin   dev   etc   home  proc  root  sys   tmp   usr   var
+/ # _
+```
+
+Nice.
+
+> Amusingly, on Macs, you can do Ctrl-P, Ctrl-Q, to put it in the background again.
+
+### Other amusing tricks
+
+In other scripts running a docker script, you might want to used the CID returned by `docker run -itd $IMAGE` elsewhere.  This can be done through the usual variable assignment.
+
+```
+CID=$(docker run -itd busybox)
+echo $CID
+```
+
+This might be useful for things like `inspect`...
+
+```
+$ docker inspect $CID
+(Oodles of JSON...)
+```
+
+Manually specify a container name using `--name $NAME`.
+
+```
+$ docker run --name busybeebox -itd busybox
+```
+
+### Stopping and Removing Containers
+
+You may want some of your containers to stop at some point.
+
+```
+docker stop $CID
+```
+
+This gracefully shuts down an image.  Sometimes, though, you may need to kill an image instead.
+
+```
+docker kill $CID
+```
+
+This just terminates everything, no clean up commands or such.
+
+You can also use names instead of CIDs.
+
+```
+docker stop cranky_thompson
+```
+
+However, if you want to shut down a number of images at once, you can use `docker ps -q` to list out just the CIDs...
+
+```
+docker kill $(docker ps -q)
+```
+
+But recall from earlier that this still leaves all the images that have completed their run in the list.  To clear that, we need `docker rm ...`
+
+```
+$ docker rm $(docker ps -aq)
+$ docker ps -a
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+$ _
+```
+
+All together:
+
+```
+$ docker kill $(docker ps -q) && docker rm $(docker ps -aq)
+```
+
+Now you can clear the containers in one line!

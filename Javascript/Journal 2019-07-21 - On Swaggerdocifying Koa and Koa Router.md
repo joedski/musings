@@ -234,3 +234,48 @@ For more, see these handy dandy pages:
 Anyway, since this is specifically about SwaggerDocs (with an eye towards TS type generation) any tooling developed should either just use SwaggerDoc stuff or be thin wrappers around it.  I mean, why bother creating a whole separate type system and syntax if the main goal is a SwaggerDoc?
 
 
+### Things We Get For "Free" (From Koa Router)
+
+While we do have to specify most of the things for each endpoint, there are a few things we get for "free" because we already specified them by just calling Koa Router's various methods and specified things:
+
+- The Path, though it needs to be reformatted into an OpenAPI path string.
+- The Path Paremeter, at least their names.
+
+Okay, so not actually that much:
+
+- We still need the Type of each Path Parameter, though it's really just gonna be either a string or number.  Maybe boolean but that's madness.
+- No Query Parameters.
+- And of course, no Body.
+
+
+### Existing Tooling, Prior Art
+
+Basically anything JSON Schema is going to use something like AJV so there's that much.
+
+Most of what I'm concerned about then is:
+
+- Creating a Koa Middleware Handler that validates the IO.
+- Creating a ... thingy that creates the OpenAPI Doc for the whole API, based on what endpoints are floating around.
+- Plugging into any existing SwaggerUI thingies available.
+
+#### Koa Stuff
+
+Here's some things I went through.  While I found [something](https://www.npmjs.com/package/express-ajv-swagger-validation) that might work for the validation part, the way I want to just add docs as a wrapper around the controller method call at each endpoint doesn't really exist.  So, I'll have to make that, I guess.
+
+- [koa2-swagger](https://www.npmjs.com/package/swagger2-koa) Some tools for taking an OpenAPI v2 Doc (no v3 I guess.) and validating all the things.
+    - This is certainly something to look at, but I'm more interested in what's basically a middleware applied at the endpoint rather than something that wraps the Router itself.
+- [koa-openapi](https://www.npmjs.com/package/koa-openapi) seems a bit closer to what I want.
+    - Nomenclature note: They define Operations and Services.  The Operations thing are what I refer to as Controller Methods.  Otherwise it's about the same.
+    - I'm not sure I understand their setup with regard to path variables, though.  Maybe they treat dirnames as path vars if your `operations.VERB.apiDoc` says the element at that position (with matching name?) is a variable.
+        - Nope, [you just name them `{var-name}/` or `{var-name}.js`](https://github.com/kogosoftwarellc/open-api/blob/34c539f6d41304d96106b40fd20a4b7e7cfe895d/packages/koa-openapi/test/sample-projects/basic-usage/api-routes/users/%7Bid%7D.js).  Not sure how I feel about that.
+- [express-ajv-swagger-validation](https://www.npmjs.com/package/express-ajv-swagger-validation) is a singleton-export that you init with your OpenAPI Doc then sprinkle the `validate` middleware on all your routes you want to validate.
+    - Could be a thing to use.  I'll have to try it.  If it works, that'd leave just the actual doc-gathering part.
+    - Doesn't say outright that it supports OpenAPI v3 docs, but there is a note about a limitation regarding OpenAPI v3 docs, something about inheritance and discriminators.  I guess that's a good enough indication.
+- [koa-mapper](https://www.npmjs.com/package/koa-mapper) is kinda what I want, but it's still its own router as well.  I just want a middleware.
+
+#### Swagger UI
+
+- [koa2-swagger-ui](https://www.npmjs.com/package/koa2-swagger-ui) which doesn't seem to have anything about getting the OpenAPI doc itself.  Maybe it just parametrizes the UI and the UI app (which is a SPA) just `GET`s it?
+    - I guess then one could just point it at `/path/to/our/openapi.json`.  Guess that's all.
+- [swagger-ui](https://www.npmjs.com/package/swagger-ui) if I just want the official thing and will roll my own glue.
+    - Though, I'm not sure there's much to glue other than serving static content?  Hm.

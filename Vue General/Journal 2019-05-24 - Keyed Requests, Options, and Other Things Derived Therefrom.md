@@ -422,10 +422,10 @@ export default class Foo extends Vue {
 
     handleSubmit() {
         try {
-            await this.dispatchValidation()
-                .then(data => data.getDataOrThrow());
-            await this.dispatchSubmission()
-                .then(data => data.getDataOrThrow());
+            // I actually quite like this.
+            // But, see below on analysis.
+            (await this.dispatchValidation()).getDataOrThrow();
+            (await this.dispatchSubmission()).getDataOrThrow();
             dispatchAddNotice(this.$store, {
                 style: 'success',
                 text: 'You succeeded at winning the mission!',

@@ -1,0 +1,22 @@
+{
+  "name": "swaggerdocifying-koa-and-koa-router",
+  "version": "0.0.0",
+  "description": "Files for Journal 2019-07-21 - On Swaggerdocifying Koa and Koa Router",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "koa",
+    "koa-router",
+    "swagger",
+    "openapi"
+  ],
+  "author": "Joseph Sikorski <joedski@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "koa": "2.7.0",
+    "koa-bodyparser": "4.2.1",
+    "koa-router": "7.4.0"
+  }
+}

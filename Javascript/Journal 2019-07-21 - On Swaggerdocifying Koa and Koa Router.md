@@ -258,6 +258,16 @@ Most of what I'm concerned about then is:
 - Creating a ... thingy that creates the OpenAPI Doc for the whole API, based on what endpoints are floating around.
 - Plugging into any existing SwaggerUI thingies available.
 
+
+#### Koa Router Stuff
+
+Just tooling around Koa Router, not specific to anything else.
+
+- ... there's not much, really.  About the only problem I think is that Koa Router's route resolution can be somewhat ideosyncratic and you actually do have to worry about the ordering of your routes.
+    - EDIT: As of 2019-07-28, I see [this will be fixed in 8.x](https://github.com/ZijianHe/koa-router/issues/231).  Not good at the moment, but there's that I guess.
+        - Also, Koa Router 8.0.0 has been published as of this date.
+    - Anyway, Koa Router doesn't provide a public API for iterating layers, which is annoying.  It means it could theoretically change between versions, and may very well change between 7 and 8.
+
 #### Koa Stuff
 
 Here's some things I went through.  While I found [something](https://www.npmjs.com/package/express-ajv-swagger-validation) that might work for the validation part, the way I want to just add docs as a wrapper around the controller method call at each endpoint doesn't really exist.  So, I'll have to make that, I guess.
@@ -272,6 +282,11 @@ Here's some things I went through.  While I found [something](https://www.npmjs.
     - Could be a thing to use.  I'll have to try it.  If it works, that'd leave just the actual doc-gathering part.
     - Doesn't say outright that it supports OpenAPI v3 docs, but there is a note about a limitation regarding OpenAPI v3 docs, something about inheritance and discriminators.  I guess that's a good enough indication.
 - [koa-mapper](https://www.npmjs.com/package/koa-mapper) is kinda what I want, but it's still its own router as well.  I just want a middleware.
+- [koa-swagger-decorator](https://www.npmjs.com/package/koa-swagger-decorator) I had some hope at the start of the readme, but then it went into a bunch of mapdir babel transpile bullshittery and, at that point, I might as well just use TS directly.
+    - Also, why the need for decorators?  To make it look like Spring?  It's not Java+Spring, it's JS+Koa.
+    - API looks kiiiinda similar to a spec-builder API I was imagining, but split across separate free functions used as `@decorators`.  Meh.
+- [openapi-backend](https://www.npmjs.com/package/openapi-backend) Builds a backend based on an OpenAPI Doc + Handlers.  If I were going at it from that direction, this might be great.  As it is, it's kinda eh.
+- [koa-smart](https://www.npmjs.com/package/koa-smart) is actually somewhat closer to what I'm looking for, though it's still doing too much in my opinion.
 
 #### Swagger UI
 
@@ -279,3 +294,137 @@ Here's some things I went through.  While I found [something](https://www.npmjs.
     - I guess then one could just point it at `/path/to/our/openapi.json`.  Guess that's all.
 - [swagger-ui](https://www.npmjs.com/package/swagger-ui) if I just want the official thing and will roll my own glue.
     - Though, I'm not sure there's much to glue other than serving static content?  Hm.
+
+
+
+## Tooling Thoughts
+
+Basically, everything is made prefabbed with far more opinions than I want.  I have my own opinions, damnit!  About the only useful things are things which show the Swagger UI for a given OpenAPI doc, and there I can just use the official package.  Everything else, I might as well just build my own stuff, make yet another package of opinionated bullshittery.  Why not?
+
+
+### Implementation Details: Koa-Router
+
+As part of this, I'll need to take a peek at Koa Router, specifically how it stores things.
+
+More or less, the thing I'm interested in is this:
+
+```
+class Router {
+    // ...
+    protected stack: Array<Layer>;
+}
+```
+
+As for Layer?  Well, it's marked `@private` in the docblock, so we're not meant to depend on it.  Of course not.  Why make things inspectable?
+
+> Not sure if this is useful to know yet, but Path-to-Matcher conversion is handled in `Layer` by [path-to-regexp](https://github.com/pillarjs/path-to-regexp#readme).  Note the `p` at the end of `regexp`, that's very important!  It may be worth looking at what it does and using that to make the OpenAPI-style paths.
+>
+> Take a quick glance, it does expose its `parse` function, which accepts a path string and returns an array of strings or token-reprs, so that's possibly useful.
+
+Layer itself has some things of interest for iteration and OpenAPI Endpoint Spec generation:
+
+```
+class Layer {
+    protected opts: {
+        // ... other Layer-specific options?
+
+        // this gets passed straight to pathToRegexp(),
+        // so has at least this interface:
+
+        // When true the regexp will be case sensitive. (default: false)
+        sensitive?: boolean;
+
+        // When true the regexp allows an optional trailing delimiter to match. (default: false)
+        strict?: boolean;
+
+        // When true the regexp will match to the end of the string. (default: true)
+        end?: boolean;
+
+        // When true the regexp will match from the beginning of the string. (default: true)
+        start?: boolean;
+
+        // The default delimiter for segments. (default: '/')
+        delimiter?: string;
+
+        // Optional character, or list of characters, to treat as "end" characters.
+        endsWith?: string;
+
+        // List of characters to consider delimiters when parsing. (default: undefined, any character)
+        whitelist?: string;
+    };
+
+    protected methods: Array<HttpMethod>;
+
+    // This gets populated by pathToRegexp().
+    protected paramNames: Array<PathParam>;
+
+    protected path: string;
+
+    protected stack: Array<Middleware>;
+}
+```
+
+`Layer#path` is parsed using `path-to-regexp/pathToRegExp()`, yielding `Layer#regexp`, but we're not interested in that.
+
+This gives us some useful starting information:
+
+- We have the path itself, of course.
+- We have the Params.
+
+#### Getting the Router In the First Place
+
+This is simple, and quite fortunate: `Router#routes()` returns `Middleware & { router: Router }`, so we can traverse the Koa middleware stack and look for anything with the `.router` prop that's an instance of `Router`.
+
+#### Nested Routers
+
+I noted above that we have `Layer#stack` which is `Array<Middleware>`.  Much like traversing Koa's stack itself, we'll need to recur on this to grab any subrouters' docs.
+
+
+### Implementation Details: path-to-regexp
+
+We can use `path-to-regexp/parse()` and `Layer#opts` to get a token list from a path string.  This together with `Layer#params` gives us enough information to create the OpenAPI-style Path and verify if all Path Parameters have been adequately documented.  Or something like that, anyway.
+
+```
+/**
+ * Literal elements in the Token List are represented as strings,
+ * while other elements are represented a Token object.
+ */
+type TokenList = Array<string | Token>;
+
+interface Token {
+    /**
+     * The name of the token (string for named or number for index)
+     */
+    name: string | number;
+
+    /**
+     * The prefix character for the segment (e.g. /)
+     */
+    prefix: string;
+
+    /**
+     * The delimiter for the segment (same as prefix or default delimiter)
+     */
+    delimiter: string;
+
+    /**
+     * Indicates the token is optional (boolean)
+     */
+    optional: boolean;
+
+    /**
+     * Indicates the token is repeated (boolean)
+     */
+    repeat: boolean;
+
+    /**
+     * The RegExp used to match this token (string)
+     */
+    pattern: string;
+}
+```
+
+
+### Implementation Details: Koa
+
+Not much to say.  When you use `Application#use()` it pushes the function onto `Application#middleware: Array<Middleware>`.  Walk that array to look for things matching the interface `{ router: Router }`.  Boom.

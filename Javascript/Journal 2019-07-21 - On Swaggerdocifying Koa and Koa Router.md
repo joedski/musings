@@ -428,3 +428,127 @@ interface Token {
 ### Implementation Details: Koa
 
 Not much to say.  When you use `Application#use()` it pushes the function onto `Application#middleware: Array<Middleware>`.  Walk that array to look for things matching the interface `{ router: Router }`.  Boom.
+
+
+
+## Test Iteration
+
+Building up a [test router](./Journal%202019-07-21%20-%20On%20Swaggerdocifying%20Koa%20and%20Koa%20Router%20%28Files%29/router.js) and creating a [middleware/router walker](./Journal%202019-07-21%20-%20On%20Swaggerdocifying%20Koa%20and%20Koa%20Router%20%28Files%29/iterate-routes.js) I see the following:
+
+```
+Router: prefix=/v1
+  Layer: path="/v1/" methods=[HEAD,GET] paramNames=[] opts={"end":true,"name":null,"sensitive":false,"strict":false,"prefix":"/v1"}
+  Layer: path="/v1/users" methods=[HEAD,GET] paramNames=[] opts={"end":true,"name":null,"sensitive":false,"strict":false,"prefix":"/v1"}
+  Layer: path="/v1/users" methods=[POST] paramNames=[] opts={"end":true,"name":null,"sensitive":false,"strict":false,"prefix":"/v1"}
+  Layer: path="/v1/users/:userId" methods=[HEAD,GET] paramNames=[{"name":"userId","prefix":"/","delimiter":"/","optional":false,"repeat":false,"partial":false,"asterisk":false,"pattern":"[^\\/]+?"}] opts={"end":true,"name":null,"sensitive":false,"strict":false,"prefix":"/v1"}
+  Layer: path="/v1/things/" methods=[HEAD,GET] paramNames=[] opts={"end":true,"name":null,"sensitive":false,"strict":false,"prefix":""}
+  Layer: path="/v1/things/:thingId" methods=[HEAD,GET] paramNames=[{"name":"thingId","prefix":"/","delimiter":"/","optional":false,"repeat":false,"partial":false,"asterisk":false,"pattern":"[^\\/]+?"}] opts={"end":true,"name":null,"sensitive":false,"strict":false,"prefix":""}
+  Layer: path="/v1/things/" methods=[POST] paramNames=[] opts={"end":true,"name":null,"sensitive":false,"strict":false,"prefix":""}
+  Layer: path="/v1/things" methods=[] paramNames=[] opts={"end":false,"sensitive":false,"strict":false,"prefix":"/v1","ignoreCaptures":false}
+```
+
+Which is interesting, since I defined the Things routes using a sub-router.
+
+> Aside: I need to correct my previous usage: The correct way to use a subrouter, demonstrated above, is `parent.use('/childprefix', child.routes(), child.allowedMethods())`.  For some reason, I never saw that when first using it.  Not sure why.  Setting the routes in the app is still done with two separate calls to `app.use()`, as in `app.use(parent.routes());` then `app.use(parent.allowedMethods());`.
+
+> Aside 2: Paths in Express were and thus in `pathToRegexp` are `strict:false` by default, so trailing slashes don't do anything.  Apache and Flask are frowning at Express and Koa.  Frowning mightily indeed.  Well, probably not, really, but eh.)
+
+I'm guessing that Koa Router as an optimization measure merges the routes of any sub-routers into itself.  Indeed, [this is what it does](https://github.com/koajs/koa-router/blob/93c77ab9482f38d470e818a8c5a3be9c7ab08614/lib/router.js#L263).  This is extremely convenient: it means I don't need to do such flattening myself.
+
+Let's pretty up the output a bit better.
+
+```
+Router: prefix=/v1
+  Layer:
+    path="/v1/"
+    methods=[HEAD,GET]
+    paramNames=
+    opts={"end":true,"name":null,"sensitive":false,"strict":false,"prefix":"/v1"}
+    middleware=
+      (fn)
+  Layer:
+    path="/v1/users"
+    methods=[HEAD,GET]
+    paramNames=
+    opts={"end":true,"name":null,"sensitive":false,"strict":false,"prefix":"/v1"}
+    middleware=
+      (fn)
+  Layer:
+    path="/v1/users"
+    methods=[POST]
+    paramNames=
+    opts={"end":true,"name":null,"sensitive":false,"strict":false,"prefix":"/v1"}
+    middleware=
+      (fn)
+      (fn)
+  Layer:
+    path="/v1/users/:userId"
+    methods=[HEAD,GET]
+    paramNames=
+      {"name":"userId","prefix":"/","delimiter":"/","optional":false,"repeat":false,"partial":false,"asterisk":false,"pattern":"[^\\/]+?"}
+    opts={"end":true,"name":null,"sensitive":false,"strict":false,"prefix":"/v1"}
+    middleware=
+      (fn)
+  Layer:
+    path="/v1/things/"
+    methods=[HEAD,GET]
+    paramNames=
+    opts={"end":true,"name":null,"sensitive":false,"strict":false,"prefix":""}
+    middleware=
+      (fn)
+  Layer:
+    path="/v1/things/:thingId"
+    methods=[HEAD,GET]
+    paramNames=
+      {"name":"thingId","prefix":"/","delimiter":"/","optional":false,"repeat":false,"partial":false,"asterisk":false,"pattern":"[^\\/]+?"}
+    opts={"end":true,"name":null,"sensitive":false,"strict":false,"prefix":""}
+    middleware=
+      (fn)
+  Layer:
+    path="/v1/things/"
+    methods=[POST]
+    paramNames=
+    opts={"end":true,"name":null,"sensitive":false,"strict":false,"prefix":""}
+    middleware=
+      (fn)
+      (fn)
+  Layer:
+    path="/v1/things"
+    methods=[]
+    paramNames=
+    opts={"end":false,"sensitive":false,"strict":false,"prefix":"/v1","ignoreCaptures":false}
+    middleware=
+      (fn)
+```
+
+Bit longer, but much easier to read.
+
+That in mind, we can create an `eachRoute` function.  Given that `Layer` already has everything I need, I'll just walk each of those as is.
+
+```
+HEAD,GET /v1/
+  params:
+  apiDocs: null
+HEAD,GET /v1/users
+  params:
+  apiDocs: null
+POST /v1/users
+  params:
+  apiDocs: null
+HEAD,GET /v1/users/:userId
+  params:
+    userId: {"name":"userId","prefix":"/","delimiter":"/","optional":false,"repeat":false,"partial":false,"asterisk":false,"pattern":"[^\\/]+?"}
+  apiDocs: null
+HEAD,GET /v1/things/
+  params:
+  apiDocs: null
+HEAD,GET /v1/things/:thingId
+  params:
+    thingId: {"name":"thingId","prefix":"/","delimiter":"/","optional":false,"repeat":false,"partial":false,"asterisk":false,"pattern":"[^\\/]+?"}
+  apiDocs: null
+POST /v1/things/
+  params:
+  apiDocs: null
+```
+
+Alright, that's getting closer to schematic.

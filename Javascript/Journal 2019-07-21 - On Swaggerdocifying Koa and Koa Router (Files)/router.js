@@ -47,11 +47,36 @@ rootRouter.get('/', (ctx) => {
   };
 });
 
-rootRouter.get('/users', (ctx) => {
+rootRouter.get('/users', Object.assign((ctx) => {
   ctx.body = {
     users,
   };
-});
+}, {
+  apiDoc: {
+    summary: "Gets a list of users you're allowed to see.",
+    parameters: [],
+    responses: {
+      '200': {
+        description: "A list of Users",
+        content: {
+          'application/json': {
+            schema: {
+              type: 'array',
+              items: {
+                type: 'object',
+                required: ['id', 'name'],
+                properties: {
+                  id: { type: 'integer', format: 'int64' },
+                  name: { type: 'string' }
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+}));
 
 rootRouter.post('/users', BodyParser(), (ctx) => {
   if (! ctx.request.body || typeof ctx.request.body !== 'object') {
@@ -98,7 +123,7 @@ thingsRouter.get('/', (ctx) => {
   };
 });
 
-thingsRouter.get('/:thingId', (ctx) => {
+thingsRouter.get('/:thingId', Object.assign((ctx) => {
   const thingId = Number(ctx.params.thingId);
 
   if (! Number.isFinite(thingId)) {
@@ -114,7 +139,41 @@ thingsRouter.get('/:thingId', (ctx) => {
   }
 
   ctx.body = thing;
-});
+}, {
+  apiDoc: {
+    summary: "Get a Thing by ID.",
+    parameters: [
+      {
+        name: 'thingId',
+        in: 'path',
+        required: true, // can be based on layer.params(.name).required
+        description: "ID of the Thing you want.",
+        schema: {
+          type: 'integer',
+          format: 'int64',
+          minimum: 1,
+        },
+      },
+    ],
+    responses: {
+      '200': {
+        description: "A Thing",
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['id', 'name'],
+              properties: {
+                id: { type: 'integer', format: 'int64' },
+                name: { type: 'string' }
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+}));
 
 thingsRouter.post('/', BodyParser(), (ctx) => {
   if (! ctx.request.body || typeof ctx.request.body !== 'object') {

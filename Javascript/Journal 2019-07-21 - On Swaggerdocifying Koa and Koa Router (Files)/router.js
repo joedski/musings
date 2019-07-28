@@ -39,7 +39,7 @@ const things = [
 let thingsSerialId = things.reduce((acc, it) => (it.id > acc ? it.id : acc), -1) + 1;
 
 
-const rootRouter = new Router();
+const rootRouter = new Router({ prefix: '/v1' });
 
 rootRouter.get('/', (ctx) => {
   ctx.body = {

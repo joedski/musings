@@ -551,4 +551,420 @@ POST /v1/things/
   apiDocs: null
 ```
 
-Alright, that's getting closer to schematic.
+Alright, that's getting closer to schematic.  Let's try adding an `apiDoc` to something.
+
+```
+HEAD,GET /v1/
+  params:
+  apiDoc: null
+HEAD,GET /v1/users
+  params:
+  apiDoc:
+    {
+      "summary": "Gets a list of users you're allowed to see.",
+      "parameters": [],
+      "responses": {
+        "200": {
+          "description": "A list of Users",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "name"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+POST /v1/users
+  params:
+  apiDoc: null
+HEAD,GET /v1/users/:userId
+  params:
+    userId: {"name":"userId","prefix":"/","delimiter":"/","optional":false,"repeat":false,"partial":false,"asterisk":false,"pattern":"[^\\/]+?"}
+  apiDoc: null
+HEAD,GET /v1/things/
+  params:
+  apiDoc: null
+HEAD,GET /v1/things/:thingId
+  params:
+    thingId: {"name":"thingId","prefix":"/","delimiter":"/","optional":false,"repeat":false,"partial":false,"asterisk":false,"pattern":"[^\\/]+?"}
+  apiDoc:
+    {
+      "summary": "Get a Thing by ID.",
+      "parameters": [
+        {
+          "name": "thingId",
+          "in": "path",
+          "required": true,
+          "description": "ID of the Thing you want.",
+          "schema": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "A Thing",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "name"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+POST /v1/things/
+  params:
+  apiDoc: null
+```
+
+Of course, that's not _quite_ where I want it.  I want an OpenAPI Path, not a Koa/Express Path.  Fortunately, as noted some ways up, I have all the necessary information and tooling:
+
+- The original Path, fully flattened.
+- The function `path-to-regexp/parse()` to get a token list.
+- The Layer options, which are passed to `parse()`.
+
+Plunking in one of the above paths gives us back something like this:
+
+```json
+[
+    "/v1/things",
+    {"name":"thingId","prefix":"/","delimiter":"/","optional":false,"repeat":false,"partial":false,"asterisk":false,"pattern":"[^\\/]+?"}
+]
+```
+
+Any contiguous constant parts are returned as single strings, while variables are returned as this Token object here.
+
+For the most part, it looks like we can create the OpenAPI style path like so:
+
+```js
+const openApiPath = tokens.reduce(
+    (acc, part, partIndex) => {
+        if (typeof part === 'string') {
+            return acc + part;
+        }
+
+        if (typeof part === 'object' && part) {
+            // OpenAPI only puts the name in the path, nothing like repetition modifiers, etc.
+            return acc + `${part.prefix}{${part.name}}`;
+        }
+
+        throw new Error(`Unrecognized path part at index ${partIndex}`);
+    },
+    ''
+);
+```
+
+A bit of massaging after that and it's good.  Probably.
+
+```
+HEAD,GET /v1
+  koaPath: /v1/
+  params:
+  apiDoc: null
+HEAD,GET /v1/users
+  koaPath: /v1/users
+  params:
+  apiDoc:
+    {
+      "summary": "Gets a list of users you're allowed to see.",
+      "parameters": [],
+      "responses": {
+        "200": {...}
+      }
+    }
+POST /v1/users
+  koaPath: /v1/users
+  params:
+  apiDoc: null
+HEAD,GET /v1/users/{userId}
+  koaPath: /v1/users/:userId
+  params:
+    userId: {"name":"userId","prefix":"/","delimiter":"/","optional":false,"repeat":false,"partial":false,"asterisk":false,"pattern":"[^\\/]+?"}
+  apiDoc: null
+HEAD,GET /v1/things
+  koaPath: /v1/things/
+  params:
+  apiDoc: null
+HEAD,GET /v1/things/{thingId}
+  koaPath: /v1/things/:thingId
+  params:
+    thingId: {"name":"thingId","prefix":"/","delimiter":"/","optional":false,"repeat":false,"partial":false,"asterisk":false,"pattern":"[^\\/]+?"}
+  apiDoc:
+    {
+      "summary": "Get a Thing by ID.",
+      "parameters": [...],
+      "responses": {
+        "200": {...}
+      }
+    }
+POST /v1/things
+  koaPath: /v1/things/
+  params:
+  apiDoc: null
+```
+
+
+### On operationId
+
+In my current setup, all my Controller Methods are implemented as functions with names, so probably it'll just use `Function#name` for `operationId` and warn if it's not present.
+
+In fact, I should test this with my quick-n-dirty test thingy.
+
+```
+HEAD,GET /v1
+  koaPath: /v1/
+  controllerMethod.name: null
+  params:
+  apiDoc: null
+HEAD,GET /v1/users
+  koaPath: /v1/users
+  controllerMethod.name: getUsers
+  params:
+  apiDoc:
+    {
+      "summary": "Gets a list of users you're allowed to see.",
+      "parameters": [],
+      "responses": {...}
+    }
+POST /v1/users
+  koaPath: /v1/users
+  controllerMethod.name: null
+  params:
+  apiDoc: null
+HEAD,GET /v1/users/{userId}
+  koaPath: /v1/users/:userId
+  controllerMethod.name: null
+  params:
+    userId: {"name":"userId","prefix":"/","delimiter":"/","optional":false,"repeat":false,"partial":false,"asterisk":false,"pattern":"[^\\/]+?"}
+  apiDoc: null
+HEAD,GET /v1/things
+  koaPath: /v1/things/
+  controllerMethod.name: null
+  params:
+  apiDoc: null
+HEAD,GET /v1/things/{thingId}
+  koaPath: /v1/things/:thingId
+  controllerMethod.name: getThingById
+  params:
+    thingId: {"name":"thingId","prefix":"/","delimiter":"/","optional":false,"repeat":false,"partial":false,"asterisk":false,"pattern":"[^\\/]+?"}
+  apiDoc:
+    {
+      "summary": "Get a Thing by ID.",
+      "parameters": [...],
+      "responses": {
+        "200": {...}
+      }
+    }
+POST /v1/things
+  koaPath: /v1/things/
+  controllerMethod.name: null
+  params:
+  apiDoc: null
+```
+
+Decided to do this based on which middleware caried the `apiDoc` object, since it's pretty likely that's where it'd be.
+
+
+
+## On the Actual Shape of Usage
+
+Honestly, I should try to make this closer to my target use case, but the target use case tries to keep Controllers out of the business of doing anything with ctx.  Which naturally lead to Controllers all having to return a Response Description Object of some sort, but anyway.
+
+If it sounds like that leads to a lot of boring param and body extraction, you're right!
+
+
+### Knex Style API Doc Builder?
+
+Is there any value to making a builder with shorthand methods?  Certainly when writing things a lot, it actually does read better to write `axios.get('/blah')` than it does writing `axios({ method: 'get', url: '/blah' })`.  If we have to specify `method` and `url` everywhere, there's a lot of value in coming up with a more specific DSL that directly encodes those: Even though you could get to reading the object-form just as well as the fluent-form, the vast majority of the time object-form is useless noise.
+
+So, the question is, can that same logic be applied to building endpoint specs?
+
+The problem is, Axios is dealing with a very small language space: HTTP Methods.  We're dealing with something a bit more like Knex.  Sorta.
+
+Suppose we have this:
+
+```json
+{
+  "paths": {
+    "/things/{thingId}": {
+      "summary": "Get a Thing by ID.",
+      "parameters": [
+        {
+          "name": "thingId",
+          "in": "path",
+          "required": true,
+          "description": "ID of the Thing you want.",
+          "schema": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "A Thing",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "name"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+So, aside from the fact that all the closing braces are super obnoxious, can we do anything about the rest of it?
+
+- For Parameters, things like `format: "int64"` imply `type: "integer"`.
+- For us, `operationId` will be either just the `method.name` property, or a combination of that and some controller name.  Certainly, we'll need to check at the top level that all `operationId`s are unique.
+- Schemas that reference some well known object type can be converted to a reference of the appropriate kind.  Probably `#/components/schemas/Foo`.
+
+Now, in our use case, we might have something that looks like this:
+
+```js
+const { openApiEndpoint, parameters, schemas } = require('@joedski/openapi-utils');
+const thingsController = require('./controllers/thingsController');
+
+let router; //...
+
+router.get('/things/:thingId', openApiEndpoint(
+    thingsController.getThingById,
+    "Get a Thing by ID.",
+    parameters()
+        .path('thingId', "ID of the Thing you want.", schemas.int64({ minimum: 1 })),
+    responses()
+        .response(200, "A Thing", contentTypes()
+            .json(schemas.object(it => {
+                it.required.property('id', schemas.int64());
+            })))
+));
+```
+
+```js
+const paramDefs = parameters(param => {
+    param.required.path(
+        'thingId',
+        "ID of the Thing you want.",
+        schemas.int64({ minimum: 1 })
+    );
+});
+
+const responseDefs = responses(response => {
+    response(200, "A Thing.", contentTypes(type => {
+        type('application/json', schemas.ref('#/components/schemas/Thing'));
+    }));
+});
+```
+
+```js
+router.get('/things/:thingId', openApiEndpoint(
+    thingsController.getThingById,
+    "Get a Thing by ID.",
+    endpoint => {
+        endpoint.parameters(p => {
+            p.required.path('thingId', schemas.int64({ minimum: 1 }));
+        });
+        endpoint.responses(rs => {
+            rs.response(200, "A Thing", contentType => {
+                contentType.json(schemas.ref('#/components/schemas/Thing'));
+            });
+            rs.response(400, "Bad Request");
+        });
+    }
+));
+```
+
+How's things like that compare to:
+
+```js
+router.get('/things/:thingId', openApiEndpoint(thingsController.getThingById, {
+    summary: "Get a Thing by ID.",
+    parameters: [
+        { in: 'path', name: 'thingId', required: true, schema: { type: 'integer', format: 'int64', minimum: 1 } }
+    ],
+    responses: {
+        200: {
+            description: "A Thing.",
+            content: {
+                'application/json': {
+                    schema: { $ref: '#/components/schemas/Thing' },
+                },
+            },
+        },
+    },
+}));
+```
+
+Hmm.  There are some nice things, but the skeleton of the doc is more clear than the function calls.
+
+```js
+router.get('/things/:thingId', openApiEndpoint(thingsController.getThingById, {
+    summary: "Get a Thing by ID.",
+    parameters: [
+        // NOTE: No need to specify 'required' because
+        // it's already required in the path.
+        parameter.path('thingId', schema.int64({ minimum: 1 })),
+    ],
+    responses: {
+        200: response.jsonContent(
+            "A Thing",
+            { $ref: '#/components/schemas/Thing' }
+        ),
+    },
+}));
+```
+
+That seems to cut down on noise without getting too magical, and ultimately the functions are just convenience shortcuts for creating actual objects.  These shortcut things are actually [really easy to create](./Journal%202019-07-28%20-%20Simple%20Object%20Builder.md).

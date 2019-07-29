@@ -1,43 +1,8 @@
 const Router = require('koa-router');
 const BodyParser = require('koa-bodyparser');
 
-const users = [
-  {
-    id: 194,
-    name: 'Slartibartfast',
-  },
-  {
-    id: 80953,
-    name: 'Rumplestiltskin',
-  },
-  {
-    id: 233895,
-    name: 'Fart',
-  },
-];
-
-let usersSerialId = users.reduce((acc, it) => (it.id > acc ? it.id : acc), -1) + 1;
-
-const things = [
-  {
-    id: 209353290,
-    name: 'A Thing',
-    description: "It's very thingy",
-  },
-  {
-    id: 23994,
-    name: 'Foobar',
-    description: "Pretty sure this is beyond repair",
-  },
-  {
-    id: 5849,
-    name: 'Wolf',
-    description: "How did this wolf get in here?",
-  },
-];
-
-let thingsSerialId = things.reduce((acc, it) => (it.id > acc ? it.id : acc), -1) + 1;
-
+const usersController = require('./controllers/usersController');
+const thingsController = require('./controllers/thingsController');
 
 const rootRouter = new Router({ prefix: '/v1' });
 
@@ -47,11 +12,7 @@ rootRouter.get('/', (ctx) => {
   };
 });
 
-rootRouter.get('/users', Object.assign((ctx) => {
-  ctx.body = {
-    users,
-  };
-}, {
+rootRouter.get('/users', Object.assign(usersController.getUsers, {
   apiDoc: {
     summary: "Gets a list of users you're allowed to see.",
     parameters: [],
@@ -78,68 +39,16 @@ rootRouter.get('/users', Object.assign((ctx) => {
   },
 }));
 
-rootRouter.post('/users', BodyParser(), (ctx) => {
-  if (! ctx.request.body || typeof ctx.request.body !== 'object') {
-    ctx.status = 400;
-    return;
-  }
+rootRouter.post('/users', BodyParser(), usersController.postNewUser);
 
-  const newUser = {
-    ...ctx.request.body,
-    id: usersSerialId,
-  };
-
-  usersSerialId += 1;
-
-  users.push(newUser);
-
-  ctx.body = newUser;
-});
-
-rootRouter.get('/users/:userId', (ctx) => {
-  const userId = Number(ctx.params.userId);
-
-  if (! Number.isFinite(userId)) {
-    ctx.status = 400;
-    return;
-  }
-
-  const user = users.find(it => it.id === userId);
-
-  if (! user) {
-    ctx.status = 404;
-    return;
-  }
-
-  ctx.body = user;
-});
+rootRouter.get('/users/:userId', usersController.getUserById);
 
 
 const thingsRouter = new Router();
 
-thingsRouter.get('/', (ctx) => {
-  ctx.body = {
-    things,
-  };
-});
+thingsRouter.get('/', thingsController.getThings);
 
-thingsRouter.get('/:thingId', Object.assign((ctx) => {
-  const thingId = Number(ctx.params.thingId);
-
-  if (! Number.isFinite(thingId)) {
-    ctx.status = 400;
-    return;
-  }
-
-  const thing = things.find(it => it.id === thingId);
-
-  if (! thing) {
-    ctx.status = 404;
-    return;
-  }
-
-  ctx.body = thing;
-}, {
+thingsRouter.get('/:thingId', Object.assign(thingsController.getThingById, {
   apiDoc: {
     summary: "Get a Thing by ID.",
     parameters: [
@@ -175,23 +84,7 @@ thingsRouter.get('/:thingId', Object.assign((ctx) => {
   },
 }));
 
-thingsRouter.post('/', BodyParser(), (ctx) => {
-  if (! ctx.request.body || typeof ctx.request.body !== 'object') {
-    ctx.status = 400;
-    return;
-  }
-
-  const newThing = {
-    ...ctx.request.body,
-    id: thingsSerialId,
-  };
-
-  thingsSerialId += 1;
-
-  things.push(newThing);
-
-  ctx.body = newThing;
-});
+thingsRouter.post('/', BodyParser(), thingsController.postNewThing);
 
 
 rootRouter.use('/things', thingsRouter.routes(), thingsRouter.allowedMethods());

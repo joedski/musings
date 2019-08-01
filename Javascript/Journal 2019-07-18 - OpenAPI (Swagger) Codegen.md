@@ -78,4 +78,85 @@ Probably the biggest thing to me is how definitions are organized: In Swagger 2,
     - Has a JS Client codegen, though I'm not sure if it's quite what I'm looking for.
     - Still, need to take a look at least.
 
-And a casual search doesn't turn up much else.  Most things are geared towards scaffolding server projects.  Ah well.  Theoretically (heh) it's just iterating over each `paths[HttpMethod]` entry and generating a Request Creator, or whatever else I'm doing for client-side requests.
+And a casual search doesn't turn up much else.  Most things are geared towards scaffolding server projects, too.  Ah well.  Theoretically (heh) it's just iterating over each `paths[HttpMethod]` entry and generating a Request Creator, or whatever else I'm doing for client-side requests.
+
+
+
+## Considerations
+
+So, in an ideal world I could work with the API dev to make everything perfect, but that's not always the case.  I have a set of considerations that need to be dealt with, in part because the API dev may not always have time to fix things, may not care, or the project may have been orphaned.  At least there's still an OpenAPI doc!
+
+- Sometimes fields that are known to be Enums are only Strings.
+    - So, maybe a way to specify that a certain property (if present) on a certain scheme should have a certain Enum which is defined on another schema.
+        - Or perhaps just overriding the Schema at a given path?  Then I can just specify it to be `{ $ref: "..." }`.
+            - How specify which thing we're replacing, and what we're replacing in it?
+            - Should also probably emit a warning if it's unused or an error if the target path doesn't exist, since that usually means the schema returned by the API changed.
+    - Also, note that the enum isn't defined globally as some Property Schema, it's usually defined inline.  Another imperfection that has to be dealt with.
+- I might want to add relevant docblocks to some fields of some types/interfaces.
+    - Again, this requires being able to refer to both a generated type but also to a path within that type, though in this case probably mostly object properties.
+        - I think this can be implemented by being able to merge extra props into a schema, and just adding `$comment` or `description`, probably the latter.  In my case, it'd be commonmark because TS tooling seems to like that.
+- ... others?  I'll write them here as I get to them, I guess.
+
+Basically, while I want code to be nice and tidy and organized, some things may require a bit of (potentially fragile) overriding to keep type safety and make things easier to manage on the client.
+
+So far, there seem to be these basic operations:
+
+- Selection: Select a given Schema and a Path within it.
+    - Since we're working with an OpenAPI Document which is just a JSON file, we should be able to use some common pathing thing to get to it.  Maybe even a JSON Reference, though that makes entering the endpoint paths ... interesting.  Hm.
+- Replacement: Replace the Selected JSON with the given JSON, possibly using values from the Selected JSON.
+- Merging: Merge the given JSON with the Selected JSON.
+
+This would cover most of my use cases, and pretty much acts as a pre-processing step before codegen.
+
+
+### So, YAML?
+
+It seems like YAML would be an easy way to specify things:
+
+```yaml
+operations:
+    - replaceJson:
+        at: "#/paths/ENCODED_PATH_HERE/responses/200/content/APPLICATION_JSON"
+        with:
+            $ref: "#/components/schemas/Foo"
+    - mergeJson:
+        at: "#/components/schemas/Bar/someProp"
+        with:
+            description: >-
+                Description in commonmark for `Bar.someProp`.
+
+                You can put in whatever formatting you want.
+    - copyJson:
+        at: "#/components/schemas/Bar/someEnum"
+        to: "#/components/schemas/SomeEnum"
+    - replaceJson:
+        at: "#/components/schemas/Bar/someEnum"
+        with:
+            $ref: "#/components/schemas/SomeEnum"
+```
+
+though you could use JSON if you wanted, but then you lose text blocks, which is stupid.
+
+Best part is, it's just using JSON paths so it's OpenAPI version-agnostic.  In fact, it doesn't even care if it's an OpenAPI file, it's just a JSON processor.
+
+
+### Prior Art?
+
+This seems like such an obvious thing that surely someone's written something at least _like_ this.  Specifically, something that takes a set of operations and performs them in sequence on a given JSON file.
+
+- [jp](https://www.npmjs.com/package/json-processing) which as it says combines [yajs (Yet Another JSON Streamer)](https://github.com/tsouza/yajs) and RxJS to make a JSON processor.
+    - Not what I'm looking for at all, actually, but very neat.
+- [jsonata](https://www.npmjs.com/package/jsonata) also looks really cool, but seems to be geared towards the same sort of things as jp, albeit with its own operators rather than RxJS's.
+- [dot-object](https://www.npmjs.com/package/dot-object) seems the closest so far.
+    - Can move props: `dot.move('src.path', 'target.path', obj)`
+    - Can delete props: `dot.delete('target.path[1]', obj)`
+    - No merging, or at least no easy merging, that I could tell.  Can only seem to copy one prop at a time.
+- [jsonapter](https://www.npmjs.com/package/jsonapter) is a template-driven JSON Transformer.  Not really what I'm looking for, but it looked neat.
+- [json-shaper](https://www.npmjs.com/package/json-shaper) sort of a simpler dot-object/jsonapter made for transforming arrays of flat objects.
+- [object-transform-stack](https://www.npmjs.com/package/object-transform-stack) seems to be close at first glance, but is really more like jsonapter than the word "stack" implies, at least to me.
+- [shape-json](https://www.npmjs.com/package/shape-json) seems to be geared towards defining object-denormalization templates.  So, like `json-shaper`, actually.  Amusing, given their names.
+- [json-transforms](https://www.npmjs.com/package/json-transforms) looks pretty slick for transforming arrays of objects, but again isn't what I need.
+
+Ah well.  The use case is probably too specific.  Tiny one-off thingy it is, then.  That's annoying.  Yet another thing for us to maintain.
+
+Better keep it as simple as possible, then.

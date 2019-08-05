@@ -19,6 +19,8 @@ Initial thoughts:
     - Requset Definitions
     - Payload Validation
     - Types of Parameters and Payloads
+    - A check for if the OpenAPI doc currently being served matches the one used for codegen
+        - Note that this should at best generate a warning, it doesn't necessarily mean things will break.
 - Template or programmable customization.
     - After all, projects are going to differ, slightly or significantly, in how they structure their requests.  This is especially the case for projects with any amount of legacy code.
 
@@ -108,6 +110,10 @@ So far, there seem to be these basic operations:
 
 This would cover most of my use cases, and pretty much acts as a pre-processing step before codegen.
 
+> Aside: While some of the modifications we might want to make are just for the sake of the client, some are things that should really be brought up with the API Dev if you have access to them, since you might be covering for inconsistencies in their API.  Of course, some of those inconsistencies may be irreparable or due to deprecated code, so, there's that too.
+>
+> And of course, always be careful modifying things you don't control.
+
 
 ### So, YAML?
 
@@ -157,6 +163,6 @@ This seems like such an obvious thing that surely someone's written something at
 - [shape-json](https://www.npmjs.com/package/shape-json) seems to be geared towards defining object-denormalization templates.  So, like `json-shaper`, actually.  Amusing, given their names.
 - [json-transforms](https://www.npmjs.com/package/json-transforms) looks pretty slick for transforming arrays of objects, but again isn't what I need.
 
-Ah well.  The use case is probably too specific.  Tiny one-off thingy it is, then.  That's annoying.  Yet another thing for us to maintain.
+Ah well.  The use case is probably too specific and limited.  Tiny one-off thingy it is, then.  That's annoying.  Yet another thing for us to maintain.
 
-Better keep it as simple as possible, then.
+Better keep it as simple as possible, then.  Maybe keep it a personal library I can reuse?

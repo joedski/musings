@@ -65,7 +65,8 @@ I should take a moment to define terms here for the benefit of argument and refe
 >
 > - For fully-derived data, why property access there doesn't create new subscriptions.
 > - For returning functions, how not using it within another computed prop can cause a break in dependency tracking.
-> - How these then conspire to break expectations, and how to work around them. (If you're doing computed prop stuff, stick to computed props.  Actually, that's just good advice generally.)
+> - How these then conspire to break expectations, and how to work around them. (If you're doing computed prop stuff, stick to computed props.  Actually, that's just good advice generally.  Also, it may not be as efficient as you think, and you're usually better off just creating the derived data rather than trying to lazify it via a returned function.)
+> - How, ultimately, this is all a result of this: Vue only does dependency tracking and subscription registration/deregistration during the _synchronous execution_ of any _Computor Function_.
 >
 > Lead in with these, maybe even just those exact bullet points, _then_ illustrate them.
 

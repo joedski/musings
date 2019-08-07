@@ -17,7 +17,55 @@ type AsyncData r e =
   | Result r
 ```
 
-There are various other names for the Result case, including Success and Data.  To make it less specific, I'm sticking with Result.  Due to certain languages and/or libraries where expression of this pattern requires named properties, using Result allows the property itself to be named `result`, which makes for a bit less to remember.
+In Typescript, you might use a simple union on tuples:
+
+```typescript
+type AsyncData<TResult, TError> =
+    | ['NotAsked']
+    | ['Waiting']
+    | ['Error', TError]
+    | ['Result', TResult]
+```
+
+Or something using an enum for the tag names, or a class...
+
+In Javascript, you might use something like [Daggy](https://www.npmjs.com/package/daggy) to create a friendly set of constructors:
+
+```js
+const AsyncData = daggy.createTaggedSum({
+    NotAsked: [],
+    Waiting: [],
+    Error: ['error'],
+    Result: ['result'],
+});
+```
+
+> Note: There are various other names for the Result case, including Success and Data.  To make it less specific, I'm sticking with Result.  Due to certain languages and/or libraries where expression of this pattern requires named properties, using Result allows the property itself to be named `result`, which makes for a bit less to remember.
+
+
+
+## Background
+
+Aside from and/or paraphrasing from the article, the concrete benefits are:
+
+- AsyncData provides a synchronous, always-defined, always-transformable value to wrap around data that may or may not be present right this moment.
+    - This is necessary because UI render functions don't deal in "values that we Promise will be there later", they only deal in "values that are here right now".
+    - Since we don't know when the Response Data will be here now, we wrap access to it in AsyncData so we have something that the UI can always use right now.
+- AsyncData removes the need to separately track "is fetching" state.
+- AsyncData reduces the need to deal with nullable data by providing:
+    - Safe accessors: `#getDataOr(elseValue)` and `#getErrorOr(elseValue)`
+    - A safe way to transform data if present: `#map(data => changedData)`
+- AsyncData is unambiguous in cases where the actual data itself may be null.
+- AsyncData removes the need to duplicate logic around managing loading and error states, and provides a ready model.
+
+
+### On Synchronous vs Asynchronous Values
+
+The first point in the list of benefits is that "AsyncData provides a synchronous, always-defined, always-transformable value", with the note about how render _functions_ don't deal in "values that we Promise will be there later" but only in "values that are here right now".
+
+Put another way, a function can only render a synchronous value derived from synchronous values, and the moment you try to render based on asynchronous values, you get asynchronous rendering, which will happen Some Time Later, which is to say, not Now.
+
+Which of course circles back around to the whole point demonstrated in the [above-linked article](https://medium.com/javascript-inside/slaying-a-ui-antipattern-in-react-64a3b98242c).
 
 
 
@@ -124,12 +172,12 @@ dataOr elseValue = (or elseValue) . dataOf
 
 where `or` there is `or :: u -> Maybe t -> (t | u)` and just does `or elseValue maybeValue = match maybeValue: Just v -> v; Nothing -> elseValue;`.
 
-In more imperative contexts like JS, simply defining `dataOr` and `errorOr` up front is very helpful.
+In more imperative contexts like JS, simply defining `dataOr` and `errorOr` up front is very helpful because trying to convince most people that Maybe monads are useful is an uphill battle.
 
 
 ### Coalesce
 
-This is an opinionated way to combine 2 AsyncData instances in a manner that is most suitable to UI rendering.  It prioritizes cases in the following manner, as it seems to be the most common order of precedence:
+This is an opinionated way to combine 2 AsyncData instances in a manner that I've found is _usually_ most suitable to UI rendering.  It prioritizes cases in the following manner, as it seems to be the most common order of precedence:
 
 1. Error
 2. Waiting

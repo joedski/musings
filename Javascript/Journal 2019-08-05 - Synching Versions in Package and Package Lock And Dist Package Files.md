@@ -32,6 +32,6 @@ That decided, it's simple:
 - The `version` hook remains as is, since we don't want to spam `npm install` (not that we would, since it'd only happen if `package.json` and `package-lock.json` disagree)
 - A new script is added that does the following (as stated above):
     1. Do `package.json:version` and `package-lock.json:version` agree?
-        - No: Say "package.json and package-lock.json disagree on what the package version is.  Make sure you use 'npm version ...' when bumping versions to ensure consistency in versioning behavior and commit messages." and exit with an error code.
+        - No: Say "package.json and package-lock.json disagree on what the package version is.  Make sure you use 'npm version ...' when bumping versions to ensure consistency in versioning behavior and version-bump commit messages." and exit with an error code.
         - Yes: Continue.
     2. Update `dist/package.json:version` to match `package.json:version`.

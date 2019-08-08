@@ -3,6 +3,8 @@ AsyncData
 
 Place for thoughts on [AsyncData](https://medium.com/javascript-inside/slaying-a-ui-antipattern-in-react-64a3b98242c) related things, regardless of language, where AsyncData here speaks specifically about a representation of asynchronous data and its various result states.
 
+If I had to give one reason for using what seems like such a simple abstraction like AsyncData rather than a datum variable and some flags, I'd say it's this: With AsyncData, I have only to think about the AsyncData variable itself, and how that single variable changes through out time; with the datum and flags, I have to thing about three separate things, and how they change over time.
+
 > NOTE: Examples written in a mishmash of pseudo-Haskell/Elm/Whatever.
 
 > NOTE: I try to maintain consistent naming, but sometimes slip up between Result and Data.  Those two should be considered the same case.

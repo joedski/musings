@@ -1399,7 +1399,9 @@ class Schema<TSchema extends object = {}> {
 }
 ```
 
-ssssssooooorta close.  Unfortunately, since `Object.keys()` isn't technically deterministic when it comes to order, the best we get from this syntax is `Array<"foo" | "bar" | ...>`.  Could we go better?  We could, yes, but it'd be noisy.
+ssssssooooorta close.  Unfortunately, since `Object.keys()` isn't technically deterministic when it comes to order, the best we get from this syntax is `Array<"foo" | "bar" | ...>`.  Now, it's not the best type in the world, but `TypeDescribedBy<T>` actually does handle it as expected.
+
+Could we go better?  ~~We could, yes~~ Maybe, but it'd be noisy.
 
 ```typescript
 const s7 = schema.object().requiredProps(
@@ -1440,6 +1442,45 @@ class Schema<TSchema extends object = {}> {
 
 Okay, yeah, that's not really right.  Time to go to bed, I think.
 
+#### Continuing As If There's a Flattener
+
+So, the Flattener's not really that scary, so I'll forage on ahead.
+
+If I pretend one exists, then I can vastly simplify the methods themselves:
+
+```typescript
+class Schema<TSchema extends object = {}> {
+    public properties<TProps extends { [k: string]: Schema }>(props: TProps) {
+        const next = this as Schema<TSchema & {
+            properties: {
+                [K in keyof TProps]: TProps[K];
+            };
+        }>;
+        next.$schema.properties = Object.assign(next.$schema.properties || {}, props as any);
+        return next;
+    }
+
+    public required<TNames extends string[]>(...names: TNames) {
+        const next = this as Schema<TSchema & { required: TNames; }>;
+        next.$schema.required = names;
+        return next;
+    }
+
+    public requiredProperties<TProps extends { [k: string]: Schema }>(props: TProps) {
+        return this.properties(props).required(...(Object.keys(props) as Array<Extract<keyof TProps, string>>));
+    }
+}
+```
+
+Still has the above problem about getting arrays of unions for Required rather than a tuple, but oh well.
+
+#### Next: Items
+
+This one will require actually distinguishing between the two different behaviors at the method level, because I want to keep the number of `as const` in normal use as low as possible.  That means:
+
+- `tupleItems(...schemas)` defines `items` as a Tuple of Schemas.
+- `listItems(schema)` defines `items` as a List-Item Schema.
+
 
 ### The Flattener?
 
@@ -1449,3 +1490,34 @@ There's only a few places where we actually need to look at flattening:
 - `items` polymorphic.
 
 Shouldn't actually be that hard, then.
+
+```typescript
+type PlainSchemaType<T> = {
+    [K in keyof T]:
+        K extends 'properties' ? T[K] extends object ? {
+            [PK in keyof T[K]]: T[K][PK] extends Schema<infer TSub>
+                ? PlainSchemaType<TSub>
+                : T[K][PK];
+        } : T[K] :
+        K extends 'items' ? (
+            T[K] extends Schema<infer TListItemSchema> ?
+                PlainSchemaType<TListItemSchema>
+            : T[K] extends Array<Schema> ? {
+                [TK in keyof T[K]]: T[K][TK] extends Schema<infer TSub> ? PlainSchemaType<TSub> : never;
+            } : never
+        ) :
+        T[K]
+    ;
+};
+```
+
+Test case:
+
+```typescript
+const sp1 = schema.object().properties({
+    obj: schema.object().properties({
+        foo: schema.string(),
+        bar: schema.number(),
+    }).required('foo'),
+});
+```

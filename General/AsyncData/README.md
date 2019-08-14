@@ -70,6 +70,11 @@ Put another way, a function can only render a synchronous value derived from syn
 Which of course circles back around to the whole point demonstrated in the [above-linked article](https://medium.com/javascript-inside/slaying-a-ui-antipattern-in-react-64a3b98242c).
 
 
+### On Separation of Concerns
+
+Wrapping things in AsyncData is like wrapping multiple values in an Array, it's just a matter of what you're doing.  Arrays are for concrete sequences of values of a given type.  AsyncData is for a concrete value that may or may not be there yet, or which may have run into an error in the process of getting it.
+
+
 
 ## Useful Operations on AsyncData
 

@@ -421,3 +421,139 @@ Implementation wise, the above interface is probably most easily done by using `
 As noted in [all the discussion on this issue](https://github.com/Microsoft/TypeScript/issues/2521), as of 2019-03-18 it's unlikely that TypeScript is going to have any support for get/set pairs that have different types, which means the above will cause either a bunch of type errors or a bunch of noise.
 
 In that case, we'll probably want some indirection, something like `this.$scanned.push('count', ['incr', this.incrementAmount])`, or else `this.$scanned.count = ['incr', this.incrementAmount]`, etc.  Something to separate the setter from the getter.
+
+
+
+## Another Way: Convention Around Data and Watches and/or Events
+
+A way to do this without invoking extra mixin tooling is to implement it with Watches and/or Events.
+
+Suppose this:
+
+```js
+export default {
+    props: {
+        initialValue: { type: Number, default: 0 },
+        incrementAmount: { type: Number, default: 1 },
+        externalEvents: { type: Object, default: null },
+    },
+
+    data() {
+        return {
+            // Initial state.
+            count: this.initialValue,
+        };
+    },
+};
+```
+
+Then, we could respond to a change in some value using a Watch:
+
+```js
+export default {
+    props: {
+        incrementAmount: { type: Number, default: 1 },
+        externalEvents: { type: Object, default: null },
+    },
+
+    data() {
+        return {
+            count: this.initialValue,
+        };
+    },
+
+    watch: {
+        externalEvents(next, prev) {
+            // always check when using Objects as values.
+            if (next === prev) return
+
+            switch (next[0]) {
+                case 'incr': this.count += 1; return;
+                case 'decr': this.count -= 1; return;
+                case 'reset': this.count = this.initialValue; return;
+                default: return;
+            }
+        },
+    },
+};
+```
+
+Or use an Event:
+
+```js
+export default {
+    props: {
+        incrementAmount: { type: Number, default: 1 },
+    },
+
+    data() {
+        return {
+            count: this.initialValue,
+        };
+    },
+
+    methods: {
+        handleClick() {
+            this.$emit('scan:count', ['incr']);
+        }
+    },
+
+    created() {
+        this.$on('scan:count', (action) => {
+            switch (action[0]) {
+                case 'incr': this.count += 1; return;
+                case 'decr': this.count -= 1; return;
+                case 'reset': this.count = this.initialValue; return;
+                default: return;
+            }
+        });
+    },
+};
+```
+
+Combining both methodologies is trivial:
+
+```js
+export default {
+    props: {
+        incrementAmount: { type: Number, default: 1 },
+        externalEvents: { type: Object, default: null },
+    },
+
+    data() {
+        return {
+            count: this.initialValue,
+        };
+    },
+
+    watch: {
+        externalEvents(next, prev) {
+            // always check when using Objects as values.
+            if (next === prev) return
+
+            this.$emit('scan:count', next);
+        },
+    },
+
+    methods: {
+        handleClick() {
+            this.$emit('scan:count', ['incr']);
+        }
+    },
+
+    created() {
+        this.$on('scan:count', (action) => {
+            switch (action[0]) {
+                case 'incr': this.count += 1; return;
+                case 'decr': this.count -= 1; return;
+                case 'reset': this.count = this.initialValue; return;
+                default: return;
+            }
+        });
+    },
+};
+```
+
+Over all, this is probably the easiest to implement since you just add a bunch of things to setup in the `created` handler.  My biggest issue is that, TS-wise anyway, you don't gain any type safety except for the Dataprop itself.
+
+The only issue of course it that it's more of an implementation modality than a formalization, but the fact that it's implementable like this means you can easily wrap it up, so maybe that's less a complaint and more of a whining about how lazy I am in this section.  Eh.

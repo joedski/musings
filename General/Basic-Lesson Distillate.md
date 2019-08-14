@@ -6,6 +6,7 @@ Basic Lessons Learned from Working On PWAs
 - Minimize Complexion
   - I mean, obviously, right?
   - Don't build hard-coded combinations of functionality where they're not necessary.  That only serves to obscure what's going on.
+    - But do build such things if they are both explicitly named and very commonly used.  See "Formalize Patterns of Usage".
   - Where something can be implemented in a few separate orthogonal functions and from those combined into the desired total functionality, it should be.
 - Make your code readable
   - You spend significantly more time reading your code than you do writing it.
@@ -44,10 +45,11 @@ Basic Lessons Learned from Working On PWAs
   - Git?  SVN?  Mercurial?  Perforce?  Pick one and use it.
   - Maybe not CVS, though.  Especially not if it's the drug store.
 - Formalize Patterns of Usage
-  - Usually stated Don't Repeat Yourself, I think my phrase better captures the intent, even if "DRY" is easier to say.
+  - Usually stated Don't Repeat Yourself, I think my phrase better captures the intent, even if "DRY" is easier and more fun to say.
   - Of course, be careful not to try formalizing spurious patterns.
     - Some repetition is incidental, not actual.
     - Some repetition is actual repetition, but perhaps not at the level you're thinking.
+  - Sometimes to start doing this, you have to Stop Repeating Yourself first.
 
 
 
@@ -55,6 +57,8 @@ Basic Lessons Learned from Working On PWAs
 
 - Don't be clever with your state.
   - You want to make your state as blunt as possible.  Who are you even trying to impress?
+- Don't store everywhere what you can store in one place.
+  - See also: AsyncData, and centralized, uniform handling thereof.
 - Don't hide things from yourself.
   - For instance, if your app is a Universal App, then be up front about that in your state.  Don't make it difficult to determine what side of the client/server divide you're on.
   - Who are you protecting yourself from by obscuring such state, anyway?  Yourself?

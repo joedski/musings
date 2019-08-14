@@ -23,6 +23,11 @@ Basic Lessons Learned from Working On PWAs
   - Had an idea?  Write it down.
   - Discovered some new way to refactor things better?  Write it down.
   - If it's not written, it's forgotten.
+- Write Documentation For Other People
+  - If you're writing documentation, write it for other people.
+  - Assume they don't have the whole context hotloaded into their mind.
+  - Be explicit, link to sources, build that context.
+  - Because when you come back Later, you will be one of those Other People.
 - Never Stop Learning
   - To stop learning is to start stagnating.
   - Also, learn by doing.
@@ -38,6 +43,11 @@ Basic Lessons Learned from Working On PWAs
 - Use Source Control
   - Git?  SVN?  Mercurial?  Perforce?  Pick one and use it.
   - Maybe not CVS, though.  Especially not if it's the drug store.
+- Formalize Patterns of Usage
+  - Usually stated Don't Repeat Yourself, I think my phrase better captures the intent, even if "DRY" is easier to say.
+  - Of course, be careful not to try formalizing spurious patterns.
+    - Some repetition is incidental, not actual.
+    - Some repetition is actual repetition, but perhaps not at the level you're thinking.
 
 
 
@@ -60,7 +70,18 @@ Basic Lessons Learned from Working On PWAs
   - Also, like the previous item, it should be a separable orthogonal piece.
 - Create Derived Entities as close to point of use as possible
   - Particularly with Redux, don't make Populated Entity Creators at the top level; make those only if a component needs them.  Better yet, don't use them at all, stick purely to references.
+  - The Vue equivalent to this is "use computed props".
+- Transform Data From The API As Little As Possible
+  - The more data coming from the API is manipulated, the more manipulations you have to simulate in your head when trying to understand any piece of code in your app.
+    - That is, if you transform data coming from the server, you now have two things to hold in your head: The data that the server sent, and how you transformed it.
+  - Prefer to transform such data at each specific point of use rather than immediately upon receiving it.
+- If the API Is the Source Of Truth, Seek the Truth Often
+  - It's better to poll the API than to assume certain behaviors and duplicate business logic.
+  - Obviously, this is on a case-by-case basis.
+    - If your App is a tightly-coupled UI to your API, then you could disregard this somewhat.
+    - However, you're going to be better off if you can either just hit the API for updated data or if you can implement actual code-sharing, as otherwise you've just got duplicated business logic and it's probably going to desync at some point.
 - Response Normalization should be handled using a common Schema sent from the Server to the Client.
+  - See also "Transform Data From The API As Little As Possible".
   - This is especially true if you describe your API using Swagger/OpenAPI: Every endpoint already describes what it takes in and outputs, you should be able to use this information without duplicating it on the client.
   - Or, alternatively, Responses Should Come Pre-Normalized From The Server.
     - Then you don't have to even include any normalization machinery on your client!  Woo hoo!
@@ -91,4 +112,10 @@ Basic Lessons Learned from Working On PWAs
     - Further, adding all such features to one List component bloats it beyond all reason.
     - Instead break it into a bunch of small utility components that make it obvious what each one does and can be used with `Array#map()`/`v-for`.
   - There may very well be a reason at times to create a pre-complected List component, but it has to be very compelling to counteract the obscuring of actual output.
-  - This is a specific example of using basic tools over over-fancy tools to leave code more readable rather than more compact, as that compactness comes at the cost of increased cognative burden.
+  - This is a specific example of using basic tools over over-fancy tools to leave code more readable rather than more compact, as that compactness comes at the cost of increased cognitive burden.
+- Consider what sort of application you are building.
+  - If you're building what amounts to a mostly-static website, then consider if you actually need to send the client megabytes of javascript when some HTML + HyperApp/HyperHTML/some other minimal view library sprinkled on top for widgets might work.
+  - On the other hand, if you're building an actual app like a highly interactive dashboard, control panel, editor, etc, then making a SPA is a perfectly cromulent solution.
+- When prototyping, use what you know _now_ even if you think something else _might_ be better.
+  - Is all you know Vue, Koa, and MongoDB?  Use that.  Is it Angular, Flask, Postgres?  Use that.  PHP + jQuery?  Do it.
+  - Build with the tools you know to sketch it out, rewrite it later when you know better, but only if it actually turns out that would improve it materially.

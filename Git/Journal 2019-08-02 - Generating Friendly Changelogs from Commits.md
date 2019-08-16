@@ -49,7 +49,7 @@ Complications:
 - This will be much easier if everyone is consistent with pushing tags, but tags are always a separate thing to push.  Probably for good reason, but it means it's easy to forget.
     - Though, I've gotten in the habit of just doing `git push && git push --tags` so, I guess there's that.  Maybe I can convince others to do that, too.  Maybe just alias `git pushta` to that.
     - This also doesn't help with the whole "bump version in feature branch before merging" thing.
-    - Looks like you _can_ have [per-repo aliases](https://medium.com/the-lazy-developer/five-life-changing-git-aliases-e4211c090017)...
+    - Looks like you _can_ have [per-repo aliases](https://medium.com/the-lazy-developer/five-life-changing-git-aliases-e4211c090017), but that doesn't put them up in the remote, only local.
 
 Given our Git Flow-ish behavior and our love of tiny commits, it seems that the following setup would be ideal:
 

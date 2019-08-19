@@ -46,6 +46,12 @@ Complications:
         1. They must merge the latest mainline (okay, you should do that every time anyway)
         2. They must wait for any CI pipeline stuff to run, which can take 5-10 minutes.
         3. They will then proceed to repeat this blockage for everyone else, which leads to a lot of sitting around doing nothing.
+    - I mean, I know why this is done currently: Because our build pipeline by default is set to just take whatever the current package-version number is as the build artifact version-derived name, which means if you commit to the mainline and don't bump the version, you overwrite the previous artifact, and the artifact names become meaningless.
+        - Perhaps something not too different would be better:
+            - All PRs merge to mainline as before, but no version bumping is done there.
+            - Mainlines only have a single build artifact which is just "whatever was most recently pushed to it".
+            - Then, when a new version is tagged, a new artifact is built, irrespective of the package-version.
+            - ... so basically, Git-Flow, but not, but closer than we're currently doing.
 - This will be much easier if everyone is consistent with pushing tags, but tags are always a separate thing to push.  Probably for good reason, but it means it's easy to forget.
     - Though, I've gotten in the habit of just doing `git push && git push --tags` so, I guess there's that.  Maybe I can convince others to do that, too.  Maybe just alias `git pushta` to that.
     - This also doesn't help with the whole "bump version in feature branch before merging" thing.
@@ -57,4 +63,4 @@ Given our Git Flow-ish behavior and our love of tiny commits, it seems that the 
 
 I think that's about it, actually.  So, let's see if any prefabbed solutions fit that and can be used easily in a Node project.
 
-> Unfortunately, Ruby sometimes has ... issues on OS X?  And I'm not entirely sure why, given it ships with the darn thing.  `rvm` messups?  Inexperience with Homebrew?  Screwing everything up because of how Homebrew works?  Hm.  Might have just been trying to install dependencies for one specific package that gave me guff.
+> Unfortunately, Ruby sometimes has ... issues on OS X?  And I'm not entirely sure why, given it ships with the darn thing.  `rvm` messups?  Inexperience with Homebrew?  Screwing everything up because of how Homebrew works?  Hm.  Might have just been trying to install dependencies for one specific package that gave me guff because as far as I can tell, Ruby itself seems to be working fine.

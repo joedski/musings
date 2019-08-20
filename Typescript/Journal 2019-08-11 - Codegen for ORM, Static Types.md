@@ -201,19 +201,6 @@ exports.up = (knex, Promise) => (Promise.resolve())
 
 Of course, the real question is how to handle model changes.
 
-Cases:
-
-- Adding Tables is already demonstrated.
-- Dropping a Table is easy.
-- Altering a Table is where things get dicey, mostly because Columns are the real meat of the matter.  Those and FK constraints.
-    - Add a new Column.
-    - Drop an existing Column.
-    - Alter a Column. (may result in errors/extra config, depending on the alteration.)
-    - Add a FK constraint.
-    - Drop a FK constraint.
-
-Maybe I should try trawling through SQLAlchemy?  They already have the migration-code-gen thing going on.  Which reminds me, I didn't actually try doing a class-based thing, in which case the model classes themselves would drive the codegen of the other pieces.
-
 
 ### Maybe With Classes Instead of Config?
 
@@ -270,5 +257,584 @@ This has some niceties to it:
         - While this doesn't give us record-field documentation, it does at least give us a clean type.
 - The JSONSchema can be generated on the fly, because we really only need it for validation and OpenAPI doc generation.
 - While this doesn't eliminate codegen, it does mean we only have 1 thing to codegen: The migrations.
+- Methods are added in the Subclass, which already has a defined Record shape thanks to extending the base class, and thus gives you easy access to derived types like `RecordType<TModelClass>` and `NewRecordType<TModelClass>`.
+    - These can be exported so you don't have to constantly faff with `NewRecordType<typeof ThisModel>` all the time.
 
 I don't intend to automatically fetching FK references, in part because that'd required adding an extra field since TS doesn't do property-name manipulation, and in part because I've just never cared for that.  Maybe I don't do enough middleware servers?
+
+> Why not just subclass directly and stick the value on the field?  Because a Class's Type Parameters must be specified, whether by supplying a value or specifying a default.  The result of that is that, in the proposed use case above, the type and the value fitting that type must be both specified separately, or else the value from which the type is derived must be specified separately from the subclass.  Using a Function allows a value to specify the type, thus covering both in the base class.
+
+This technique is pretty solid looking, and keep magic to a minimum.  The only minor boilerplate is that you need to actually instantiate it when exporting.
+
+So, at minimum, your model declaration looks like this:
+
+```typescript
+import BaseModel from './BaseModel';
+
+const ThisModel = BaseModel({
+    fields: {
+        // ...
+    },
+});
+
+export default new ThisModel();
+```
+
+or like this:
+
+```typescript
+import BaseModel from './BaseModel';
+
+class ThisModel extends BaseModel({
+    fields: {
+        // ...
+    },
+}) {
+    // no overrides... yet!
+};
+
+export default new ThisModel();
+```
+
+The latter is more uniform since you don't have to change how you write things when you actually do need to add extra methods.
+
+As noted above, you can export the Record types to make the rest of the program more readable, too, and will probably want to just as a matter of course.
+
+```typescript
+import { BaseModel, RecordType, NewRecordType } from './Model';
+
+class ThisModel extends BaseModel({
+    fields: {
+        // ...
+    },
+}) {
+    // no overrides... yet!
+};
+
+export default new ThisModel();
+
+export type ThisRecord = RecordType<ThisModel>;
+export type NewThisRecord = NewRecordType<ThisModel>;
+```
+
+Not the greatest boilerplate, but not the worst.  Certainly templatizable.
+
+
+### Other Thoughts
+
+SQLAlchemy aims to provide a lot of, I guess not really abstractions per se, but affordances in mapping Object Land to Table Land, tools for you to build the abstractions you want.  (I mean, it's right in the description: "SQLAlchemy is a database toolkit and object-relational mapping (ORM) system for Python...")
+
+> A good read on the full architecture of SQLAlchemy appears in [the Architecture of Open Source Applications](https://aosabook.org/en/sqlalchemy.html).  Highly recommend reading through it, even if you can't understand everything yet.
+
+I'm not aiming as much to do that, though maybe some things will accidentally cross over that way.  I really just want things to stick pretty close to SQL, mostly by way of Knex's query building.  Whether that allows some amount of composability (and it may very well do so since Knex has a number of things such as `whereIn()` that accept a separate query) isn't as much at the forefront as just having what amount to nicely named query-builder prefabs.
+
+In general, my little thingy is just intended to be a convenient way to write those prefabs while also supporting fluid-and-optional use of transactions, autogen of JSONSchemas, leaving all the DB specifics to Knex.  It's not intended to serve everyone's use cases, though may accidentally be a nice way to do so?  Hm.
+
+
+
+## On Actually Implementing Migration Codegen
+
+All of the above is window dressing to this piece: the actual algorithm of Migration Codegen doesn't change, only what's driving it, and it's always going to be a separate reconciliation step, though certainly one that should have some sort of safety hook to stop 3AM commits from causing a model/schema desync.  Could be a githook, could be just a check on app startup that the models match the last codegen.
+
+Cases:
+
+- Adding Tables is already demonstrated.
+- Dropping a Table is easy, though use `dropTableIfExists()` most of the time.
+- Altering a Table is where things get dicey, mostly because Columns are the real meat of the matter.  Those and FK constraints.
+    - Add a new Column.
+    - Drop an existing Column.
+    - Alter a Column. (may result in errors/extra config, depending on the alteration.)
+    - Add a FK constraint.
+    - Drop a FK constraint.
+
+Some things I'll skip initially:
+
+- Renaming Tables.
+- Renaming Columns.
+
+Maybe I should try trawling through SQLAlchemy?  They already have the migration-code-gen thing going on.
+
+On the other hand, for my very limited use case, I'm not sure it's much of a problem.  Most of the time, the absolute most I do is either a JOIN or two, or else a WHERE IN.  Or, like, 5 nested WHERE IN clauses because of a hierarchical model.  (hello, arbitrarily nested pages in chronoforms in joomla...)
+
+
+### Altering a Table
+
+In Knex land, this is simply done by calling `knex.schema.table(tableName, fn)`.  Optionally, you can preface that with `withSchema`: `knex.schema.withSchema(schemaName).table(...)`.  That's easy.
+
+What's less easy is the Columns malarkey.  Adding and Dropping Columns is easy enough, so there's not much to get into there.
+
+Altering columns could be tricky, but fortunately we don't have to worry about getting too hairy in the diffs: When SQL alters a column, the new specification overwrites the previous one, so all we have to do is just mark any alteration with `.alter()`.  This means changing the constraints is also really easy: just don't mention ones you're dropping, only the ones you're adding.  Nice.
+
+Adding an FK constraint is easy enough, and so is dropping one: Since Knex uses a predictable algorithm for generating the FK key from the given column names, you can drop a previous FK constraint by just listing the same columns in the same order.  Nice.
+
+
+### Extracting a Diff
+
+In order to extract a diff, we first need a description of the table that we can compare to another one.
+
+I'm not going to bother doing anything fancy, an object will do just fine.  Note that since these are meant to ultimately generate knex statements, they're organized along such lines rather than in any other way.  That also tends to somewhat closely follow how SQL table statements themselves are organized, so that's nice.
+
+Really, about the only thing that seems remotely odd to me is sticking `unsigned` in the column description rather than a type.  But, eh.
+
+```typescript
+interface TableDescription {
+    name: string;
+    comment: string;
+    columns: Array<ColumnDescription>;
+    foreignKeyConstraints: Array<ForeignKeyConstraintDescription>;
+    indices: Array<IndexDescription>;
+}
+
+interface ColumnDescription {
+    name: string;
+    type: ColumnType;
+    unsigned: boolean;
+    comment: string | null;
+    notNullable: boolean;
+    default: string;
+    primary: boolean;
+    unique: boolean;
+}
+
+interface ForeignKeyConstraintDescription {
+    columnNames: Array<string>;
+    foreignTableName: string;
+    foreignColumnNames: Array<string>;
+}
+
+interface IndexDescription {
+    columnNames: Array<string>;
+    indexName: string | null;
+    indexType: string | null;
+}
+
+/**
+ * If you're familiar with knex, you might notice that these are
+ * basically a knex column creator with the non-column-name args.
+ * This is intentional.
+ */
+type ColumnType =
+    | ['integer']
+    | ['bigInteger']
+    /**
+     * there's an optional 'medium' | 'big' that could go after,
+     * but that's for mysql only, and I'm using postgres.
+     */
+    | ['text']
+    | ['string', number]
+    | ['float', number | null, number | null]
+    | ['decimal', number | null, number | null]
+    | ['boolean']
+    | ['date']
+    | ['datetime', { useTz?: boolean; precision?: number }]
+    | ['time', number | null]
+    | ['timestamp', { useTz?: boolean; precision?: number }]
+    | ['binary']
+    | ['enum', Array<string | number> | null, { useNative?: boolean; enumName?: string }]
+    | ['json']
+    | ['jsonb']
+    | ['uuid']
+    ;
+```
+
+From there, it's pretty simple, or at least as simple as any object-diff algo:
+
+- For each Table in the previous modelset, add a Deletion for it.
+- For each Table in the next modelset:
+    - If it is marked for Deletion, change that mark to Alteration.
+    - If it is not marked, add an Addition for it.
+- For each Table marked for Alteration:
+    - Collect the Primary Columns' Names in the previous version of this Table and the next version of this Table:
+        - If the Primary Column Names in both versions are set-wise equal, pass.
+        - If they differ, then:
+            - Drop the previous primary key. (only ever use the default pkey name)
+            - Add a new Primary Key Constraint with the given Column Names if the number of Names is 1 or more.
+                - During actual rendering, if there's only 1 name it's left to column creation.  If there's 2 or more, then it's created as a separate step.
+    - For each Column in the previous version of this Table, add a Deletion for it.
+    - For each Column in the next version of this Table:
+        - If it is marked for Deletion, change that mark to Alteration.
+        - If it is not marked, add an Addition for it.
+    - For each FK Constraint in the previous version of this Table, add a Deletion for it.
+    - For each FK Constraint in the next version of this Table:
+        - If it is marked for Deletion, remove that Deletion.
+        - If it is not marked, add an Addition for it.
+    - For each Index in the previous version of this Table, add a Deletion for it.
+    - For each Index in the next version of this Table:
+        - If it is marked for Deletion, remove that Deletion.
+        - If it is not marked, add an Addition for it.
+
+The only real thing of note is that Tables and Columns can be altered, while FK Constraints and Indices can only be added or dropped.
+
+This gives us this:
+
+```typescript
+type TableDiffOperation =
+    | { op: 'create', table: TableDescription }
+    | { op: 'drop', table: TableDescription }
+    | {
+        op: 'alter';
+        prevTable: TableDescription;
+        nextTable: TableDescription;
+        columnOperations: Array<ColumnDiffOperation>;
+        primaryKeyConstraintOperations: Array<PrimaryKeyConstraintDiffOperation>;
+        foreignKeyConstraintOperation: Array<ForeignKeyConstraintDiffOperation>;
+    }
+    ;
+
+type PrimaryKeyConstraintDiffOperation =
+    | { op: 'create', columns: Array<ColumnDescription> }
+    | { op: 'drop', columns: Array<ColumnDescription> }
+    ;
+
+type ColumnDiffOperation =
+    | { op: 'create', column: ColumnDescription }
+    | { op: 'drop', column: ColumnDescription }
+    | { op: 'alter', prev: ColumnDescription, next: ColumnDescription }
+    ;
+
+type ForeignKeyConstraintDiffOperation =
+    | { op: 'create', constraint: ForeignKeyConstraintDescription }
+    | { op: 'drop', constraint: ForeignKeyConstraintDescription }
+    ;
+
+type IndexDiffOperation =
+    | { op: 'create', index: IndexDescription }
+    | { op: 'drop', index: IndexDescription }
+    ;
+```
+
+The above algorithm is for generating an Up Migration, of course.  To produce a Down Migration, just flip the Tables.
+
+
+
+## Brass Tacks and Such
+
+Implementation of the various parts went basically as expected, and I even got types on the basic-most query builder methods that return Query Builders with good type parametrization!
+
+One small issue I'm running into now that I'm two commits into: I broke `ModelField#references()`:
+
+```
+Type '$BarModel' is not assignable to type 'BaseModel<Record<string, ModelField<any, boolean, boolean>>>'.
+  Types of property 'findWhere' are incompatible.
+    Type '{ (where: WhereCondition<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>): QueryBuilder<RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>, RecordTypeOfFields<...>[]>; <TSelect extends AnyArray<...>>(where: WhereCondition<...>, select: T...' is not assignable to type '{ (where: WhereCondition<Record<string, ModelField<any, boolean, boolean>>>): QueryBuilder<RecordTypeOfFields<Record<string, ModelField<any, boolean, boolean>>>, RecordTypeOfFields<Record<string, ModelField<...>>>[]>; <TSelect extends string[] | readonly string[]>(where: WhereCondition<...>, select: TSelect): QueryB...'.
+      Type 'QueryBuilder<RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>, RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>[]>' is not assignable to type 'QueryBuilder<RecordTypeOfFields<Record<string, ModelField<any, boolean, boolean>>>, RecordTypeOfFields<Record<string, ModelField<any, boolean, boolean>>>[]>'.
+        Types of property 'whereIn' are incompatible.
+          Type 'WhereIn<RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>, RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>[]>' is not assignable to type 'WhereIn<RecordTypeOfFields<Record<string, ModelField<any, boolean, boolean>>>, RecordTypeOfFields<Record<string, ModelField<any, boolean, boolean>>>[]>'.
+            Types of parameters 'values' and 'values' are incompatible.
+              Type 'QueryBuilder<any, any>' is not assignable to type 'any[] | QueryCallback<any, unknown[]>'.
+                Type 'QueryBuilder<any, any>' is missing the following properties from type 'any[]': length, pop, push, concat, and 27 more.
+```
+
+- So, it says that...
+    - This `$BarModel#findWhere()` is not assignable to
+    - That `BaseModel<Record<string, AnyModelField>>#findWhere()`
+- Drilling down through that, it says
+    - This `QueryBuilder<RecordTypeOfFields<{...}>, RecordTypeOfFields<{...}>[]>` is not assignable to
+    - That `QueryBilder<RecordTypeOfFields<Record<string, AnyModelField>>, RecordTypeOfFields<Record<string, AnyModelField>>[]>`
+- From there, it says `.whereIn` is incompatible, saying `WhereIn<...{...}..., ...[]>` is not assignable to `WhereIn<...Record..., ...[]>`
+- By dint of `WhereIn<>(..., values)` being incompatible because, to quote:
+    - `Type 'QueryBuilder<any, any>' is not assignable to type 'any[] | QueryCallback<any, unknown[]>'`
+    - Which is, yep, incompatible.  Okay, where's that showing up?
+
+```typescript
+namespace Knex {
+  // ...
+
+  interface WhereIn<TRecord = any, TResult = unknown[]> {
+    <K extends keyof TRecord>(
+      columnName: K,
+      values: TRecord[K][] | QueryCallback
+    ): QueryBuilder<TRecord, TResult>;
+    (columnName: string, values: Value[] | QueryCallback): QueryBuilder<
+      TRecord,
+      TResult
+    >;
+    <K extends keyof TRecord>(
+      columnNames: K[],
+      values: TRecord[K][][] | QueryCallback
+    ): QueryBuilder<TRecord, TResult>;
+    (columnNames: string[], values: Value[][] | QueryCallback): QueryBuilder<
+      TRecord,
+      TResult
+    >;
+    <K extends keyof TRecord, TRecordInner, TResultInner>(
+      columnName: K,
+      values: QueryBuilder<TRecordInner, TRecord[K]>
+    ): QueryBuilder<TRecord, TResult>;
+    <TRecordInner, TResultInner>(
+      columnName: string,
+      values: QueryBuilder<TRecordInner, TResultInner>
+    ): QueryBuilder<TRecord, TResult>;
+    <K extends keyof TRecord, TRecordInner, TResultInner>(
+      columnNames: K[],
+      values: QueryBuilder<TRecordInner, TRecord[K]>
+    ): QueryBuilder<TRecord, TResult>;
+    <TRecordInner, TResultInner>(
+      columnNames: string[],
+      values: QueryBuilder<TRecordInner, TResultInner>
+    ): QueryBuilder<TRecord, TResult>;
+  }
+
+  // ...
+}
+```
+
+That's a bit hideous to read.  Mmmm, autoformatting.  Let's unify those formattings to make things a bit easier to read.
+
+```
+namespace Knex {
+  // ...
+
+  interface WhereIn<TRecord = any, TResult = unknown[]> {
+    <
+      K extends keyof TRecord
+    >(
+      columnName: K,
+      values: TRecord[K][] | QueryCallback
+    ): QueryBuilder<TRecord, TResult>;
+
+    (
+      columnName: string,
+      values: Value[] | QueryCallback
+    ): QueryBuilder<TRecord, TResult>;
+
+    <K extends keyof TRecord>(
+      columnNames: K[],
+      values: TRecord[K][][] | QueryCallback
+    ): QueryBuilder<TRecord, TResult>;
+
+    (
+      columnNames: string[],
+      values: Value[][] | QueryCallback
+    ): QueryBuilder<TRecord, TResult>;
+
+    <
+      K extends keyof TRecord,
+      TRecordInner,
+      TResultInner
+    >(
+      columnName: K,
+      values: QueryBuilder<TRecordInner, TRecord[K]>
+    ): QueryBuilder<TRecord, TResult>;
+
+    <
+      TRecordInner,
+      TResultInner
+    >(
+      columnName: string,
+      values: QueryBuilder<TRecordInner, TResultInner>
+    ): QueryBuilder<TRecord, TResult>;
+
+    <
+      K extends keyof TRecord,
+      TRecordInner,
+      TResultInner
+    >(
+      columnNames: K[],
+      values: QueryBuilder<TRecordInner, TRecord[K]>
+    ): QueryBuilder<TRecord, TResult>;
+
+    <
+      TRecordInner,
+      TResultInner
+    >(
+      columnNames: string[],
+      values: QueryBuilder<TRecordInner, TResultInner>
+    ): QueryBuilder<TRecord, TResult>;
+  }
+
+  // ...
+}
+```
+
+Seems TS is picking different overloads based on the type.  Which ones for which?
+
+- The two incompatible types arise in the `values` parameter:
+    - The first where the `values` parameter is `QueryBuilder<any, any>`
+    - The second where the `values` parameter is `any[] | QueryCallback<any, unknown[]>`
+- We can see that looking at the overloads that there are actually two broad swathes of overloads.
+    - The first type seems to cover the last four overloads.
+    - The second type seems to cover the first four overloads.
+
+Then, what's causing that differentiation?  Well, let's try to at least narrow things down a bit:
+
+- Order is important.  The first one is the specific type while the other is the constraint type.
+    1. `$BarModel` itself extends `BaseModel<{ id: ModelField<...>; name: ModelField<...>; }`
+    2. `BaseModel<Record<string, AnyModelField>>` expands to `BaseModel<{ [K: string]: AnyModelField }>`
+
+Those two types are compatible, or at least `$BarModel` is assignable to the latter.
+
+
+### Assumptions about Record
+
+Not entirely sure why the incompatibilities are occurring, so let's examine an assumption: that `Record<K, T>` is the same as `{ [K: string]: T }`.
+
+First, we'll need to see the actual type definition for `Record`.
+
+```typescript
+// lib.es5.d.ts
+type Record<K extends keyof any, T> = {
+    [P in K]: T;
+};
+```
+
+Okay, that's a bit different, certainly more than what I'd've done.  However, with the type parameters that reifies to this:
+
+```
+type Record<string, T> = { [P in string]: T };
+```
+
+Which is pretty much what I mean, anyway, so I'm not sure that directly has an effect.  It might, or might not.  Dunno.
+
+I do know this, though: Mapped Types, when not immediately indexed into, can be used to break a circular reference in a type alias, which means there's at least a little lazification going on.  Hm.
+
+This suggests some things to try, though:
+
+1. Try just using `{ [k: string]: AnyModelField }` instead of `Record<...>`.
+    - `Record<...>` is technically a mapped type, while `{ [k: string]: T }` is a plain interface type.
+2. Try mapping over the Field Types.
+    - Admittedly, not sure if this would make any difference since `RecordTypeOfFields<T>` is already a mapped type, and there's already the constraint `T extends Record<string, AnyModelField>`... Still, can't hurt to try?
+
+Number 1 seems like the most likely to be remotely different, so let's try that I guess.
+
+First I'll replace all instances of `Record<...>` with a type alias, say `AnyModelFieldset` so it's not just another type with an `s` on the end.
+
+That produces the same error as before, which it should since it's a simple type alias and [type aliases are eager](https://github.com/Microsoft/TypeScript/issues/3496#issuecomment-128553540).
+
+#### Option 1
+
+Next, let's try number 1 to see if that has a material effect.
+
+That does _not_ result in 0 errors.  Okay, followup question: are the errors essentially the same?
+
+```
+Type '$BarModel' is not assignable to type 'BaseModel<AnyModelFieldset>'.
+  Types of property 'findWhere' are incompatible.
+    Type '{ (where: WhereCondition<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>): QueryBuilder<RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>, RecordTypeOfFields<...>[]>; <TSelect extends AnyArray<...>>(where: WhereCondition<...>, select: T...' is not assignable to type '{ (where: WhereCondition<AnyModelFieldset>): QueryBuilder<RecordTypeOfFields<AnyModelFieldset>, RecordTypeOfFields<AnyModelFieldset>[]>; <TSelect extends AnyArray<string | number>>(where: WhereCondition<...>, select: TSelect): QueryBuilder<...>; }'.
+      Type 'QueryBuilder<RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>, RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>[]>' is not assignable to type 'QueryBuilder<RecordTypeOfFields<AnyModelFieldset>, RecordTypeOfFields<AnyModelFieldset>[]>'.
+        Types of property 'whereIn' are incompatible.
+          Type 'WhereIn<RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>, RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>[]>' is not assignable to type 'WhereIn<RecordTypeOfFields<AnyModelFieldset>, RecordTypeOfFields<AnyModelFieldset>[]>'.
+            Types of parameters 'values' and 'values' are incompatible.
+              Type 'QueryBuilder<any, any>' is not assignable to type 'any[] | QueryCallback<any, unknown[]>'.
+                Type 'QueryBuilder<any, any>' is missing the following properties from type 'any[]': length, pop, push, concat, and 27 more.
+```
+
+Looks like.  Damn.
+
+
+### Option Back-to-the-Error-Message
+
+Okay, that wasn't an option but I didn't feel like mapping over an already-mapped-type.
+
+Let's look at the `WhereIn` types again:
+
+```
+// this
+WhereIn<
+    RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>,
+    RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>[]
+>
+
+// is not assignable to
+WhereIn<
+    RecordTypeOfFields<AnyModelFieldset>,
+    RecordTypeOfFields<AnyModelFieldset>[]
+>
+```
+
+What overloads are being selected, actually?  Let's import that type, if we can, and just copy the above things over.
+
+So, the return type of all the overloads is exactly the same, so that's useless.  We'll need the parameters instead.
+
+And what do we get?
+
+```typescript
+type W1 = WhereIn<
+  RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>,
+  RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>[]
+>;
+// = [string[], Knex.QueryBuilder<unknown, unknown>]
+type W1Args = W1 extends (...rest: infer TArgs) => any ? TArgs : never;
+
+type W2 = WhereIn<
+  RecordTypeOfFields<AnyModelFieldset>,
+  RecordTypeOfFields<AnyModelFieldset>[]
+>;
+// = [string[], Knex.QueryBuilder<unknown, unknown>]
+type W2Args = W2 extends (...rest: infer TArgs) => any ? TArgs : never;
+```
+
+Well that's annoying, it looks like it picked the last one.  Okay, then.  They're still neither considered extensions of each other, either.
+
+```typescript
+// = false
+type W1xW2 = W1 extends W2 ? true : false;
+// = false
+type W2xW1 = W2 extends W1 ? true : false;
+```
+
+Maybe I can try inspecing the return value of `findWhere`?
+
+```typescript
+class $BarModel extends BaseModel({
+  fields: {
+    id: ModelField.increments().notInNew(),
+    name: ModelField.string().notNullable(),
+  },
+}) {}
+
+const BarModel = new $BarModel();
+const Base!: BaseModel<AnyModelFieldset>;
+
+type BarWhereIn = ReturnType<typeof BarModel.findWhere>['whereIn'];
+type BaseWhereIn = ReturnType<typeof Base.findWhere>['whereIn'];
+```
+
+This nets us:
+
+```typescript
+type BarWhereIn = Knex.WhereIn<
+    RecordTypeOfFields<{
+        id: ModelField<number, false, true>;
+        name: ModelField<string, true, true>;
+    }>,
+    Pick<
+        RecordTypeOfFields<{
+            id: ModelField<number, false, true>;
+            name: ModelField<string, true, true>;
+        }>,
+        "id" | "name"
+    >[]
+>;
+
+type BaseWhereIn = Knex.WhereIn<
+    RecordTypeOfFields<Record<string, ModelField<any, boolean, boolean>>>,
+    Pick<
+        RecordTypeOfFields<Record<string, ModelField<any, boolean, boolean>>>,
+        string
+    >[]
+>;
+```
+
+Which is what's returned by the second overload of findWhere...
+
+And of course, they're not compatible:
+
+```typescript
+// = false;
+type BarXBase = BarWhereIn extends BaseWhereIn ? true : false;
+```
+
+With an assignment giving us:
+
+```
+Type 'WhereIn<RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>, Pick<RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>, "id" | "name">[]>' is not assignable to type 'WhereIn<RecordTypeOfFields<Record<string, ModelField<any, boolean, boolean>>>, Pick<RecordTypeOfFields<Record<string, ModelField<any, boolean, boolean>>>, string>[]>'.
+  Type 'QueryBuilder<RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>, Pick<RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>, "id" | "name">[]>' is not assignable to type 'QueryBuilder<RecordTypeOfFields<Record<string, ModelField<any, boolean, boolean>>>, Pick<RecordTypeOfFields<Record<string, ModelField<any, boolean, boolean>>>, string>[]>'.
+    Types of property 'whereNull' are incompatible.
+      Type 'WhereNull<RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>, Pick<RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>, "id" | "name">[]>' is not assignable to type 'WhereNull<RecordTypeOfFields<Record<string, ModelField<any, boolean, boolean>>>, Pick<RecordTypeOfFields<Record<string, ModelField<any, boolean, boolean>>>, string>[]>'.
+        Type 'RecordTypeOfFields<Record<string, ModelField<any, boolean, boolean>>>' is not assignable to type 'RecordTypeOfFields<{ id: ModelField<number, false, true>; name: ModelField<string, true, true>; }>'.
+```
+
+Though now it's whereNull that's giving us guff.
+
+Buh.

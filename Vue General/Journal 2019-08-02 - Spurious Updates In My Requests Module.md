@@ -1,6 +1,8 @@
 Journal 2019-08-02 - Spurious Updates In My Requests Module
 ========
 
+> It's more likely than you think!
+
 
 
 ## Original Code (Without TS Stuff)
@@ -137,6 +139,8 @@ What I noticed:
 
 
 ## Minimal Example
+
+> TK rewrite this to not be requset specific; or just use commits directly since it doesn't matter where those come from, only that they occur and induce the behavior, and that the various different ways I tried getting around it don't affect things.  Which is good, I guess, because it means Vue itself has fewer edge cases.
 
 ```js
 // minimal impl.

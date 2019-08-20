@@ -87,4 +87,27 @@ By running this algorithm on the given Source Node, we can get a Set of Full Tra
 
 ## Implementation 1: Recursion
 
-The naive approach is simply to recur.  Effectively, the stack becomes our per-node state.  For the most part, this shouldn't break the bank, but if you're concerned about efficiency it _tends_ to have more overhead than just managing a minimal stack yourself.  Of course, on the other hand, managing the stack yourself means more developer overhead, but may be more efficient machine wise.  Maybe.
+The naive approach is simply to recur, effectively making the stack our per-node state.  For the most part, this shouldn't break the bank, but if you're concerned about efficiency it _tends_ to have more overhead than just managing a minimal stack yourself.  Of course, on the other hand, managing the stack yourself means more developer overhead, but may be more efficient machine wise.  Maybe.
+
+
+### Implementation 1: Recursion: Digression
+
+As hinted to in the coda of the algorithm outline above, we actually have two parts going on here:
+
+- Running the Algorithm itself
+- Picking the Lexicographically-Smallest list, if any
+
+Given that there's meant to be 1 and only 1 unique answer (duplicates are the same and so extra duplicates are discarded in Sets) this means we can just pare down all results to only the Lexicographically-Smallest at each step.
+
+The result is this:
+
+- Since each next-traversal returns 1 and only 1 result, we only need to compare 1 result from each successful next-traversal.
+- Since each next-traversal is a traversal to a _different_ Node, we only need to compare the Next Node to determine the lexicographically smallest, because deeper results already pared their result-spaces down to just 1 result that was locally lexiographically-smallest.
+- We only need to compare two results at a time, because 1 and only 1 is the smallest.  Ergo, we can just use a reducer.
+
+Effectively, the second step is folded into the algorithm itself.  This could even be extracted into a parameter (or dependency injection if you like that term better) for maximum flexibility in dealing with results.  It's just a reducer, after all.
+
+
+### Implemention 1: Recursion: Actually Implementing It
+
+> TK yep

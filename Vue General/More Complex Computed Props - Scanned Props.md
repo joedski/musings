@@ -557,3 +557,27 @@ export default {
 Over all, this is probably the easiest to implement since you just add a bunch of things to setup in the `created` handler.  My biggest issue is that, TS-wise anyway, you don't gain any type safety except for the Dataprop itself.
 
 The only issue of course it that it's more of an implementation modality than a formalization, but the fact that it's implementable like this means you can easily wrap it up, so maybe that's less a complaint and more of a whining about how lazy I am in this section.  Eh.
+
+
+
+## Another Simplest Approach that Doesn't Work Directly With Vue: Functiony-Thing
+
+Things like Flyd and Mithril's Stream use a getter/setter type setup with a function.  It basically worked like this, though obviously there was a lot of extra dependency tracking logic in Flyd/Mithril to make it actually usable.
+
+```js
+function createProp(initValue) {
+    function prop() {
+        if (arguments.length > 0) {
+            prop.value = arguments[1];
+        }
+
+        return prop.value;
+    }
+
+    prop.value = initValue;
+
+    return prop;
+}
+```
+
+The problem with that is that Vue deliberately skips Function values when it does dependency tracking, so without some way of actually specifying some reactive prop, you won't get an update.

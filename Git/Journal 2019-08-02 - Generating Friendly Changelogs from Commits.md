@@ -63,4 +63,6 @@ Given our Git Flow-ish behavior and our love of tiny commits, it seems that the 
 
 I think that's about it, actually.  So, let's see if any prefabbed solutions fit that and can be used easily in a Node project.
 
-> Unfortunately, Ruby sometimes has ... issues on OS X?  And I'm not entirely sure why, given it ships with the darn thing.  `rvm` messups?  Inexperience with Homebrew?  Screwing everything up because of how Homebrew works?  Hm.  Might have just been trying to install dependencies for one specific package that gave me guff because as far as I can tell, Ruby itself seems to be working fine.
+> Unfortunately, Ruby sometimes has ... issues on OS X?  And I'm not entirely sure why, given it ships with the darn thing.  `rvm` messups?  Inexperience with Homebrew?  Screwing everything up because of how Homebrew works?  Hm.
+>
+> Might just have been trying to install dependencies for one specific package that gave me guff because as far as I can tell, Ruby itself seems to be working fine.

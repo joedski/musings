@@ -36,3 +36,37 @@ In summary:
 - You can't pick an overload in typespace.
 - The only way to narrow return types is to create a wrapper function that supplies parameters of the appropriate input types.  Use this if you want to test specific return types.
 - You could maybe make a wrapper with a conditional type that deals with the parameters, but that doesn't do anything about function _type_ parameters, since those can vary on an overload-by-overload basis.
+
+
+
+## Using Conditional Types Sorta
+
+You can sorta accomplish negative tests in many cases by using conditional types.
+
+```typescript
+type ShouldBeAssignable<T, U> = T extends U ? true : false;
+type Foo = { foo: string; bar: number };
+type Foooo = { foo: 'foooo', bar: 42 };
+const canAssignFooooToFoo: ShouldBeAssignable<Foooo, Foo> = true;
+const canAssignFooToFoooo: ShouldBeAssignable<Foo, Foooo> = false;
+```
+
+Note however that with Unions the results may not be quite what you expect.  Remember this isn't exact typing, rather this only deals with assignability.
+
+```typescript
+type Bar1 = 'foo' | 'bar' | 'baz';
+type Bar2 = 'bar' | 'baz';
+
+// = boolean
+type Bar1AssignableToBar2 = ShouldBeAssignable<Bar1, Bar2>;
+```
+
+Why?  Because `boolean` is treated as the same as the union `true | false`, and [conditional types are distributed across union](http://www.typescriptlang.org/docs/handbook/advanced-types.html#distributive-conditional-types).  How's this play out?
+
+- Start with `ShouldBeAssignable<Bar1, Bar2>`
+- This is an alias for `Bar1 extends Bar2 ? true : false`
+- When we expand the aliases `Bar1` and `Bar2`, we get `('foo' | 'bar' | 'baz') extends ('bar' | 'baz') ? true : false`
+- The conditional type is then distributed over the members of `Bar1`, giving us `('foo' extends ('bar' | 'baz') ? true : false) | ('bar' extends ('bar' | 'baz') ? true : false) | ('baz' extends ('bar' | 'baz') ? true : false)`
+- From there' it's easy to see that the conditionals evaluate down to `false | true | true`
+- Taking out the redundant `true` we get `false | true` which is the same as `true | false`.
+- And as noted, `true | false` is the same as `boolean`, thus we get `boolean` instead of an expected `true` or `false`.

@@ -4,6 +4,7 @@
   "description": "Publicly revealed musings",
   "main": "index.js",
   "scripts": {
+    "list-package-jsons": "find . -name 'package.json' -not -path '*/node_modules/*'",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -25,6 +26,6 @@
     "babel-eslint": "^8.2.2",
     "eslint": "^4.18.2",
     "eslint-plugin-vue": "^4.3.0",
-    "typescript": "3.4.4"
+    "typescript": "^3.5.0"
   }
 }

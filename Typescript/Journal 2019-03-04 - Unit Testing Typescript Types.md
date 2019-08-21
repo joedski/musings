@@ -25,7 +25,9 @@ The basic idea I decided to follow was this:
 
 Obviously, you can use a more test-runner-looking setup with `tsd`, but I'm going vanilla for now, and just depending on `jest` with `ts-jest` to make sure the tests are compiled with `tsc`.
 
-After a lot of [faffing with with type unions and distributive conditional types](./Journal%202019-08-20%20-%20Unit%20Testing%20Negative%20Type%20Assertions.md) I finally arrived at a pretty good way to do things.
+Another option, especially if your test setup currently doesn't compile `.ts` files, is to just run type tests as a separate step: you have a bunch of files that you run through `tsc` and any errors mean a type unit test failed somewhere.  So, you don't even need TS support in a test runner, it just makes things more convenient.
+
+After a lot of [faffing with with type unions and distributive conditional types while trying to figure out negative assertions](./Journal%202019-08-20%20-%20Unit%20Testing%20Negative%20Type%20Assertions.md) I finally arrived at a pretty good way to do things, or at least a good starting point.
 
 
 
@@ -36,9 +38,10 @@ As noted, types are all about assignability, that is "can this be assigned to th
 There are two types of assignability we'll be dealing with:
 
 - Is T assignable to U?
+    - This case is used when you want to ensure some value or result you're dealing with conforms to some broader interface or type.
+    - This is most frequently caught by build errors, but it can be nice to have it explicitly encoded into your tests, too.
 - Are T and U mutually assignable to each other?
-
-The latter case is basically asking "Are T and U the same type".  Basically.
+    - This case is used when you want to ensure some value or result you're dealing with is exactly some type.  It's basically asking "Are T and U the same type".  Basically.
 
 
 ### Testing Various Things
@@ -58,9 +61,11 @@ test('T assignable to U', () => {
     // Type inferred by TS.
     const r1 = () => Foo.thing();
     // Type defined by Dev.
+    // This assignment tests if the inferred type is assignable to the defined type.
     const r2: () => ThingishInterface = r1;
 
-    // Dummy assertion to avoid "unused locals" errors.
+    // Dummy assertion to avoid "unused locals" errors
+    // and Jest complaining about no assertions.
     expect(r2).toBe(r1);
 });
 
@@ -68,17 +73,19 @@ test('T and U mutually assignable', () => {
     // Type inferred by TS.
     const r1 = () => Foo.thing();
     // Type defined by Dev.
+    // This assignment tests if the inferred type is assignable to the defined type.
     const r2: () => ThingishInterface = r1;
     // Type defined by TS, reused to guarantee that the type
     // defined by the Dev is assignable to the inferred type.
     const r3: typeof r1 = r2;
 
-    // Dummy assertion to avoid "unused locals" errors.
+    // Dummy assertion to avoid "unused locals" errors
+    // and Jest complaining about no assertions.
     expect(r3).toBe(r1);
 });
 ```
 
-And that's about it.
+And that's about it.  You can do this either as part of your other test cases or as their own test cases.  Just group things logically.
 
 
 ### Dealing With Overloaded Functions

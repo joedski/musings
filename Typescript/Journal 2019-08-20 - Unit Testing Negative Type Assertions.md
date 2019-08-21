@@ -1,6 +1,8 @@
 Journal 2019-08-20 - Unit Testing Negative Type Assertions
 =======
 
+> NOTE: I cover more general testing methodology in [an earlier journal](Journal 2019-03-04 - Unit Testing Typescript Types.md) that honestly wasn't updated until today haha.
+
 How to test cases that should fail in TS?
 
 Some immediate thoughts:

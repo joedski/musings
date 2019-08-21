@@ -157,12 +157,12 @@ Then I basically just do things like this:
 
 ```typescript
 const fn1 = () => Farbanrmle.foo();
-// This indicates/asserts that Type1 is NOT assignable to Type2.
+// This indicates/asserts that the type of fn1 is NOT assignable to Type2.
 const assignable$1$2: Assignable<typeof fn1, () => Type2> = false;
 expect(assignable$1$2).toBe(false);
 
 const fn3 = () => Farbanrmle.foo();
-// This indicates/asserts that Type3 and Type4 are NOT mutually assignable,
+// This indicates/asserts that the type of fn3 and Type4 are NOT mutually assignable,
 // meaning that one of the types is different from the other.
 const assignable$3$4: MutuallyAssignable<typeof fn3, () => Type4> = false;
 expect(assignable$3$4).toBe(false);

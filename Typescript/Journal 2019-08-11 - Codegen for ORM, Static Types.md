@@ -838,3 +838,10 @@ Type 'WhereIn<RecordTypeOfFields<{ id: ModelField<number, false, true>; name: Mo
 Though now it's whereNull that's giving us guff.
 
 Buh.
+
+
+### MEH.
+
+I decided to change the constraint from `TModel extends BaseModel<AnyFieldset>` to `TModel extends BaseModel<any>`.  Error vanished thanks no the hammer of `any`.  All praise `any`.  Now back to the bowels of hell with ye, `any`.
+
+`BaseModel` itself still has a constraint on its fieldset param `TFields extends AnyFieldset` so at least in usage it's fine, and the `any` can be treated as an implementation detail to make the Knex types not barf.

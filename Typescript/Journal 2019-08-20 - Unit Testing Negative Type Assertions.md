@@ -41,6 +41,20 @@ In summary:
 
 ## Using Conditional Types Sorta
 
+> Summary: A type named `MutuallyAssignable<T, U>` is demonstrated at the bottom, which yields the type `true` if T and U are mutually assignable types, and `false` if they are not.  This even works across type unions.
+>
+> ```typescript
+type Nondistributed<T> = T extends any ? T : never;
+type MutuallyAssignable<T, U> = Nondistributed<T> extends U ? Nondistributed<U> extends T ? true : false : false;
+
+// = false;
+type Bar1MutaBar2 = MutuallyAssignable<Bar1, Bar2>;
+// = true;
+type Bar1MutaBar1 = MutuallyAssignable<Bar1, Bar1>;
+```
+>
+> This works because conditional Types are only distributive across Bare Type Parameters.  So, `'foo' | 'bar' extends 'bar' ? true : false` yields `false`, but `type AT<T, U> = T extensds U ? true : false; type ATR = AT<'foo' | 'bar', 'bar'>` yields `boolean`.
+
 You can sorta accomplish negative tests in many cases by using conditional types.
 
 ```typescript
@@ -134,7 +148,7 @@ And that's key to how this Mutually Assignable thing works, or should work at le
 At any rate, now that we know it should work in principle, we can write it out easily enough:
 
 ```typescript
-type MutuallyAssignable2<T, U> =
+type MutuallyAssignable<T, U> =
     ShouldBeAssignable<T, U> extends ShouldBeAssignable<U, T> ?
         ShouldBeAssignable<U, T> extends ShouldBeAssignable<T, U> ?
             true
@@ -143,7 +157,33 @@ type MutuallyAssignable2<T, U> =
     ;
 
 // = false;
-type Bar1Muta2Bar2 = MutuallyAssignable2<Bar1, Bar2>;
+type Bar1MutaBar2 = MutuallyAssignable<Bar1, Bar2>;
 // = true;
-type Bar1Muta2Bar1 = MutuallyAssignable2<Bar1, Bar1>;
+type Bar1MutaBar1 = MutuallyAssignable<Bar1, Bar1>;
 ```
+
+So that's workable, but it feels like a bit much.  Thinking about it, if `boolean extends true ? true : false` yields `false`, and the Distributive Conditional Type thing only occurs on _naked_ type parameters, why not just wrap them?
+
+```typescript
+type Nondistributed<T> = T;
+type MutuallyAssignable3<T, U> = Nondistributed<T> extends U ? Nondistributed<U> extends T ? true : false : false;
+
+// = boolean;
+type Bar1Muta3Bar2 = MutuallyAssignable3<Bar1, Bar2>;
+// = boolean;
+type Bar1Muta3Bar1 = MutuallyAssignable3<Bar1, Bar1>;
+```
+
+Er, well, it was worth a shot.  Let's make `Nondistributed<T>` into a conditional to force that, since we know that works.
+
+```typescript
+type Nondistributed<T> = T extends any ? T : never;
+type MutuallyAssignable3<T, U> = Nondistributed<T> extends U ? Nondistributed<U> extends T ? true : false : false;
+
+// = false;
+type Bar1Muta3Bar2 = MutuallyAssignable3<Bar1, Bar2>;
+// = true;
+type Bar1Muta3Bar1 = MutuallyAssignable3<Bar1, Bar1>;
+```
+
+Eeeeyyyyy there we go.

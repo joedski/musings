@@ -20,8 +20,8 @@ The basic idea I decided to follow was this:
 
 - The unit test for a Type is whether TSC successfully compiles the file.
 - Type Unit Tests are about assignability, since Types themselves are about assignability.
-- The actual generated code is mostly just assertions on `a === a` because the types are compile-time errors, not run-time errors.
-- Type unit tests should be co-located with the relevant functional unit tests.
+- The actual generated code is mostly just assertions on `a === a` because the type errors are compile-time errors, not run-time errors.
+- Type unit tests should be co-located with the relevant functional unit tests.  This could be by being in the same file, or by being in a neighboring file with a similar name.
 
 Obviously, you can use a more test-runner-looking setup with `tsd`, but I'm going vanilla for now, and just depending on `jest` with `ts-jest` to make sure the tests are compiled with `tsc`.
 
@@ -43,6 +43,8 @@ There are two types of assignability we'll be dealing with:
 - Are T and U mutually assignable to each other?
     - This case is used when you want to ensure some value or result you're dealing with is exactly some type.  It's basically asking "Are T and U the same type".  Basically.
 
+> As a quick note about the code examples, I'm currently doing my tests in Jest, hence the Jest `expect()` assertions.  If you're doing separate files and just running them through `tsc`, you can just export something or flag it as ignored to prevent no-unused-locals errors.
+
 
 ### Testing Various Things
 
@@ -58,10 +60,7 @@ These two types of assertions differ basically by 1 line.
 
 ```typescript
 test('T assignable to U', () => {
-    // Type inferred by TS.
     const r1 = () => Foo.thing();
-    // Type defined by Dev.
-    // This assignment tests if the inferred type is assignable to the defined type.
     const r2: () => ThingishInterface = r1;
 
     // Dummy assertion to avoid "unused locals" errors
@@ -70,13 +69,8 @@ test('T assignable to U', () => {
 });
 
 test('T and U mutually assignable', () => {
-    // Type inferred by TS.
     const r1 = () => Foo.thing();
-    // Type defined by Dev.
-    // This assignment tests if the inferred type is assignable to the defined type.
     const r2: () => ThingishInterface = r1;
-    // Type defined by TS, reused to guarantee that the type
-    // defined by the Dev is assignable to the inferred type.
     const r3: typeof r1 = r2;
 
     // Dummy assertion to avoid "unused locals" errors
@@ -84,6 +78,17 @@ test('T and U mutually assignable', () => {
     expect(r3).toBe(r1);
 });
 ```
+
+The process is thus:
+
+- `r1` has its type inferred by Typescript from the thing assigned to it.
+- `r2` has its type defined by the dev, and has `r1` assigned to it.
+    - This is used for both normal-assignability and mutual-assignability tests.
+    - The Dev defining the type puts in written form what type is expected.
+    - The assignment itself evaluates if the inferred type is assignable to the defined type.
+- `r3` has its type defined as `typeof r1`, and has `r2` assigned to it.
+    - This is only for mutual-assaignability tests, or basically exact-type tests.
+    - The assignment here evaluates if the defined type of `r2` is also assignable to the inferred type of `r1`.
 
 And that's about it.  You can do this either as part of your other test cases or as their own test cases.  Just group things logically.
 
@@ -94,6 +99,8 @@ The best way I've found to deal with overloaded functions is the same way you de
 
 In the case of overloaded functions, you call the target function with parameters you know will invoke a certain overload declaration, and test the return type of that.
 
+> TK Better example here with an overloaded interface rather than some snippet from another thing I was working on.
+
 ```typescript
 const fn1 = async () => FooModel.findWhere({ bar_id: 4 }, ['id']);
 const fn2: () => Promise<{ id: number }[]> = fn1;
@@ -101,12 +108,6 @@ const fn3: typeof fn1 = fn2;
 
 expect(fn3).toBe(fn1);
 ```
-
-The process is thus:
-
-- `fn1` has its type inferred from the thing assigned to it.
-- `fn2` has its type defined by the dev, and has `fn1` assigned to it.
-- `fn3` has its type defined as `typeof fn1`, and has `fn2` assigned to it.
 
 Thus the inferred type and the defined type tested for mutual assignability.
 

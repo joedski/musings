@@ -99,11 +99,27 @@ The best way I've found to deal with overloaded functions is the same way you de
 
 In the case of overloaded functions, you call the target function with parameters you know will invoke a certain overload declaration, and test the return type of that.
 
-> TK Better example here with an overloaded interface rather than some snippet from another thing I was working on.
-
 ```typescript
-const fn1 = async () => FooModel.findWhere({ bar_id: 4 }, ['id']);
-const fn2: () => Promise<{ id: number }[]> = fn1;
+interface Thing {
+    id: number;
+    name: string;
+}
+
+function getThing(): Thing;
+function getThing(props: []): Thing;
+function getThing<TProps extends (keyof Thing)[]>(props: TProps): Pick<Thing, TProps[0]>;
+function getThing(props: (keyof Thing)[] = []): Partial<Thing> {
+    const thing = someOtherService.getThing();
+    if (!props.length) return thing;
+    return props.reduce((acc, propName) => {
+        acc[propName] = thing[propName];
+        return acc;
+    }, {});
+}
+
+// Here we pick the third overload by passing a non-empty array.
+const fn1 = async () => getThing(['id']);
+const fn2: () => Promise<{ id: number }> = fn1;
 const fn3: typeof fn1 = fn2;
 
 expect(fn3).toBe(fn1);

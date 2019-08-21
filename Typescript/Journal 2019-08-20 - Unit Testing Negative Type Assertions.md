@@ -44,16 +44,16 @@ In summary:
 > Summary: A type named `MutuallyAssignable<T, U>` is demonstrated at the bottom, which yields the type `true` if T and U are mutually assignable types, and `false` if they are not.  This even works across type unions.
 >
 > ```typescript
-type Nondistributed<T> = T extends any ? T : never;
-type MutuallyAssignable<T, U> = Nondistributed<T> extends U ? Nondistributed<U> extends T ? true : false : false;
-
-// = false;
-type Bar1MutaBar2 = MutuallyAssignable<Bar1, Bar2>;
-// = true;
-type Bar1MutaBar1 = MutuallyAssignable<Bar1, Bar1>;
-```
+> type Nondistributed<T> = T extends any ? T : never;
+> type MutuallyAssignable<T, U> = Nondistributed<T> extends U ? Nondistributed<U> extends T ? true : false : false;
+> 
+> // = false;
+> type Bar1MutaBar2 = MutuallyAssignable<Bar1, Bar2>;
+> // = true;
+> type Bar1MutaBar1 = MutuallyAssignable<Bar1, Bar1>;
+> ```
 >
-> This works because conditional Types are only distributive across Bare Type Parameters.  So, `'foo' | 'bar' extends 'bar' ? true : false` yields `false`, but `type AT<T, U> = T extensds U ? true : false; type ATR = AT<'foo' | 'bar', 'bar'>` yields `boolean`.
+> This works because conditional Types are only distributive across Bare Type Parameters.  So, `'foo' | 'bar' extends 'bar' ? true : false` yields `false`, but `type AT<T, U> = T extends U ? true : false; type ATR = AT<'foo' | 'bar', 'bar'>` yields `boolean`.
 
 You can sorta accomplish negative tests in many cases by using conditional types.
 

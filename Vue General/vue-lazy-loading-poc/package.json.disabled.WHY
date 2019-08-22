@@ -1,0 +1,4 @@
+npm audit fix requires possibly breaking changes so I'm just not bothering at the moment.
+Change package.json.disabled to package.json if you want to try it out.  Or just look at
+the code itself.
+

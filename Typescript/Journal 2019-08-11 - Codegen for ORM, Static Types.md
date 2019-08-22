@@ -845,3 +845,65 @@ Buh.
 I decided to change the constraint from `TModel extends BaseModel<AnyFieldset>` to `TModel extends BaseModel<any>`.  Error vanished thanks no the hammer of `any`.  All praise `any`.  Now back to the bowels of hell with ye, `any`.
 
 `BaseModel` itself still has a constraint on its fieldset param `TFields extends AnyFieldset` so at least in usage it's fine, and the `any` can be treated as an implementation detail to make the Knex types not barf.
+
+
+
+## JSON Schema Nitty Gritty
+
+So, generating a reasonable enough JSONSchema was not that difficult, it was mostly manually mapping the various `ColumnType`s to various descriptions, then taking into account nullability.
+
+
+### Schema IDs
+
+One thing that should be done is a [Schema ID](https://json-schema.org/understanding-json-schema/structuring.html#id).  We've kinda got two choices here:
+
+1. Specify a full ID for every record type
+2. Specify a fragment ID for every record type
+
+Well, I mean, there's a third option, which is just "Let the dev specify any prefix, and they can pick what they want"
+
+I guess one question to consider here is: What works best in an OpenAPI Doc?
+
+Another question: How do `$ref`s work?
+
+Swagger of course has a [nice short summary](https://swagger.io/docs/specification/using-ref/).
+
+- Technically, it's dependent on the point of use if you can use Relative JSON Pointers, Absolute JSON Pointers, or both.
+    - Swagger only refers to absolute pointers, so I'll assume most conforming tools only use those.
+- As noted there, you can use:
+    - Local absolute references: `#/definitions/schemas/FooRecord`
+    - Document references: `other-schemas.json#/definitions/schemas/FooRecord`
+    - URL references: `http://example.com/path/to/schemas.json#/definitions/schemas/FooRecord`
+- Technically, JSON Schema doesn't care if a full URL in the `$id` is a valid URL, but it might be helpful with OpenAPI Documents.
+
+Since most Swagger tool and OpenAPI examples and use only absolute refs, I'll assume that that's the case here, too, and that the `$id` is basically just a way to record a name.
+
+So what's the best thing to do here?  Dunno, yet.  Guess I'll shelve it for now and come back when I've given thought to the broader question of OpenAPI doc integration.
+
+I suppose one option is to just allow specifying a JSON Schema Path Generator function.  Or place it on as a method you can override, or ... something.
+
+
+### Separate Utils?
+
+Having all that JSON Schema stuff inside the classes themselves feels kinda gross.  Why not extract those into utility functions?  Then, `BaseModel` can still have its convenience methods on it, but they're basically just pre-bound calls to the utility functions.  That'd keep things nice and separate, slim down the classes.
+
+
+
+## Implementation of Migrations
+
+Now the meatiest of the meatiness: creating migrations.
+
+This involves a couple parts:
+
+- Need a CLI script/command to actually do the migration creation.
+- Need to create diffable discriptions.  Probably just serialize the Models.
+- Need to implement the above diff algorithm.
+- Need to implement migration codegen.
+- Need to run the code through prettier so it's actually readable by humans.
+
+
+
+## On Converting Datetimes/Timestamps to JS Dates or Strings
+
+Another issue I'll need to face here is that, if I want to be truely generic, I'll have to allow for configurition of this.  I'm pretty sure it just means adding a few type and config parameters here and there, but it's still something I'll need to do.
+

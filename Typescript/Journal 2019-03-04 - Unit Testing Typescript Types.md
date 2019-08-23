@@ -128,15 +128,11 @@ expect(fn3).toBe(fn1);
 Thus the inferred type and the defined type tested for mutual assignability.
 
 
-### Dealing with Negative Assertions: T Is _Not_ Assignable To U
+### Testing Utility Types Without Concrete Values
 
-There may be cases where you want to ensure some type is _not_ compatible with another type.  The issue there is that when some type incompatibility occurs, that's an error.
+It's also possible to test utility types without using concrete values.  I'm not sure if it's better or not, but eh, it's there.  Maybe as a first line of testing, along side actual concrete-value assignment?
 
-If you're using `tsd` or some other such utility, then you're already covered here: you just tell it to expect a type error.
-
-If you want to stay vanilla for whatever reason, you'll need to turn to some extra type machinery.
-
-First, utility types:
+To start with, we'll want some utility types just to make things read more nicely:
 
 ```typescript
 /**
@@ -168,6 +164,63 @@ export type Assignable<T, U> = Nondistributed<T> extends U ? true : false;
  */
 export type MutuallyAssignable<T, U> = Nondistributed<T> extends U ? Nondistributed<U> extends T ? true : false : false;
 ```
+
+These themselves can be tested easily enough:
+
+```typescript
+type T1 = 'foo' | 'bar' | 'baz';
+type T2 = 'foo' | 'bar';
+
+// A superset union shouldn't be assignable to a subset one.
+const assignable1: false = false as Assignable<T1, T2>;
+
+// A subset union should be assignable to a superset.
+const assignable2: true = true as Assignable<T2, T1>;
+
+// A subset and superset should not be mutually assignable,
+// since the superset cannot be assigned to the subset.
+const mutuallyAssignable1: false = false as MutuallyAssignable<T1, T2>;
+
+// A type should be mutually assignable with itself.
+const mutuallyAssignable2: true = true as MutuallyAssignable<T2, T2>;
+```
+
+Those are written backwards from usual because we want to ensure that the type that those compute to actually matches the type we declare, and don't get expanded to `boolean` because of union-distribution.  So we annotate the const with what we intend, then cast a true or false to the types themselves.  Then, if any of them are either the opposite type, or end up as `boolean`, we'll see a type error.
+
+Then we can go on to testing other types.
+
+```typescript
+type T3 = { foo: string; bar: number; };
+type T4 = { foo: string; } & { bar: number; };
+type T5 = { foo: string; };
+
+const mutuallyAssignable3: MutuallyAssignable<T3, T4> = true;
+const assignable3: Assignable<T3, T5> = true;
+const assignable4: Assignable<T5, T3> = false;
+
+type T6 = {
+    foo: Promise<string>;
+    bar: Promise<number>;
+};
+
+type PromisedProps<T> = {
+    [K in keyof T]: Promise<T[K]>;
+};
+
+const mutuallyAssignable4: MutuallyAssignable<PromisedProps<T3>, T6> = true;
+const mutuallyAssignable5: MutuallyAssignable<PromisedProps<T4>, T6> = true;
+```
+
+This isn't the most useful by itself, since all we get is either a `true` or `false`, whereas the assignment tests in prior sections will give more detailed errors beyond "true is not assignable to false".  Where such direct type testing is more useful is in negative assertions.
+
+
+### Dealing with Negative Assertions: T Is _Not_ Assignable To U
+
+There may be cases where you want to ensure some type is _not_ compatible with another type.  The issue there is that when some type incompatibility occurs, that's an error.
+
+If you're using `tsd` or some other such utility, then you're already covered here: you just tell it to expect a type error.
+
+If you want to stay vanilla for whatever reason, you'll need to turn to some extra type machinery.
 
 Then I basically just do things like this:
 

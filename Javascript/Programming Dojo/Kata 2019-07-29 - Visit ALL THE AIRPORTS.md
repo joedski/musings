@@ -5,7 +5,7 @@ Kata 2019-07-29 - Visit ALL THE AIRPORTS
 >
 > For example, given the list of flights `[('SFO', 'HKO'), ('YYZ', 'SFO'), ('YUL', 'YYZ'), ('HKO', 'ORD')]` and starting airport `'YUL'`, you should return the list `['YUL', 'YYZ', 'SFO', 'HKO', 'ORD']`.
 >
-> Given the list of flights `[('SFO', 'COM'), ('COM', 'YYZ')]` and starting airport 'COM', you should return null.
+> Given the list of flights `[('SFO', 'COM'), ('COM', 'YYZ')]` and starting airport `'COM'`, you should return null.
 >
 > Given the list of flights `[('A', 'B'), ('A', 'C'), ('B', 'C'), ('C', 'A')]` and starting airport `'A'`, you should return the list `['A', 'B', 'C', 'A', 'C']` even though `['A', 'C', 'A', 'B', 'C']` is also a valid itinerary. However, the first one is lexicographically smaller.
 
@@ -17,7 +17,7 @@ So, basically, given the directed-edges of a directed possibly-cyclic graph, and
 
 Pretty sure this already exists somewhere as an algorithm, and that there's a name for it.  First, though, I wanna try do devise a concrete solution myself.
 
-First thing to note is that the "lexicographyically smallest" stipulation is really the least important thing: it's only there to ensure a single unique answer.  The "Traverse all edges or die, starting at given source node" thing is really the meat of the problem.
+First thing to note is that the "lexicographically smallest" stipulation is really the least important thing: it's only there to ensure a single unique answer.  The "Traverse all edges or die, starting at given source node" thing is really the meat of the problem.
 
 I think something like this will work:
 
@@ -111,3 +111,14 @@ Effectively, the second step is folded into the algorithm itself.  This could ev
 ### Implemention 1: Recursion: Actually Implementing It
 
 > TK yep
+
+Moving to concrete land, we'll need to define just how to represent the result states in JS.
+
+We know after all the above that we have basically only the two result states noted in the beginning:
+
+- Success: A single, lexicographically-smallest sequence of nodes.
+- Failure: A null.
+
+And we can reduce everything down to those across all next-nodes by just performing the lexicographical reduction at each step before returning the result, negating any need to ever return n>1 results.
+
+Another thing we can eliminate is the Set Already Traversed, which is really only used to determine the pool of next traversals to try.  By eagerly performing the set subtraction and calling the next iteration on that, we get the same effect as before.

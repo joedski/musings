@@ -131,7 +131,8 @@ The result isn't that big, so I added a bunch of comments to puff up the linecou
     - 2 Functions, 1 for the `.map()` call, 1 for the `.reduce()` call.
 - Calls:
     - `completeTraversalOf` itself gets called for each Next Traversal Candidate.  This is how state is tracked, basically.
-        - The stack should never exceed
+        - The stack should only grow to about 3 or so times the deepest traversal, which in the worst case would be N + 1 where N is the number of edges in the originally supplied itinerary.
+            - The 3 functions are `completeTraversalOf()`, `Array#map()`, and the function passed to `Array#map()`.
 - Thoughts:
     - The function allocations could be eliminated by just defining them elsewhere: they're pure, and they don't reference anything in a parent scope.
         - Though, for all I know, V8 may already do that.

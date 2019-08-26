@@ -122,3 +122,96 @@ We know after all the above that we have basically only the two result states no
 And we can reduce everything down to those across all next-nodes by just performing the lexicographical reduction at each step before returning the result, negating any need to ever return n>1 results.
 
 Another thing we can eliminate is the Set Already Traversed, which is really only used to determine the pool of next traversals to try.  By eagerly performing the set subtraction and calling the next iteration on that, we get the same effect as before.
+
+The result isn't that big, so I added a bunch of comments to puff up the linecount.
+
+- Allocations:
+    - 1 Array for Next Traversal Candidates.
+    - Maybe 1 Array for the return value, only in Success cases.
+    - 1 Array and 1 Set per Next Traversal Candidate.
+    - 1 more Array for the `.map()` call.
+    - 2 Functions, 1 for the `.map()` call, 1 for the `.reduce()` call.
+- Calls:
+    - `completeTraversalOf` itself gets called for each Next Traversal Candidate.  This is how state is tracked, basically.
+        - The stack should never exceed
+- Thoughts:
+    - The function allocations could be eliminated by just defining them elsewhere: they're pure, and they don't reference anything in a parent scope.
+        - Though, for all I know, V8 may already do that.
+    - You could completely extract result handling by combining the conditional-source-node-prepend with the reduce operation.  Or, you could always return a List or Set of results and just always iterate them afterwards to prepend to whatever's there, but eh.  Many ways to do that.
+    - You could probably also abstract this into an operation on any set of edges in a graph, use a library of graph operations, yada yada.  Only useful if you're actually doing a lot of different graph operations, or a non-trivial traversal, though.  Otherwise, dunno if there's much immediate value to that.
+
+```js
+/**
+ * Get the lexicographically-smallest complete traversal
+ * of a given set of directed edges, where "complete" here
+ * means that every edge in the set is traversed.
+ * @return {string[] | null} An array of nodes in the order traversed,
+ *                           or null if no complete traversal is found.
+ */
+function completeTraversalOf(
+  /**
+   * Set of potential traversals.
+   * @type {Set<[string, string]>}
+   */
+  itinerary,
+  /**
+   * What node we're starting our traversal at.
+   * @type {string}
+   */
+  source
+) {
+  // Case 1: We've alredy traversed everything.
+  // If there's no more traversal candidates, we've reached an end point.
+  // Success!
+  if (itinerary.size === 0) return [source];
+
+  const nextTraversalCandidates =
+    [...itinerary].filter(edge => edge[0] === source);
+
+  // Case 2: No candidates for traversal.
+  // We know there are edges remaining to traverse, we can't proceed
+  // from the given source.
+  // No dice, here.
+  if (nextTraversalCandidates.length === 0) return null;
+
+  // The meat of the matter.
+  // It's a lot shorter than the outline might suggest.
+  const nextCompleteTraversal = nextTraversalCandidates
+    .map(edge => {
+      const nextSource = edge[1];
+      const nextItinerary = new Set(
+        [...itinerary].filter(nextEdge => nextEdge !== edge)
+      );
+      return completeTraversalOf(nextItinerary, nextSource);
+    })
+    // Reduce results to just the lexicographically smallest one.
+    // The implementation could be trivially made paramtrizable
+    // to allow for different sorting, like having
+    // lexicographically-largest or something.
+    .reduce(
+      (acc, next) => {
+        if (! acc) return next;
+        if (! next) return acc;
+
+        // We only need to check the first node because every level
+        // of recursion already checks the next node of its own result.
+        if (acc[0] > next[0]) return next;
+
+        // It could be the same if we allow multiple edges to be the same,
+        // that is a node is connected to another node by multiple
+        // identical edges.  The problem statement didn't preclude this
+        // possibility, so it could happen...!
+        return acc;
+      },
+      null
+    );
+
+  // Case 3: None of the next-traversals lead to a complete traversal.
+  // No dice here, either.
+  if (nextCompleteTraversal == null) return nextCompleteTraversal;
+
+  // Case 4: Now that we've got the lexicographically smallest,
+  // append the current source node and kick it up.
+  return [source, ...nextCompleteTraversal];
+}
+```

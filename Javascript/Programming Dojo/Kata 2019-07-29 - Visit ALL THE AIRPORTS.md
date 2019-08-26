@@ -110,8 +110,6 @@ Effectively, the second step is folded into the algorithm itself.  This could ev
 
 ### Implemention 1: Recursion: Actually Implementing It
 
-> TK yep
-
 Moving to concrete land, we'll need to define just how to represent the result states in JS.
 
 We know after all the above that we have basically only the two result states noted in the beginning:

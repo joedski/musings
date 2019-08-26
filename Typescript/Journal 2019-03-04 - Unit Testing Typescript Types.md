@@ -95,7 +95,7 @@ And that's about it.  You can do this either as part of your other test cases or
 
 ### Dealing With Overloaded Functions
 
-The best way I've found to deal with overloaded functions is the same way you deal with deep functions: Write a function that would do want you want, then don't call it.  Boom.
+[The best way I've found to deal with overloaded functions is the same way you deal with deep functions and other non-simple workflows](Journal%202019-08-20%20-%20Overloaded%20Functions%20-%20Picking%20Your%20Overload%20Type.md): Write a function that would return want you want, then don't call it.  Boom.
 
 In the case of overloaded functions, you call the target function with parameters you know will invoke a certain overload declaration, and test the return type of that.
 
@@ -118,14 +118,14 @@ function getThing(props: (keyof Thing)[] = []): Partial<Thing> {
 }
 
 // Here we pick the third overload by passing a non-empty array.
-const fn1 = async () => getThing(['id']);
-const fn2: () => Promise<{ id: number }> = fn1;
+const fn1 = () => getThing(['id']);
+const fn2: () => { id: number } = fn1;
 const fn3: typeof fn1 = fn2;
 
 expect(fn3).toBe(fn1);
 ```
 
-Thus the inferred type and the defined type tested for mutual assignability.
+Thus the inferred type and the defined type can be tested for mutual assignability.
 
 
 ### Testing Utility Types Without Concrete Values

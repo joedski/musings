@@ -893,13 +893,14 @@ Having all that JSON Schema stuff inside the classes themselves feels kinda gros
 
 Now the meatiest of the meatiness: creating migrations.
 
-This involves a couple parts:
+This involves a few parts:
 
 - Need a CLI script/command to actually do the migration creation.
-- Need to create diffable discriptions.  Probably just serialize the Models.
+- Need to create diffable discriptions.  Probably just serialize the Models somehow.  Probably a simple `toJSON()` will do, honestly.
 - Need to implement the above diff algorithm.
-- Need to implement migration codegen.
+- Need to implement migration codegen based on the diff results.
 - Need to run the code through prettier so it's actually readable by humans.
+- Need to actually save the previous model descriptions so we can actually diff things.
 
 
 
@@ -907,3 +908,9 @@ This involves a couple parts:
 
 Another issue I'll need to face here is that, if I want to be truely generic, I'll have to allow for configurition of this.  I'm pretty sure it just means adding a few type and config parameters here and there, but it's still something I'll need to do.
 
+Specifically:
+
+- All the utilities are parametrized by parametrizing a top-level export, which effectively serves as the exporter of everything else.
+    - Since this is a NodeJS project, I'm not as concerned about size, but likely one could just use multiple paramtrizers if one wanted to actually slim things down.  Convenient?  Not as, but it works.
+- Those parametrizations are typed using `T extends SomeInterface` constraints, so as to preserve exact types, thereby allowing config to drive both behavior and type derivation.
+    - Obviously, if I wanted to cover the multiple-parametrizers case, I'd have to stipulate that proper use requires using `as const`, but anyway.

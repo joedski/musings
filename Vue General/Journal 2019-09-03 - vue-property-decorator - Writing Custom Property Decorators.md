@@ -89,8 +89,48 @@ So, I want to be able to declare a Class Member (A computed prop, say) as being 
 > TK: Code!
 
 ```typescript
-export const IsBusyGetter = createDecorator((componentOptions, key) => {
+export const IsBusyGetter = createDecorator((componentOptions, memberKey) => {
     componentOptions.wizardStep = componentOptions.wizardStep || {};
-    // componentOptions.wizardStep.isBusyWatch = 
+    componentOptions.wizardStep.isBusyGetter = memberKey;
 });
 ```
+
+Then the mixin itself could add some code in the `created` hook to watch whatever's in `isBusyGetter`:
+
+```typescript
+export WizardStepMixin extends Vue {
+    private created() {
+        if (this.$options.wizardStep.isBusyGetter) {
+            this.$watch(isBusyGetter, (next) => {
+                this.$wizardStep.isBusy = next;
+            });
+        }
+    }
+}
+```
+
+And so on for anything else that needs immediate setup.
+
+Things like `BeforeNextHook` will have the same thing done in the decorator, but the implementation will be different:
+
+```typescript
+export WizardStepMixin extends Vue {
+    @Inject()
+    protected get $wizardStep() {
+        const $this = this;
+
+        return {
+            next() {
+                const { beforeNextStep } = this.$options.wizardStep;
+                if (beforeNextStep && typeof this[beforeNextStep] === 'function') {
+                    this[beforeNextStep]();
+                }
+
+                this.$emit('next-step');
+            },
+        }
+    }
+}
+```
+
+Some tsignore or any-casting may have to be done.  Bleh.

@@ -134,3 +134,11 @@ export WizardStepMixin extends Vue {
 ```
 
 Some tsignore or any-casting may have to be done.  Bleh.
+
+
+
+## Other Thoughts
+
+So, basically, using Decorators on Class Members is the same as specifying Options in Component Options Objects, at least where such options don't extend the component's interface.  Woo.
+
+It's an annoying limitation, of course, that we still can't use Decorators to extend the object interface itself.  That's probably a good thing generally, but at least for Mixins it means you can't do exact-typing derived from Decorated Members, which means to be type safe you either need to parametrize the Mixin itself (Mixin Factory pattern) or duplicate logic (Delegate-Interface pattern?  Delegate-Factory pattern?  what would that even be called?).  Parametrizing the Mixin itself seems the less annoying approach, but of course it Looks Weird.

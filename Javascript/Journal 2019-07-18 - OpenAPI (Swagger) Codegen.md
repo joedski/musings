@@ -16,7 +16,7 @@ Journal 2019-07-18 - OpenAPI (Swagger) Codegen - Client Request Definitions
 Initial thoughts:
 
 - Have a script to download the swaggerdoc from any APIs we're targeting and generate code for the client:
-    - Requset Definitions
+    - Request Definitions
     - Payload Validation
     - Types of Parameters and Payloads
     - A check for if the OpenAPI doc currently being served matches the one used for codegen
@@ -65,6 +65,8 @@ The first thing I need to do is actually find out where the docs are served up f
 There's definitely [differences between Swagger 2 and Swagger 3](https://blog.readme.io/an-example-filled-guide-to-swagger-3-2/), which is good to note going forward since at least on one project I'll be using Swagger 3, but for all my work on this codegen piece I'll be using Swagger 2.
 
 Probably the biggest thing to me is how definitions are organized: In Swagger 2, they were all just plopped into top level keys like `#/definitions` (where the vast majority of things lived), `#/parameters`, and `#/responses`; whereas in Swagger 3 there are more categories, and they're all contained under the top level key `#/components`, so `#/components/responses`, `#/components/parameters`, `#/components/schemas`, etc.
+
+Although, having said that, `$ref`s have the whole path, I'm not sure the actual structure matters that much.  Just be able to resolve the paths and we're good.
 
 
 
@@ -166,3 +168,15 @@ This seems like such an obvious thing that surely someone's written something at
 Ah well.  The use case is probably too specific and limited.  Tiny one-off thingy it is, then.  That's annoying.  Yet another thing for us to maintain.
 
 Better keep it as simple as possible, then.  Maybe keep it a personal library I can reuse?
+
+
+
+## What's Generated Per Request?  What's The Target Output?
+
+- To start, I'm going to be outputting _Request Creators_, which is to say functions which create a mildly extended Axios config.
+- These Request Creators include _Validators_, which either output the validated object or throw.
+    - In this specific case, I'll be doing validators which either return the input validated as the type, or throw, because of prior decisions made possibly due to the inferrence abilities in older versions of TS.
+- These Request Creators naturally must have _Parameters_, some of which may be optional.
+- These Request Creators necessarily will have _Types and/or Interfaces_.
+    - Some of these will be defined at the point of use, the Request Creators themselves.
+    - Others, mostly those defined in `#/components/...` (or, more generally, anything which uses a `$ref`), will be placed in their own files for reuse across many files.

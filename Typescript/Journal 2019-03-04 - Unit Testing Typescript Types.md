@@ -252,3 +252,27 @@ const assignable: Assignable<T1, T2> = false;
 // no unused, ensure at least 1 assertion.
 expect(assignable).toBe(false);
 ```
+
+
+### Dealing With Unknown and Void
+
+Interesting edge case: you have to be careful around functions with return types if the return types are `void` and/or `unknown`.  The following won't cause any build errors as of TS 3.5.x:
+
+```typescript
+const f0: () => unknown = () => {};
+const f1: () => void = f0;
+const f2: typeof f0 = f1;
+```
+
+However, if you deal with a value, you do get an error:
+
+```typescript
+const a0: unknown = undefined;
+// Error: Type 'unknown' is not assignable to type 'void'.
+const a1: void = a0;
+const a2: unknown = a1;
+```
+
+My guess is that functions which return `unknown` could return `undefined`, and that if you have some interface that specifies a function that returns `void`, it means you're expected/expecting to discard the value, which leads to no incompatibility.  Or something.  Note that this doesn't stop you from actually assigning the value returned by a function that says it's returning `void`.
+
+Values themselves, however, do not allow you to assign `unknown` to `void`, because `unknown` could be something other than `void` (`undefined`).  I guess?

@@ -180,3 +180,8 @@ Better keep it as simple as possible, then.  Maybe keep it a personal library I 
 - These Request Creators necessarily will have _Types and/or Interfaces_.
     - Some of these will be defined at the point of use, the Request Creators themselves.
     - Others, mostly those defined in `#/components/...` (or, more generally, anything which uses a `$ref`), will be placed in their own files for reuse across many files.
+
+Some constraints:
+
+- To keep things simple for now, any type not defined by a `$ref` will receive an inline type or at least an interface local to the Request Creator.
+    - `$ref` types will receive their own file, since presumably they'll be defined in `#/components/...`.

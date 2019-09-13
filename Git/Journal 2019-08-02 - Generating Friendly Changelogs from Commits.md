@@ -66,3 +66,105 @@ I think that's about it, actually.  So, let's see if any prefabbed solutions fit
 > Unfortunately, Ruby sometimes has ... issues on OS X?  And I'm not entirely sure why, given it ships with the darn thing.  `rvm` messups?  Inexperience with Homebrew?  Screwing everything up because of how Homebrew works?  Hm.
 >
 > Might just have been trying to install dependencies for one specific package that gave me guff because as far as I can tell, Ruby itself seems to be working fine.
+
+
+
+## Perhaps Another Way With My Current SemiFlow Workflow?
+
+Currently, in our semi-Git-Flow methodology, which I'll just call Semiflow for now, we only deal with one mainline: `dev`.  We're not using `master` right now, though honestly we should...
+
+How about this, then:
+
+- Whatever `dev` is at when we do a release review, and it passes, we merge that to `master`.
+- To generate a release changelog, we look at the git log of `master` for merges from `dev`.
+    - Specifically, to generate the changelist for the last release, we look for the most recent `dev -> master` merge and the one before that.
+- Using that, then, the Changelog Entry for the Last Release is thus:
+    - The Version of the Changelog Entry is whatever the project version of the most recent commit to `master`.
+    - The Changes of the Changelog Entry are all Changes listed in all Merge Commits between the most recent commit in `master` to the last merge commit from `dev` to `master`.
+
+Hm, that doesn't quite work for hot fixes: That either means we have to change the existing changelog entry, which I don't like because Cool URLs Don't Change (and a hotfix must bump the version according to SemVer), or hotfixes will be folded into the next release rather than having their own thing.  Or possibly they'll be lost, if following the above methodology strictly.
+
+Okay, so maybe we just use every merge commit to `master`?  That'd be easier.
+
+
+### Methodology r1
+
+Okay, so how's about this then: Trying to make it a bit loosely defined so that there's not too much to worry about.  The only specific format should be changelog entries.
+
+Over all, then, there are two main parts to this methodology proposal:
+
+- Changelog Entry Creation:
+    - When is a Changelog Entry generated?
+    - How is the range of Commits selected?
+- Changelog Entry Definition:
+    - Where does the Version of the Changelog Entry come from?
+    - What is a valid Change item? (i.e. what text will be accepted as a Change for inclusion in the Changelog)
+    - Where do Change items come from?
+
+#### Git Workflow
+
+- Features and normal fixes merge into `dev`.
+- Releases and hotfixes merge into `master`.
+    - Releases are usually done informally, by just merging `dev` into `master`.
+- Commit messages may in their body include specially formatted lists of changes.  This should be done in the merge commits, but can be done in any commit as an allowance for dev forgetfulness.
+
+#### Changelog Entry Creation
+
+- A Changelog Entry will be generated any time `master` is merged to and the Project Version changes between the most recent merge commit and the previous merge commit to `master`.
+    - The Version of the Changelog Entry is whatever the stated Project Version is in the merge commit which triggered the Changelog Entry generation.
+    - The Changes of the Changelog Entry are every properly formatted Change in any commit message from all commits after the earlier merge commit and up to (and including) the merge commit which triggered the Changelog Entry.
+
+#### Change Item Format
+
+... Yeah.
+
+My first thought is just something very simple:
+
+- A List Item Demarcation
+- A Change Category in All Caps
+- A Change Category-Description Separator
+- A Change Description that will be formatted as is.
+    - Commonmark inline formatting is accepted.
+
+Example:
+
+```
+- FIX : DE12345 Framistam was not preframbulated
+- FEATURE: US54321 Implement true logarithmic horns
++ HOT FIX : DE23456 Super Hot
+2. NOT SO FAST: FE9999 All the things!
+```
+
+And so on.  Other acceptable List Item Demarcations would be `+`, `*`, `1.`, and possibly others.  Any that would be acceptable Commonmark list items.
+
+Other Notes:
+
+- An optional Defect or User Story ID can be added for Rally Linkage, which would be easier if Rally actually used those IDs in the URL.
+
+Tentative Regex: `/^(?:\s*[-+*]|[0-9]+\.\s+)(\b[A-Z ]+\b)(?:\s*:\s*)(.*)$/`
+
+- Non-Capturing Group: `\s*(?:[-+*]|[0-9]+\.)\s+` List Item Demarcation and obligate whitespace.
+- Capturing Group 1: `\b[A-Z ]+\b` Change Category.
+- Non-Capturing Group: `\s*:\s*` Change Category-Description Separator with optional whitespace.
+- Capturing Group 2: `.*` Change Description.
+
+The Change Description will further be matched against the following: `/^((?:US|DE|FE)[0-9]+)?\s*(.*)$/`
+
+- Optional Capturing Group 1: `(?:US|DE|FE)[0-9]+` Optional Rally Item ID.
+- Capturing Group 2: `.*` Change Description.
+
+Or we could just treat anything that looks like a Rally Item ID as linkable anywhere, if we could change that to a valid Rally URL, anyway.
+
+> Actually, you can do that in a sort of roundabout way.  See [Supplemental: Linking To Rally Items](#supplemental-linking-to-rally-items).
+
+#### Methodology r1 Rationale
+
+The point of defining with as little strictness as possible (any properly formatted list item in the _body_ of the commit message of _any_ commit is considered a valid Change item) is to make the system as Git Workflow agnostic as possible.  Further, the only Git-Flow-specific thing is that Changelog Generation occurs on merges to `master`.
+
+
+
+## <a id="supplemental-linking-to-rally-items">Supplemental: Linking To Rally Items</a>
+
+It turns out you can [use the search link in a given project to pull up the target item](https://community.broadcom.com/communities/community-home/digestviewer/viewthread?MID=771681#bm5413d401-a250-4b1c-b0c9-964064e5fd67).
+
+So for example, the link `https://rally1.rallydev.com/#/1234567890d/search?keywords=TA1234567` will redirect the user to `https://rally1.rallydev.com/#/1234567890d/detail/task/123456789012345`.  Nice!  Obviously, you have to hardcode the Rally Project ID, but that shouldn't change per-project, so it'll be fine.

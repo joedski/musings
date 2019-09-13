@@ -276,3 +276,18 @@ const a2: unknown = a1;
 My guess is that functions which return `unknown` could return `undefined`, and that if you have some interface that specifies a function that returns `void`, it means you're expected/expecting to discard the value, which leads to no incompatibility.  Or something.  Note that this doesn't stop you from actually assigning the value returned by a function that says it's returning `void`.
 
 Values themselves, however, do not allow you to assign `unknown` to `void`, because `unknown` could be something other than `void` (`undefined`).  I guess?
+
+The only way to do that assignment without actually executing anything I can think of is to just wrap such execution in a function.  Perhaps that should be the way to do all of them, then.
+
+```typescript
+// we still get the type error, but we don't need to execute the code.
+function testUnknownAndVoid() {
+    const a0: unknown = undefined;
+    // Error: Type 'unknown' is not assignable to type 'void'.
+    const a1: void = a0;
+    const a2: unknown = a1;
+}
+
+// perfunctory assertion and variable use.
+expect(testUnknownAndVoid).toBe(testUnknownAndVoid);
+```

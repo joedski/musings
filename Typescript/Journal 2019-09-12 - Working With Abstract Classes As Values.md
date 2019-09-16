@@ -61,7 +61,7 @@ acceptsExtendsBase2(NotExtendedFromBase);
 We can also intersect with `Function` for good measure, as in [this answer](https://stackoverflow.com/a/38642922):
 
 ```
-type Constructor<T> = Function & { prototype: T };
+type AutoConstructor<T> = Function & { prototype: T };
 ```
 
 

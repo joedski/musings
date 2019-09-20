@@ -201,6 +201,77 @@ export function readFieldRulesResults<
 I guess it wasn't constrained enough, before.  Good to know.
 
 
+### Initial Values
+
+I should define what the initial values for anything should be, since obviously before a form is initialized there's nothing really to read.
+
+This is representative of what the initial values should be, but not how it'll actually be dealt with.
+
+```js
+const initialFormState = formConfig => ({
+    config: formConfig,
+    state: {
+        isBusy: false,
+        isSubmitting: false,
+    },
+    fields: mapValues(formConfig, initialFieldState),
+});
+
+const initialFieldState = fieldConfig => ({
+    value: typeof fieldConfig.initial === 'function'
+        ? fieldConfig.initial()
+        : fieldConfig.initial,
+    isBusy: false,
+    manualErrorMessages: [],
+});
+```
+
+Derived state can then be derived from those.  I guess `rulesErrorMessages` then should be created based on the initial value rather than just an empty array.  I'll do that, then.
+
+
+### Async Validation Rules
+
+I think that this sort of thing is likely to remain noisy, since we're probably gonna be dealing with different requests.  Here's the test one:
+
+```typescript
+const testRequestFactory = createRequestConfigFactory({
+  baseURL: 'http://127.0.0.1/test',
+});
+
+export default interface IValidationResponse {
+  messages: Array<{ text: string }>;
+  status: 'PASS' | 'FAIL';
+}
+
+const postValidateName = (params: { body: { name: string } }) =>
+  testRequestFactory.post('/validation/name', {
+    data: params.body,
+    validate: (v: unknown) => assumeType<IValidationResponse>(v),
+  });
+
+const namePassesValidation = rules.passesValidationRequest(
+  (v: string) => postValidateName({ body: { name: v } }),
+  (data: AsyncData<IValidationResponse, Error>) => {
+    if (data.tag === 'Error') {
+      return data
+        .mapError(error => `Error while validating: ${error.message}`)
+        .getErrorOr('Unknown error while validating');
+    }
+
+    return data
+      .map(d =>
+        d.status === 'PASS'
+          ? true
+          : d.messages.map(m => m.text).join('; ')
+      )
+      .getDataOr(true);
+  }
+);
+```
+
+Of course, if everything returns something that looks like IValidationResponse there, then we could just extract that into a common function.
+
+
 ### Debouncing Async Validation
 
 While async validation is usually pretty quick, it's better to wait for a hot second before actually sending out a validation request as it reduces server load by quite a bit.

@@ -272,8 +272,18 @@ const namePassesValidation = rules.passesValidationRequest(
 Of course, if everything returns something that looks like IValidationResponse there, then we could just extract that into a common function.
 
 
-### Debouncing Async Validation
+### Form State: Is Submitting: Maybe AsyncData Instead?
+
+This seems like another natural place for AsyncData to be used: Form Submission is an async process, and anywhere where we have an async process, we can represent the current state as AsyncData.
+
+This would actually make it more uniform, since Fields use AsyncData via the Requests Module to determine if they're currently validating or not.
+
+
+
+## Debouncing Async Validation
 
 While async validation is usually pretty quick, it's better to wait for a hot second before actually sending out a validation request as it reduces server load by quite a bit.
 
 How to implement it without local validation wrappers?  Something in Requests? (please no)  Create local validation wrappers in the store? (... maybe)  Hm.
+
+Given that AsyncValidation already has special handling, maybe I'll just add a `debounce` parameter to it.  Heh.  Then, creating the actually-debounced functions can just be another part of initialization.

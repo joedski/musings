@@ -286,4 +286,11 @@ While async validation is usually pretty quick, it's better to wait for a hot se
 
 How to implement it without local validation wrappers?  Something in Requests? (please no)  Create local validation wrappers in the store? (... maybe)  Hm.
 
-Given that AsyncValidation already has special handling, maybe I'll just add a `debounce` parameter to it.  Heh.  Then, creating the actually-debounced functions can just be another part of initialization.
+Given that AsyncValidation already has special handling, maybe I'll just add a `debounce` parameter to it.  Heh.  Then, creating the actually-debounced functions can just be another part of initialization.  All they have to do is debounce dispatching the validate request action.
+
+
+### Another Module?
+
+I suppose if I wanted to get _fancy_ I could create a Debounce Module.  While an initial implementation could be rather simple, I imagine it'd be more comprehensive to just port [lodash's debounce](https://github.com/lodash/lodash/blob/master/debounce.js) to a Vuex module.  Heck, all the state and options-reification is declared right at the top.  I guess the question is, is it really worth pulling out the code versus just using it as a debounce-dispatch-manager?
+
+Since Vue's imperative, there's no reason you couldn't actually create the debounce before hand and just invoke it later, which is what would happen in this case of Async Validation.  Of course, since a Vuex module would require keying such things, there's no reason it couldn't be created lazily...  Either way.

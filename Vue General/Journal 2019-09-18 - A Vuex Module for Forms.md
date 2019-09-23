@@ -156,6 +156,8 @@ interface DerivedFormFieldState {
 
 The best part is, because Async Validations are implemented in terms of AsyncData and a separate Requests Module, I don't even have to track that state here.  Hah hah, I love derived data.
 
+As a general note: I ultimately decided to define a reader function for each property, on the basis that it can handle default-value return better like that.  Also it's a lot easier than preemptively combining them all into some sorta class thingermadoo.
+
 
 ### Error: Type 'TFieldKey' cannot be used to index type...
 
@@ -184,12 +186,11 @@ Constraining the TFields type param of `FormConfig<TFields>` seems to work, thou
 ```typescript
 export function readFieldRulesResults<
   TFields extends AnyFormFields,
-  TFormConfig extends FormConfig<TFields>,
-  TFieldKey extends keyof TFormConfig['fields']
+  TFieldKey extends keyof FormConfig<TFields>['fields']
 >(
   storeLike: FormsModuleStoreLike,
   params: {
-    form: TFormConfig;
+    form: FormConfig<TFields>;
     field: TFieldKey;
   }
 ): FormFieldValidatorResult[] {
@@ -294,3 +295,21 @@ Given that AsyncValidation already has special handling, maybe I'll just add a `
 I suppose if I wanted to get _fancy_ I could create a Debounce Module.  While an initial implementation could be rather simple, I imagine it'd be more comprehensive to just port [lodash's debounce](https://github.com/lodash/lodash/blob/master/debounce.js) to a Vuex module.  Heck, all the state and options-reification is declared right at the top.  I guess the question is, is it really worth pulling out the code versus just using it as a debounce-dispatch-manager?
 
 Since Vue's imperative, there's no reason you couldn't actually create the debounce before hand and just invoke it later, which is what would happen in this case of Async Validation.  Of course, since a Vuex module would require keying such things, there's no reason it couldn't be created lazily...  Either way.
+
+
+
+## Actions
+
+So now that the mutations are written and tested, admittedly perhaps the tests are a bit overwrought, but it did raise a number of type issues that I've fixed, especially with the type parametrization around `TFieldKey`.
+
+Now, though, on to the meat: The Actions.  Here we get to the fun things because we get to take into account things like Async Validation Debouncing and such, as well as defining behavior around what happens if you dispatch `initializeForm` multiple times on the same form.  Also only conditionally committing mutations, all that good actiony stuff.
+
+
+### Actions: Initialize Form
+
+The first meaty one, here we have to do the following:
+
+- Conditionally commit `INITIALIZE_FORM`.
+- ... Dunno.  That might be it.
+
+I think Debounce Initialization will be best handled lazily so that I don't have to evaluate the rules immediately.  Rather, just do them on the next time the value changes.

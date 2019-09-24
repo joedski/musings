@@ -310,6 +310,44 @@ Now, though, on to the meat: The Actions.  Here we get to the fun things because
 The first meaty one, here we have to do the following:
 
 - Conditionally commit `INITIALIZE_FORM`.
+- Reset field values?
 - ... Dunno.  That might be it.
 
-I think Debounce Initialization will be best handled lazily so that I don't have to evaluate the rules immediately.  Rather, just do them on the next time the value changes.
+I think Debounce Initialization will be best handled lazily so that I don't have to evaluate the rules immediately.  Rather, just do them on the next time the value changes.  Though, thinking about it, something will be evaluating those rules anyway, so ... eh.
+
+In that case, maybe do it eagerly just to save some lazy logic later.
+
+That still leaves the question of what multiple dispatches of `initializeForm` should do.  I'd rather not leave that undefined, but I can't think of what the most reasonable default would be:
+
+- Do nothing?
+- Reset field values?
+  - UPDATE: Going with this, see below.
+
+I'm leaning towards doing nothing and having a separate action reset field values: it's less ambiguous what happens, and makes multiple dispatches of `initializeForm` do nothing after the first one.  But what _is_ the expected behavior?  To put the form into a pristine state?  Does doing nothing violate expectations?
+
+Since I compare things to Redux Form, what's that do on initialization?
+
+- In the form config, they have an option `keepDirtyOnReinitialize: boolean` which defaults to false, meaning initialization by default resets the form.
+
+Without peeking at the source, I can't really see more than that.  So given that, I'll go that way then: dispatching `initializeForm` multiple times resets the form state in the state each time.
+
+
+### Aside: Managing Debounces
+
+As noted, for now I'm literally just storing references to functions created with `lodash.debounce` because it's there and comprehensive.  The question is how to interact with that?
+
+- I could create a separate controller, and just use that.
+- I could create a Vuex module, and use that.
+- I could just manage them on the Form state.
+
+The Vuex module one sounds heavy, and I'm not certain it's entirely necessary.  Dunno.  I mean, either one will have to have defined operations, so and it's not like the debounces themselves are actually used for rendering, so regardless of how the state is stored there's no real difference on redraws.
+
+The Form State option is sort of between the two: it's in Vuex, but not a separate module.  That might make it trivial to lift out, but if we do that, why not just make it one in the first place?  Hum.
+
+There's just 3 different operations:
+
+- Create Debounce (Id, Fn, Timeout, Options)
+- Call Debounce (Id, Arguments)
+- Destroy Debounce (Id)
+
+> I wonder if destroy should guarantee that something won't be called?  Hm.  Not something I think I'll worry about for now, but something that should be considered.

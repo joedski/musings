@@ -366,3 +366,32 @@ What would it take to use the minimal controller on a Component?
 - Create Debounces for each Debounced Method.
 
 Would that actually be useful?  Do we even care?  Honestly, on the Component level, I'd probably just create a Debounce Decorator that debounces the individual decorated method during component creation.  So, really I guess this question is irrelevant.
+
+#### Slight Wrinkle: Async Validation Still Needs to Read As Pending Even Before Call
+
+One slight issue I forgot about on first implementation: a Field needs to read as `isValidating === true` even before the debounced call is made.  Currently, however, there's no reactive way to do that.
+
+I can think of a couple ways to do it:
+
+- Make my Debounce Controller's state reactive, and add `isPending` to that.
+  - Keeps things separable.  You can use Vue Components without actually rendering anything, only using Vue's reactivity system.  That's actually a first class thing in the Composition API.
+- Preemptively set the given request's data to `AsyncData.Waiting`.
+  - This can be done, but is actually the worst option.  It's not an exposed thing, and we shouldn't do it.  `AsyncData` may be generic, but the Requests module is not.
+- Track the extra `isAnyAsyncValidationPending` state in Form Field State.
+  - This seems like the smallest amount of work, and doesn't require changing the Debounce Controller.
+
+Now, I say that that seems like the smallest amount of work, but is it?
+
+Here's the thing: I'd like to keep all the gory details of the debounce stuff out of the Forms Module, if possible.  I suppose a question then is, is it really that difficult to reactify the Debounce Controller?
+
+What all needs to be reactified?  Just its State.
+
+Does anything outside it ever access its State directly?  No, its State is scoped Protected, as its State is meant to be an implementation detail.
+
+Why not just do `state = new Vue({ data() { return { debounces: {} }; } })` and change the internal accesses to it?
+
+I guess the only change, then, is that `isPending` needs to be explicitly documented as reactive.  That was easier than I thought.
+
+#### On Async Validation: Just Have Something Watch?
+
+Theoretically, given that reactive things can Watch other reactive things, could async validation have been implemented using an entirely separate thing?  That is, could it have just been given the form state and watched for any updates matching `forms[string].fields[string].value`... though having some form of registration explicitly for field updates in the Forms module would make things considerably easier.

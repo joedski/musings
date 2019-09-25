@@ -339,10 +339,14 @@ As noted, for now I'm literally just storing references to functions created wit
 - I could create a separate controller, and just use that.
 - I could create a Vuex module, and use that.
 - I could just manage them on the Form state.
+  - I could manage them as a separate module-state slice.
+  - I could just store them as more each-form state, or even each-field state.
 
 The Vuex module one sounds heavy, and I'm not certain it's entirely necessary.  Dunno.  I mean, either one will have to have defined operations, so and it's not like the debounces themselves are actually used for rendering, so regardless of how the state is stored there's no real difference on redraws.
 
 The Form State option is sort of between the two: it's in Vuex, but not a separate module.  That might make it trivial to lift out, but if we do that, why not just make it one in the first place?  Hum.
+
+One thing I think I'll avoid, though, is interleaving management of those with the fields themselves.  It's orthogonal, so not something that should be a part of the fields state.
 
 There's just 3 different operations:
 
@@ -351,3 +355,14 @@ There's just 3 different operations:
 - Destroy Debounce (Id)
 
 > I wonder if destroy should guarantee that something won't be called?  Hm.  Not something I think I'll worry about for now, but something that should be considered.
+
+For the current project, I decided to implement a minimal separate controller.  I defined the various specific behaviors based on what I needed right now, while still leaving most of it as open to parametrization as I could without going too far off course.  We'll see if it's correct or not, I guess, but it's basically what I would've written specifically for the Forms module just it allows you to pass in any function.
+
+#### Gut Check: Does This Work for Components, Too?
+
+What would it take to use the minimal controller on a Component?
+
+- Create a Controller for the Component.
+- Create Debounces for each Debounced Method.
+
+Would that actually be useful?  Do we even care?  Honestly, on the Component level, I'd probably just create a Debounce Decorator that debounces the individual decorated method during component creation.  So, really I guess this question is irrelevant.

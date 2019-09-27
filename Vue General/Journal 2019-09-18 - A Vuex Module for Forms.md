@@ -394,4 +394,6 @@ I guess the only change, then, is that `isPending` needs to be explicitly docume
 
 #### On Async Validation: Just Have Something Watch?
 
+> Actually, use a plugin system or something.  Hooks, rather than Watches.  Tricky part would be setting up types.  Lotta type params.  Bluh.
+
 Theoretically, given that reactive things can Watch other reactive things, could async validation have been implemented using an entirely separate thing?  That is, could it have just been given the form state and watched for any updates matching `forms[string].fields[string].value`... though having some form of registration explicitly for field updates in the Forms module would make things considerably easier.

@@ -146,31 +146,37 @@ The control flow has to be flipped upside down since now the Lower Bound is f0(i
 
 ### A Better Way to Write It?
 
-- Initial State:
-    - Farbound: OCR2A Bound derived from near-f0.
-        - Here, Farbound is greater, since near-f0 is lower.
-    - Nearbound: OCR2A Bound derived from far-from-f0.
-        - Here, Nearbound is lesser, since far-from-f0 is higher.
-    - Far = Farbound
-    - Near = Nearbound
-    - Try = Farbound
-        - Start at the most sensitive to detect if anything at all is in range.
+- Init:
+    - Near = (OCR2A of Off-Center Frequency)
+    - Far = (OCR2A of On-Center Frequency)
+    - Try = Far
     - Count = 8
-- Initial Reading:
-    - Take a reading.  Received?
-        - Yes: Continue to Main Loop.
-        - No: Return "No Reading".
-- Main Loop: While Count > 0
+- Test Pulse: Should Try?
+    - Pulse.  Did detect?
+        - Yes: Continue to Range Iteration.
+        - No: Go to Test Pulse.
+- Range Iteration:
     - Update State:
-        - Try = Nearbound + (Farbound - Nearbound) / 2
-            - NOTE: This, if Farbound > Nearbound.  Otherwise, exchange their places in the above equation.  Technically, they're equivalent if using signed math, but unsigned math may cause issues.
-        - Count -= 1
-    - Take a reading.  Received?
-        - Yes: Range closer:
-            - Far = Try
-        - No: Range farther:
-            - Near = Try
-- Result:
-    - Try = Nearbound + (Farbound - Nearbound) / 2
-    - Result = 100 - (Try - Nearbound) * 100 / (Farbound - Nearbound)
-        - NOTE: This, if Farbound > Nearbound.  Otherwise, remove the "100 -" part at the front.  This wouldn't be necessary if using signed math, but with unsigned math the results may get funky.
+        - Try = (Midpoint between Near and Far)
+        - Count = Count - 1
+    - Pulse.  Did detect?
+        - Yes: Far = Try (Move Try closer to Near (Off-Center))
+        - No: Near = Try (Move Try closer to Far (On-Center))
+    - Check: Is Count == 0?
+        - Yes: Continue to Results.
+        - No: Go to next Range Iteration.
+- Results:
+    - Try = (Midpoint between Near and Far)
+    - Out = (Normalization to 0-100 of Try on the absolute-value range of Init Near to Init Far, with 0 being closer to Init Far and 100 being closer to Init Near)
+
+Other Notes:
+
+- The only switching depends on if Far > Near or <.  Otherwise, the rest of the logic should be fine.
+    - Only places that need to switch:
+        - Midpoint, to keep all the math positive:
+            - Midpoint = Near > Far ? (Near - Far) / 2 + Far : (Far - Near) / 2 + Near
+        - Normalization, to keep all the math positive.
+            - Original: Normalization = (Try - Init Far) * 100 / (Init Near - Init Far)
+            - Normalization = ((Init Near > Init Far ? (Try - Init Far) : (Init Far - Try)) * 100) / (Init Near > Init Far ? Init Near - Init Far : Init Far - Init Near)
+            - 0 means Try was at Init Far, meaning pulses had to stay at the center frequency in order to pick anything up.
+            - 100 means Try was at Init Near, meaning pulses could stray to the most-off-center frequency specified.

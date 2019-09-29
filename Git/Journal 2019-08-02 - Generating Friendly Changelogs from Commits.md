@@ -168,3 +168,9 @@ The point of defining with as little strictness as possible (any properly format
 It turns out you can [use the search link in a given project to pull up the target item](https://community.broadcom.com/communities/community-home/digestviewer/viewthread?MID=771681#bm5413d401-a250-4b1c-b0c9-964064e5fd67).
 
 So for example, the link `https://rally1.rallydev.com/#/1234567890d/search?keywords=TA1234567` will redirect the user to `https://rally1.rallydev.com/#/1234567890d/detail/task/123456789012345`.  Nice!  Obviously, you have to hardcode the Rally Project ID, but that shouldn't change per-project, so it'll be fine.
+
+
+
+## As Far As Changelogs Generally
+
+Here's a general intent thing.  Maybe just [maintaining a `CHANGELOG` (possibly `.md`)](https://keepachangelog.com/en/1.0.0/) itself is fine, then.  It's a plain file, easy to edit, and other things can be generated from that.  Provides a nice opinion to use for format, and editing that itself doesn't require parsing git logs.  Win win.

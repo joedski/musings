@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>How To Write Vue Mixins That Don't Make You Hate Everything</title>
+
+  <link rel="stylesheet" href="./css/reveal.css">
+  <link rel="stylesheet" href="./css/moon.css">
+  <link rel="stylesheet" href="./css/gruvbox-dark.css">
+  <script src="js/plugin/markdown/marked.js"></script>
+  <script src="js/reveal.js"></script>
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+      <section
+        data-markdown="0-intro.md"
+      ></section>
+    </div>
+  </div>
+
+  <script>
+    Reveal.initialize({
+      dependencies: [
+        {
+          src: 'js/plugin/markdown/markdown.js',
+          async: true,
+        },
+        {
+          src: 'js/plugin/highlight/highlight.js',
+          async: true,
+          callback() {
+            hljs.initHighlightingOnLoad();
+          },
+        },
+        {
+          src: 'js/plugin/notes/notes.js',
+          async: true,
+        },
+      ],
+    });
+  </script>
+</body>
+</html>

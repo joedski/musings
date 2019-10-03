@@ -291,3 +291,131 @@ function testUnknownAndVoid() {
 // perfunctory assertion and variable use.
 expect(testUnknownAndVoid).toBe(testUnknownAndVoid);
 ```
+
+
+
+## Further Explorations on Type Assignability Testing
+
+As shown above, types can sometimes get a bit hairy with things like `void` and function return types.  I think what I might need to do is to more systematically try different places for assignability, as well as read through the Typescript docs again just to refresh things.
+
+Places to try:
+
+- Variable Types (let, const, var)
+- Function Parameter Types
+- Function Return Types
+- Interface Member Types: Values, Methods
+- Class Member Types: Values, Methods
+
+```typescript
+let v0: unknown = 'a';
+// Type 'unknown' is not assignable to type 'void'.
+const v1: void = v0;
+v0 = v1;
+
+let fp0: (a: unknown) => void = (a) => { console.log(a); };
+const fp1: (a: void) => void = fp0;
+// Type '(a: void) => void' is not assignable to type '(a: unknown) => void'.
+//   Types of parameters 'a' and 'a' are incompatible.
+//     Type 'unknown' is not assignable to type 'void'.
+fp0 = fp1;
+
+// ... no type errors.
+let fr0: () => unknown = () => Math.random();
+const fr1: () => void = fr0;
+fr0 = fr1;
+```
+
+
+### Objects and Optional Properties
+
+There's also the wrinkle on objects/object-interfaces/classes that optional props don't matter between different types as long as the non-optional ones match:
+
+```typescript
+let part0: { a: string, b?: number } = { a: 'string' } as { a: string, b?: number };
+const part1: { a: string, c?: number } = part0;
+part0 = part1;
+```
+
+That's just due to how TS handles assignability of objects.  Not sure how to get around that without modifying types.
+
+Closest I can think of is to take the type you expect and do some type mapping with the one you receive.  Something like: any properties that don't show up in both, mark never?  That should elicit a type error... somewhere.
+
+```typescript
+let part0: { a: string, b?: number } = { a: 'string' } as { a: string, b?: number };
+// Type '{ a: string; b?: number | undefined; }' is not assignable to type '{ a: string; b?: undefined; c?: number | undefined; }'.
+//   Types of property 'b' are incompatible.
+//     Type 'number | undefined' is not assignable to type 'undefined'.
+//       Type 'number' is not assignable to type 'undefined'.
+const part1: { a: string, b?: never, c?: number } = part0;
+part0 = part1;
+```
+
+Okay, so from that we'd want to do something like this:
+
+```typescript
+type PartReceived = { a: string, b?: number };
+type PartExpected = { a: string, c?: number };
+type PartExpectedTest = { a: string, b?: never, c?: number };
+```
+
+We can do this, I think, by intersecting our `PartExpected` with some type that has any keys in `PartReceived` not in `PartExpected` changed to have the value-type `never`:
+
+```typescript
+type StrictObjectExpectation<TExpected extends object, TReceived extends object> =
+    TExpected & DisallowKeysNotIn<TReceived, TExpected>;
+
+type DisallowKeysNotIn<TSource, TForbidden> = {
+    [K in Exclude<keyof TSource, keyof TForbidden>]: never;
+};
+```
+
+A first test seems to show the desired behavior:
+
+```typescript
+interface AB {
+    a: string;
+    b?: number;
+}
+
+interface AC {
+    a: string;
+    c?: number;
+}
+
+// Here however we now get an error.
+let strictA0: AB = { a: 'foo', b: 5 } as AB;
+// Type 'AB' is not assignable to type 'StrictObjectExpectation<AC, AB>'.
+//   Type 'AB' is not assignable to type 'DisallowKeysOfTypeNotIn<AB, AC>'.
+//     Types of property 'b' are incompatible.
+//       Type 'number | undefined' is not assignable to type 'never'.
+//         Type 'undefined' is not assignable to type 'never'.
+const strictA1: StrictObjectExpectation<AC, AB> = strictA0;
+strictA0 = strictA1;
+```
+
+That would seem to work, but doesn't quite:
+
+```typescript
+// We can't even assign a correct value, though:
+// Type '{ a: string; c: number; }' is not assignable to type 'StrictObjectExpectation<AC, AB>'.
+//   Property 'b' is missing in type '{ a: string; c: number; }' but required in type 'DisallowKeysOfTypeNotIn<AB, AC>'.
+const strictAC: StrictObjectExpectation<AC, AB> = { a: 'foo', c: 42 };
+// We can however assign if a type has all the same keys:
+const strictAcAc: StrictObjectExpectation<AC, AC> = { a: 'foo', c: 42 };```
+
+So maybe that's actually fine?  Because if the type matched the intended one, then it'd work fine as there would be no properties with type `never`, since that means you've got a mismatch.  So yes, that's actually in line with intended behavior.
+
+This could only be used, of course, if you expect a type to exactly match, property for property, or rather here if you expect a type to have exactly the same keys.  Which is fine, since keys that they do share will already run afoul of property-wise assignability, with things like `Type 'number | undefined' is not assignable to type 'boolean | undefined'`, etc.
+
+```typescript
+interface AB2 {
+    a: string;
+    b?: boolean;
+}
+
+let aa0: AB = { a: 'foo', b: 2 };
+// error here!
+const aa1: AB2 = aa0;
+// ... and here!
+aa1 = aa0;
+```

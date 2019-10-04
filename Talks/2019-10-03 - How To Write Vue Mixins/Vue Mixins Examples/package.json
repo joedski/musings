@@ -1,0 +1,24 @@
+{
+  "name": "vue-mixins-examples",
+  "version": "0.0.0",
+  "description": "Examples of Vue Mixin Patterns",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "vue",
+    "mixins",
+    "patterns",
+    "examples"
+  ],
+  "author": "Joseph Sikorski <joedski@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "vue": "2.6.10",
+    "vue-property-decorator": "8.2.2"
+  },
+  "devDependencies": {
+    "typescript": "3.6.3"
+  }
+}

@@ -29,7 +29,7 @@ Thoughts:
 - The TSOP38238 and its ilk are made to work with very faint signals, so it's entirely possible it's seeing reflected light that's bouncing off the ceiling and walls and whatever else, on to whatever else still, which is why only blocking effectively the entire forward angular range with whatever obstruction I can is able to cause non-detections.
     - So, maybe try just blasting out less light?
 - Need to take another look at it when I'm more awake, make sure it actually is doing what I want it to do.
-- Also need to make sure the output value actually makes sense.
+- Also need to make sure the output value actually makes sense.  Wouldn't be the first time I munged menial math.
 
 
 ```

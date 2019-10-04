@@ -1,6 +1,8 @@
 Daggy in Typescript - Is It Possible?
 =====================================
 
+> Need to revisit because TS 3.5+ is waaaay more capable than the version I had originally tried this is.
+
 Possible to generalize, sorta, anyway.
 
 [daggy](https://github.com/fantasyland/daggy) is neat, but doesn't care about types.  Typescript is strictly typed, and doesn't jive quite yet with how dynamically daggy works.
@@ -464,3 +466,141 @@ const t2: T1 = ['zip', 1, 'zop'];
 However, there's a slight problem in that, for the Daggy case, we really need each thing to extend string.  With mapped types, we can now do that.
 
 > TODO: setup a small TS project to test this out with TS3.1 RC.
+
+
+
+## TS 3.5, Bigger and Badder
+
+But Badder in the Gooder sense, see?
+
+So, how's bout this?
+
+I'm going to focus on just `daggy.taggedSum` because `daggy.tagged` isn't as complicated.  Probably.  Maybe.  We'll see.
+
+Again, we start with the basic usage of Daggy:
+
+```js
+const Result = daggy.taggedSum('Result', {
+  Success: ['items'],
+  Failure: ['error'],
+});
+
+const successCase = Result.Success([1, 2, 3]);
+const failureCase = Result.Failure('There was a problem.');
+
+console.log(successCase.items);
+// => [1, 2, 3]
+
+console.log(failureCase.items);
+// => undefined
+
+console.log(failureCase.error);
+// => 'There was a problem.'
+
+function handleResult(result) {
+  result.cata({
+    Success: message => console.log(message),
+    Failure: error => console.error(error)
+  });
+}
+```
+
+Pretty much as expected.
+
+So in order of priority, then:
+
+- Tag Constructors.
+- Type hinting for Cata argument's shape.
+- Tags' Properties' Types.
+- Values' Property Names.
+
+
+### Whack 0: Proper Properties
+
+Here's what seems to be a reasonable start:
+
+```typescript
+declare namespace daggy {
+    type AnyTagDefs = Record<string, AnyTagDef>;
+    // Since we pretty much need `as const` I'm not sure what else
+    // to do here.  Could do `Readonly<[] | [string] | [string, string] | ...>
+    // But that's arguably even worse.
+    type AnyTagDef = Readonly<string[]>;
+
+    type TaggedSum<TSum extends string, TTagDefs extends AnyTagDefs> = {
+        // Why do I need to Extract<..., string>?  AnyTagDefs should already say { [x: string]: ... }.
+        [TTagName in Extract<keyof TTagDefs, string>]: TaggedSumTagConstructorOrConst<TSum, TTagName, TTagDefs[TTagName]>;
+    };
+
+    /**
+     * Support Daggy's inbuilt optimization of generating const values
+     * for tags with no arguments.
+     */
+    type TaggedSumTagConstructorOrConst<
+        TSum extends string,
+        TTagName extends string,
+        TTagDef extends AnyTagDef
+        > = TTagDef extends readonly [] ? TaggedSumTagConst<TSum, TTagName> : TaggedSumTagConstructor<TSum, TTagName, TTagDef>;
+
+    type TaggedSumTagConst<TSum extends string, TTagName extends string> = TaggedSumValue<TSum, TTagName, []>;
+
+    type TaggedSumTagConstructor<
+        TSum extends string,
+        TTagName extends string,
+        TTagDef extends AnyTagDef
+    > = (...args: ArgsOfTagDef<TTagDef>) => TaggedSumValue<TSum, TTagName, TTagDef>;
+
+    // ?
+    type ArgsOfTagDef<TTagDef> = TTagDef extends AnyTagDef ? { [I in keyof TTagDef]: any } : never;
+
+    interface TaggedSumValue<
+        TSum extends string,
+        TTagName extends string,
+        TTagDef extends AnyTagDef
+    > extends TaggedSumValueProps<TTagDef> {
+        '@@type': TSum,
+        '@@tag': TTagName,
+    }
+
+    type TaggedSumValueProps<TTagDef extends AnyTagDef> = {
+        [TPropName in AnyTagDef[number]]: any;
+    }
+
+    function taggedSum<
+        TSum extends string,
+        TTagDefs extends AnyTagDefs
+    >(sum: TSum, tagDefs: TTagDefs): TaggedSum<TSum, TTagDefs>;
+}
+
+// Apparently there's already an Option type of some sort.  Probably Option<T> = T | null or similar.
+// Have to use `as const` to get the strings to be string-literal types.
+const MyOption = daggy.taggedSum('MyOption', {
+    Some: ['value'],
+    None: [],
+} as const);
+
+// daggy.TaggedSumValue<"MyOption", "Some", ...>
+const mo0 = MyOption.Some('yep');
+mo0['@@tag']; // "Some"
+mo0['@@type']; // "MyOption"
+mo0.value; // `any`, rather than a type error
+
+// daggy.TaggedSumValue<"MyOption", "None", ...>
+const mo1 = MyOption.None;
+```
+
+
+### Thoughts on Property Types
+
+So that's actually pretty good.  Could I get better type info, though?
+
+First thought: Maybe I could do some sort of tuple thing?  [It's not actually too hard to go from a tuple type to an object](./Journal%202019-10-04%20-%20Playing%20With%20Tuples%20-%20Mapping%2C%20Transforming%2C%20Keys%2C%20etc.md#pairs-tuple-to-object-simplest-form), at least not nowadays.
+
+Another thought: Do I really need to use the original constructor?  I could just create a wrapper that itself has better typing and returns a more strictly typed version while just calling the underlying Daggy code.
+
+
+### Wrapping the Definer
+
+This is probably easier, I think, since it means I can wrap the interface to suit.  There'll still be the question of adding methods, but hey, it's a start.
+
+The current constructor lacks one thing: the type for each property.  Thing is, we still need to provide that property name in value land to ensure we can actually pass it down.  We also need some way to allow deferring specification of type parameters, a tricky proposition.

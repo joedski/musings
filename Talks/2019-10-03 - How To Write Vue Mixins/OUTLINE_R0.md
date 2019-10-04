@@ -22,6 +22,7 @@ Or, whoops, that's not stable yet.
     - Create them either at instantiation time or in a lifecycle hook.
     - Do any clean up if necessary.
 - For some things, maybe even just using a Component with a Scoped Default Slot will do: `<foo-bar :prop="some.value" v-slot="{ foo, bar }">...</foo-bar>`.
+- If you need shared state and don't want to involve a bunch of prop/event wiring, consider a Vuex module over a mixin.
 
 
 ### If You Have To, Then Make a Controller
@@ -57,14 +58,17 @@ All of your actual implementation is in a Controller, so this is just binding.
 
 ### Other Tips
 
-- None of this advice is specific to Typescript projects, and is arguably more important in non-Typescript projects where you can't get as much help from tooling.
+- Most of this advice is not specific to Typescript projects, and is arguably more important in non-Typescript projects where you can't get as much help from tooling.
 - Mixins by definition extend the interface of your component.
     - The less obvious the sources of things, the more of a headache it is later.
     - By exposing all your mixin's functionality through a single controller you give devs using the mixin a clear indication where the added functionality is coming from.
     - Same for naming any added components similarly to the mixin.
 - Add as few Props as possible with a Mixin.
-    - Again: extend the component's interface as little as possible.
+    - Again: extend the component's interface as little as possible.  If you have to, make it explicit where it's coming from.
     - More extensions means more cognitive burden.
+    - Some options to mitigate:
+        - Consider have the Component using the Mixin tell the Mixin what Prop to use via configuration.
+        - Consider prefixing mixin-specific prop names with the mixin's own name.
 - If you need exact typing based on config in Typescript for your Controller, use a Parametric Mixin.
     - `class Foo extends Mixins(FancyMixin({ ... })) { ... }`
 

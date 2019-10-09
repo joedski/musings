@@ -11,7 +11,7 @@ Featuring `vue-class-components`, `vue-property-decorator`, and Typescript.
 
 ### ~~Use Composition API, Instead~~
 
-Or, whoops, that's not stable yet.
+Er, whoops, that's not stable yet.
 
 :(
 
@@ -32,8 +32,12 @@ Prefer Composition:
 - A Vuex Module
     - This can be a useful way to do things, especially if you need shared state.
     - More work than a Utility Class.
+- Always specify Prpos and import Components.
+    - Noisy, but obvious.  Obvious is good.
 
 #### Example: Components With Scoped Default Slots
+
+The modern `v-slot` syntax is awesome.
 
 ```html
 <my-counter :increment-by="2" v-slot="{ count, increment }">
@@ -64,6 +68,9 @@ Prefer Composition:
         - A separate controller can be easier to test, though the benefit vs testing the whole mixin is marginal since you still need to pass a Component Instance in.
             - Unit testing Vue Components, and therefore Mixins, is always going to be pretty annoying regardless of how you slice it.  A separate controller helps you organize things, though.
             - On top of that, some of the things you might need to test are Reactivity type things, which require playing ball with Vue anyway.
+        - Obvious when using a `$ref` to the component that has that controller on it.
+            - Namespacing strikes again!  Instead of having to worry about `$ref.someRandomMethod`, you now have `$ref.$stepper.someRandomMethod` or whatever.
+            - Again, this reiterates what owns what behavior: That method is part of a well defined module of behavior, not some one-off.  (probably)
 
 - Write the Mixin Definition Separately.
     - Handles defining Props.
@@ -77,15 +84,16 @@ Prefer Composition:
 
 - Prefix Component Names with Mixin Name.
     - Again, make it obvious that any added components are added by the Mixin.
+        - Components are visible only if you look at the mixin, they're not visible in the source code of the component using that mixin.  Thus, you should prefix any components added by a mixin to make it less non-obvious that a given component comes from that mixin.
+        - Again: Redundancy at the point of use to help the next person.
     - Example:
         - `WizardMixin` might add `<wizard-container>`, `<wizard-content>`, etc.
     - Benefit: Reiterate: It's obvious where things are coming from.
 
 - Prefix Mixin-Specific Props and Events with the Mixin Name.
     - Adding Props with a Mixin is the absolute worst.  Prefix these with the Mixin's Name, too.
-        - 
     - Example:
-        - `WizardMixin` might have a prop `wizard:show` (yes you can use colons in prop names) and might `$emit('wizard:success')`.
+        - `WizardMixin` might have a prop `wizard-show` and might `$emit('wizard:success')`.
     - Benefit: Reiterate: It's obvious where things are coming from.
 
 ---

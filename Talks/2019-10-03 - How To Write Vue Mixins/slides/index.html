@@ -13,9 +13,157 @@
 <body>
   <div class="reveal">
     <div class="slides">
-      <section
-        data-markdown="0-intro.md"
-      ></section>
+      <section data-markdown>
+        <script type="text/template">
+          # Writing Vue Mixins
+
+          ## That Don't Make You Hate Everything
+
+          An opinionated rant featuring `vue-class-components`, `vue-property-decorator`, and Typescript, but which is
+          just as applicable in plain Vue
+        </script>
+      </section>
+
+      <section data-markdown>
+        <script type="text/template">
+          ## ~~Use The Composition API~~
+
+          Er, whoops, that's not stable yet...
+          <!-- .element: class="fragment" -->
+        </script>
+      </section>
+
+      <section>
+        <section data-markdown>
+          <script type="text/template">
+            ## If Possible, Don't
+
+            instead try
+
+            - Utility Classes and Functions <!-- .element: class="fragment" -->
+            - Child Components with Scoped Default Slots <!-- .element: class="fragment" -->
+            - Vuex Modules <!-- .element: class="fragment" -->
+
+            <aside class="notes" data-markdown>
+              - Utility Classes and Functions
+                - More verbose, better for low repetition things.
+                - More explicit: next person sees how they're initialized on that component.
+                - Easier to type in Typescript.
+                - Cons:
+                  - Not as friendly to things which require lots of coordination.
+                  - Verbosity can be overwhelming/obscuring sometimes.
+                - Mixed:
+                  - Sharing state across components is less well defined, not advisable.
+              - Child Components with Scoped Default Slots
+                - Hide all of the behavior in a fancy component.
+                - Configure it with Props.
+                - Get what it exposes via Scoped Slot Props.
+                - Cons:
+                  - Doesn't give parent as much control.
+              - Vuex Modules
+                - Best suited to things which can in some way be generalized.
+                - Behaviors explicitly defined.
+                - Well-defined global access.
+                - Cons:
+                  - Heavy Handed.
+                  - Verbose to specify.
+                - Mixed:
+                  - Explicit initialization and clearing.
+                  - Data lifecycle tied to key rather than component lifecycle. (you have to do that)
+            </aside>
+          </script>
+        </section>
+
+        <section data-markdown>
+          <script type="text/template">
+            #### Example
+            ### Child Components with Scoped Default Slots
+
+            ```html
+            <my-counter :increment-by="2" v-slot="{ count, increment }">
+              <div>Count: {{ count }}</div>
+              <div>
+                <button @click="increment">Increment</button>
+              </div>
+            </my-counter>
+            ```
+          </script>
+        </section>
+      </section>
+
+      <section>
+        <section data-markdown>
+          <script type="text/template">
+            ### If You Have To
+
+            ## Namespace and Encapsulate
+
+            1. Encapsulate all Mixin Behavior in a Controller
+            2. Write the Mixin Definition Separately
+            3. Prefix Component Names with Mixin Name
+            4. Prefix Mixin-Specific Props and Events with the Mixin Name
+
+            <aside class="notes" data-markdown>
+              - These items covered in slides below.
+              - Sometimes a combination gets repeated so often that you do want everything together.
+              - This is especially the case for handling setup in hooks.
+              - In such a case, try to keep the interface extensions and new components to a minimum, and make it obvious where things came from.
+              - Namespacing keeps the source of things obvious, which makes it much easier on the next person coming through.  Very important with Vue magicality.
+            </aside>
+          </script>
+        </section>
+
+
+        <section data-markdown>
+          <script type="text/template">
+            ## Namespace and Encapsulate
+
+            #1: Encapsulate all Mixin Behavior in a Controller
+
+            - Class, Factory Function, whatever flies your jet
+            - Controller can take Component Instance for binding if needed
+            - Controller can have own state if needed
+
+            <aside class="notes" data-markdown>
+              - State will be covered later under Tips.
+              - Writing a controller with all the behavior means putting a controller instance on the component instance automatically namespaces all the actual behavior.
+              - Keeps component interface cleaner.
+                - Lower cognitive burden.
+              - Mixed:
+                - May be easier to test, but usually you'll need a component instance anyway, so, you can't really escape Vue there.
+            </aside>
+          </script>
+        </section>
+
+        <section data-markdown>
+          <script type="text/template">
+            ## Namespace and Encapsulate
+
+            #2: Write the Mixin Definition Separately
+
+            - Defines Props
+              - Not Data!  More on that later
+            - Instantiates and binds Controller
+            - Calls Controller's Lifecycle Hooks at appropriate Vue Hooks
+            - Handles Provide/Inject
+            - Should be only boring glue code
+
+            <aside class="notes" data-markdown>
+              Basically what the slide says.
+            </aside>
+          </script>
+        </section>
+
+        <section data-markdown>
+          <script type="text/template">
+            ##
+
+            <aside class="notes" data-markdown>
+            </aside>
+          </script>
+        </section>
+
+      </section>
     </div>
   </div>
 

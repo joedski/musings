@@ -20,6 +20,7 @@
   "author": "Joseph Sikorski <joedski@gmail.com>",
   "license": "ISC",
   "dependencies": {
+    "highlight.js": "9.15.10",
     "reveal.js": "3.8.0"
   },
   "devDependencies": {

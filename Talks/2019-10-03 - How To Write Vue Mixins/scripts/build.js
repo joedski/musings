@@ -78,7 +78,7 @@ exports.task = function () {
   copyRevealPlugin('notes/notes.html');
 
   sh.cp(path.join(SLIDES_PATH, '*.html'), DEST_PATH);
-  sh.cp(path.join(SLIDES_PATH, '*.md'), DEST_PATH);
+  // sh.cp(path.join(SLIDES_PATH, '*.md'), DEST_PATH);
 }
 
 if (require.main === module) {

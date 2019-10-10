@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "npm run dev",
     "dev": "run-p dev:*",
-    "dev:serve": "http-server dist",
+    "dev:serve": "http-server -c-1 dist",
     "dev:build": "npm run build && onchange 'slides/*' -- npm run build",
     "build": "node scripts/build.js",
     "copy": "node scripts/copy-to-docs.js"

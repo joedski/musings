@@ -27,20 +27,9 @@
         <script type="text/template">
           ## A Note About Examples
 
-          Examples in this talk are written using `vue-class-components`, `vue-property-decorator`, and Typescript.
-
-          The broader lessons apply just as well to plain Vue in vanilla JS.
-
-          I believe they are actually more important in that case.
-        </script>
-      </section>
-
-      <section data-markdown>
-        <script type="text/template">
-          ## ~~Use The Composition API~~
-
-          Er, whoops, that's not stable yet...
-          <!-- .element: class="fragment" -->
+          - Examples in this talk are written using `vue-class-components`, `vue-property-decorator`, and Typescript.
+          - The broader lessons apply just as well to plain Vue in vanilla JS.
+          - I believe they are actually more important in that case.
         </script>
       </section>
 
@@ -102,24 +91,39 @@
         </section>
       </section>
 
+      <section data-markdown>
+        <script type="text/template">
+          ### Sometimes Mixins Are Less Worse
+
+          - Sometimes a combination is repeated quite often
+          - Even worse, the setup is super annoying
+          - Coordination between multiple things
+          - Especially when lifecycle hooks are involved
+          - Other reasons...
+
+          <aside class="notes" data-markdown>
+            - Kind of acts like a semi-baseclass, though baseclasses are annoying and non-compositional
+            - Hooks and coordination of multiple things are annoying to repeat
+            - Basically hooks kinda ruin everything
+          </aside>
+        </script>
+      </section>
+
       <section>
         <section data-markdown>
           <script type="text/template">
-            ### If You Have To
+            ### If Do You Have To,
 
             ## Namespace and Encapsulate
 
-            1. Encapsulate all Mixin Behavior in a Controller
-            2. Write the Mixin Definition Separately
-            3. Prefix Component Names with Mixin Name
-            4. Prefix Mixin-Specific Props and Events with the Mixin Name
+            1. Encapsulate all Mixin Behavior in a Controller <!-- .element: class="fragment" -->
+            2. Write the Mixin Definition Separately <!-- .element: class="fragment" -->
+            3. Prefix Component Names, Prop Names, and Event Names with Mixin Name <!-- .element: class="fragment" -->
 
             <aside class="notes" data-markdown>
-              - These items covered in slides below.
-              - Sometimes a combination gets repeated so often that you do want everything together.
-              - This is especially the case for handling setup in hooks.
-              - In such a case, try to keep the interface extensions and new components to a minimum, and make it obvious where things came from.
-              - Namespacing keeps the source of things obvious, which makes it much easier on the next person coming through.  Very important with Vue magicality.
+              These items covered in more detail slides below.
+
+              This is just an outline, so don't talk at length yet.
             </aside>
           </script>
         </section>
@@ -152,11 +156,11 @@
 
             #2: Write the Mixin Definition Separately
 
-            - Defines Props
-              - Not Data!  More on that later
-            - Instantiates and binds Controller
-            - Calls Controller's Lifecycle Hooks at appropriate Vue Hooks
-            - Handles Provide/Inject
+            - Define Props
+              - Not Data!  Keep state in the Controller!
+            - Instantiate and bind Controller
+            - Call Controller's Lifecycle Hooks at appropriate Vue Hooks
+            - Handle Provide/Inject
             - Should be only boring glue code
 
             <aside class="notes" data-markdown>
@@ -167,13 +171,139 @@
 
         <section data-markdown>
           <script type="text/template">
-            ## bep
+            ## Namespace and Encapsulate
+
+            #3: Prefix Component Names, Prop Names, and Event Names with Mixin Name
+
+            - Mixins that add props and other components to a given component are extending the given component's interface
+            - Events are always pretty much arbitrary
+            - Prefixing the the names of props, events, and other components reminds future devs what added those things: the mixin
+
+            <aside class="notes" data-markdown>
+              This is a reading-off-the-slide slide.  Bleh.
+            </aside>
+          </script>
+        </section>
+
+        <section data-markdown>
+          <script type="text/template">
+            ## Namespace and Encapsulate
+
+            #3: Prefix Component Names, Prop Names, and Event Names with Mixin Name
+
+            Example: `FooMixin`
+
+            - Props: `foo-show`, `foo-can-assume-direct-control`
+            - Events: `foo:show`, `foo:hide`, `foo:assuming-direct-control`
+            - Components: `<foo-current-collector>`, `<foo-lasers>`
+
+            <aside class="notes" data-markdown>
+              This is a reading-off-the-slide slide.  Bleh.
+            </aside>
+          </script>
+        </section>
+      </section>
+
+      <section data-markdown>
+        <script type="text/template">
+          ## Key Benefits
+
+          - Keeps component interface extensions minimal
+          - More obvious where props/components/events come from
+          - Separate controllers allows for composability of mixin behaviors
+
+          <aside class="notes" data-markdown>
+            - ... extensions minimal
+              - The more you extend a component interface, the more congnitive burden you get
+            - ... obvious where ... come from
+              - Anything which helps code navigability saves developer time
+            - ... composability of mixin behaviors
+              - By breaking things out into separate controllers apart from all the component malarkey, you can compose controllers as necessary without worrying about mixin order.
+              - Just create a new mixin with a new controller that composes the other controllers.
+          </aside>
+        </script>
+      </section>
+
+      <section>
+        <section data-markdown>
+          <script type="text/template">
+            ## Other Tips
+
+            - Controller State and Reactivity
+            - Mixin Config and Types in Typescript
 
             <aside class="notes" data-markdown>
             </aside>
           </script>
         </section>
 
+        <section data-markdown>
+          <script type="text/template">
+            ## Other Tips
+
+            ### Controller State and Reactivity
+
+            - Controller State should cause reactive updates
+            - Use `Vue.observable({ ... })` for just reactive state
+            - Use a Renderless Vue Component for computed props that cache, watches, etc
+
+            <aside class="notes" data-markdown>
+              - Use ... just state
+                - Controller Getters that access the State will still be reactive, they just won't cache heavy calculations.
+              - Define ... for computed props, ...
+                - This is what Vuex does.
+            </aside>
+          </script>
+        </section>
+
+        <section data-markdown>
+          <script type="text/template">
+            ## Other Tips
+
+            ### Mixin Config and Types in Typescript
+
+            Use a Parametrized Mixin
+
+            ```typescript
+            @Component
+            class Foo extends Mixins(
+              FooMixin({
+                // stuff that might affect types
+              })
+            ) {
+            }
+            ```
+
+            Technically that makes it a Mixin Factory, but Parametrized is more fun to say.
+
+            <aside class="notes" data-markdown>
+              - Takes the place of a config prop in the Vue Config Object.
+              - If you're at the point where you care about types affected by Mixin Config, you probably know how to proceed from this example.
+            </aside>
+          </script>
+        </section>
+      </section>
+
+      <section data-markdown>
+        <script type="text/template">
+          ## Examples
+
+          1. Controller with Reactive State
+          2. Controller as Renderless Component
+
+          <aside class="notes" data-markdown>
+            - These examples are illustrative only, not necessarily how you'd implement things for the named thing.
+          </aside>
+        </script>
+      </section>
+
+      <section data-markdown>
+        <script type="text/template">
+          ## Questions?
+
+          <aside class="notes" data-markdown>
+          </aside>
+        </script>
       </section>
     </div>
   </div>

@@ -20,6 +20,32 @@ Thinking about it, all we really need is `this.$store` to set `someGlobalState.c
 
 
 
+## Using a Custom Vue Baseclass
+
+A simple solution is something like this, I think:
+
+```js
+export default class MagicVue extends Vue {
+    constructor(...args) {
+        super(...args);
+        this.$store = null;
+    }
+
+    get $store() {
+        someGlobalState.componentAccessingStore = this;
+        return this.$$store;
+    }
+
+    set $store(next) {
+        this.$$store = next;
+    }
+}
+```
+
+You then just import `MagicVue` as your `Vue` base class you extend from.  Probably works maybe.
+
+
+
 ## The Other Option: Only Add Stuff, Don't Jimmy Others' Stuff
 
 The safest option, which requires more work of course, is to just have our own helpers which add the above tracking functionality.  This means wrapping reads and dispatches on the component, maybe in a mixin or something.  It would also mean not trying to mess around with others' stuff, though, which is always a better option.

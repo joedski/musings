@@ -13,9 +13,6 @@ export default class MultistepMixin extends Vue {
 
   // Provide this for components...
   @Provide()
-  protected $multistep!: MultistepController;
-
-  beforeCreate() {
-    this.$multistep = new MultistepController(this);
-  }
+  protected $multistep: MultistepController =
+    new MultistepController(this);
 }

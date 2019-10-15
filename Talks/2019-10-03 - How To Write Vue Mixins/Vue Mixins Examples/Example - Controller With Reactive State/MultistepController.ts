@@ -1,10 +1,20 @@
 import { Vue } from 'vue-property-decorator';
 import MultistepMixin from './MultistepMixin';
 
+interface MultistepControllerState {
+  step: number;
+}
+
 export default class MultistepController {
+  protected state: MultistepControllerState;
+
   constructor(
     protected vm: MultistepMixin
-  ) {}
+  ) {
+    this.state = Vue.observable({
+      step: this.startStep,
+    });
+  }
 
   public get startStep(): number {
     if (Number.isFinite(this.vm.multistepStartStep)) {
@@ -17,8 +27,4 @@ export default class MultistepController {
   public nextStep(): void {
     this.state.step += 1;
   }
-
-  protected state = Vue.observable({
-    step: this.startStep,
-  });
 }

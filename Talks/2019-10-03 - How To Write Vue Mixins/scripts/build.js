@@ -56,10 +56,12 @@ exports.task = function () {
 
   copyFiles(DEST_CSS_PATH, [
     REVEAL_PATH('css/reveal.css'),
-    REVEAL_PATH('css/theme/moon.css'),
     HIGHLIGHT_PATH('styles/gruvbox-dark.css'),
   ]);
 
+  copyFiles(path.join(DEST_CSS_PATH, 'theme'), [
+    REVEAL_PATH('css/theme/moon.css'),
+  ]);
 
   copyRevealFont('league-gothic/league-gothic.css');
   copyRevealFont('source-sans-pro/source-sans-pro.css');

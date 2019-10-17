@@ -5,9 +5,12 @@ if (( $# < 2 )); then
 
 Usage: $0 <property-name> <property-value> < <open-api-v2-json-file>
 
-  Shows the description of an endpoint found by its Operation ID.
+  Shows the description of any endpoints where the named property
+  matches the given value.
 
-  Outputs nothing if no endpoint is found with the given Operation ID.
+  Note that if you're matching a string, then you must provide JSON
+  quotes as well.  Object-values must be the complete objects, and
+  cannot be subsets.
 
 Parameters:
 
@@ -24,6 +27,7 @@ Examples:
   $0 operationId '"getFooBar"' < api-doc.json
 
     Gets an endpoint whose Operation ID is the string "getFooBar".
+    Note the extra quotes.
 
 HELP_TEXT
 

@@ -5,6 +5,12 @@ Journal 2019-10-04 - Playing With Tuples - Mapping, Transforming, Keys, etc
 
 ## Can I Get Just the Indices?
 
+> Summary: Yes:
+>
+> ```typescript
+> type TupleIndices<T extends any[]> = { [K in keyof T]: K }[number];
+> ```
+
 Well, this is doable through a bit of jiggery-pokery.  Probably.  Basically, since a tuple is a sort of fixed Array type, you have `TArr[number]` still available to get the type of any element.  However, fixed keys of a Tuple are still strings, `"0" | "1" | ...`, so if you limit the keys to `TTuple[TKeys] extends TTuple[number]`, then just `Extract<TKeys, string>`, you get back only those keys which result in element types.
 
 Suppose a tuple like this:
@@ -100,6 +106,23 @@ type SomePairsKeys2 = TupleIndices<TupleWithArrayMethods>;
 ```
 
 So that might be a good place to start.
+
+
+### A Simpler Tack: About That Mapped Type
+
+Coming back to this later, we don't even need to do any of that.  Rather, just make the mapped type but rather than using any value, just use the key.  The main thing is that _we need to have a type variable that extends `any[]`, rather than possibly being any old object_.  That's the key.
+
+```typescript
+type TupleIndices<T extends any[]> = { [K in keyof T]: K }[number];
+
+type SomePairs = [
+    ['foo', string],
+    ['bar', number],
+];
+
+// "0" | "1"
+type SomePairsKeys1 = TupleIndices<SomePairs>;
+```
 
 
 

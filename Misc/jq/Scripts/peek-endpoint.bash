@@ -13,6 +13,7 @@ Usage: $0 <http-method> <path> < <open-api-v2-json-file>
 Parameters:
 
   <http-method>   Any HTTP method that the API will respond to.
+                  Case insensitive.
 
   <path>          Endpoint path.
                   Use {} to indicate a path parameter of any name.
@@ -43,11 +44,11 @@ endpoint_path=${2%/}
 endpoint_path=/${2#/}
 endpoint_path=${endpoint_path//'{}'/'[{][^{}]+[}]'}
 
-# echo "method=$endpoint_method"
-# echo "path=$endpoint_path"
-
-jq '.paths
-  | to_entries
-  | .[]
-  | select(.key | test("^'"$endpoint_path"'/?$"))
-  | .value.'"$endpoint_method"
+jq '
+  .paths
+  | with_entries(
+    select(.key | test("^'"$endpoint_path"'/?$"))
+    | .value |= with_entries(
+      select(.key == "'"$endpoint_method"'")
+    )
+  )'

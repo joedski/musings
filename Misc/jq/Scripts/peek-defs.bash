@@ -31,13 +31,12 @@ HELP_TEXT
   exit 0
 fi
 
-key_checks=()
+full_condition=''
 
 for def_name in "$@"; do
-  key_checks=( "${key_checks[@]}" "or .key == \"$def_name\"" )
+  full_condition="$full_condition or .key == \"$def_name\""
 done
 
-full_condition="${key_checks[*]}"
-full_condition="${full_condition#or }"
+full_condition="${full_condition# or }"
 
 jq '.definitions | with_entries(select('"$full_condition"'))'

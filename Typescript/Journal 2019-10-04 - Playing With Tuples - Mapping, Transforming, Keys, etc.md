@@ -124,6 +124,17 @@ type SomePairs = [
 type SomePairsKeys1 = TupleIndices<SomePairs>;
 ```
 
+This also means we could make a Tuple-Sensitive `keyof`:
+
+```typescript
+type KeyOf<T> =
+    T extends any[]
+    ? { [K in keyof T]: K }[number]
+    : keyof T;
+```
+
+Yey.
+
 
 
 ## Pairs-Tuple to Object

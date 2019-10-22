@@ -397,3 +397,87 @@ I guess the only change, then, is that `isPending` needs to be explicitly docume
 > Actually, use a plugin system or something.  Hooks, rather than Watches.  Tricky part would be setting up types.  Lotta type params.  Bluh.
 
 Theoretically, given that reactive things can Watch other reactive things, could async validation have been implemented using an entirely separate thing?  That is, could it have just been given the form state and watched for any updates matching `forms[string].fields[string].value`... though having some form of registration explicitly for field updates in the Forms module would make things considerably easier.
+
+
+
+## Field Arrays
+
+One thing I didn't yet handle is Field Arrays.  Another concept shamelessly lifted from Redux Form, this is just a field definition that used to define an array of the same field rather than a single field.
+
+This means the following things:
+
+- Rather than a single state for a given field definition, we now have multiple states for a given field definition.
+- These states also have an order.
+- There's also aggregations across all elements in the array, similar to how the form has aggregations across all fields.
+    - On top of that, some of those aggregations of the field arrays will be used by the form for its own aggregations.
+    - This requires that the Field Array have an interface that is sort of a superset of the plain Field.
+
+As far as the interface goes, the changes are thus:
+
+- Instead of just the field name, we now have the field name + element index.
+- New array-centric operations for the field itself.
+    - Push, unshift, pop, shift, move, swap, remove all, splice, etc.
+        - All can be implemented in terms of splice, really, so they may end up being just convenience calls atop that.
+
+
+
+## On a More Extensible Forms Module
+
+Redux Form didn't handle validation on a per-field basis, you had to define that yourself.  There's a good reason for this, actually: The basic-most form is basically just a fancied up dictionary, a bunch of key-value pairs, specifically named in the case of field arrays, but KV Pairs none the less.
+
+Validation itself is an entirely separate concern, and async validation another on top of that.
+
+So, if all of these are separate concerns, how do you actually implement them in an extensible manner?  By making them all separate in the first place and composing them atop the base, of course.
+
+
+### Composition Methodology 1: Separate Vuex Modules
+
+The most blunt-force way to do this is to just literally compose it with separate modules, which isn't too bad a way to do it as it reflects the separation of concerns thing.  It does make acting on Form actions and mutations a bit more difficult, though.
+
+The easiest way to do this I can think of is to just have a top-level Forms module that all the others are grouped under.  So basically:
+
+```js
+const formsCoreModule = {
+  namespaced: false,
+  // Core stuff: just the form state, field values, field arrays, etc.
+};
+
+const formsUxModule = {
+  namespaced: false,
+  // UX stuff: touched, dirty, etc.
+};
+
+const formsValidationModule = {
+  namespaced: false,
+  // Validation stuff.  yay.
+};
+
+// This module contains only the other modules, no actions or such itself.
+const formsModule = {
+  namespaced: true,
+  modules: {
+    core: formsCoreModule,
+    ux: formsUxModule,
+    validation: formsValidationModule,
+  },
+};
+```
+
+That keeps things namespaced at a global level, but locally they can all share actions, which is important: this is how other modules hook into the core actions and act upon them.
+
+The main issue here is, the order is undefined, so things like validation can't reliably pick out changes to core state, which is just kind of important.
+
+Okay, maybe the top level one needs to be setup to dispatch all the other in the correct order?  It's about the only way to be sure, really.  Annoying and boilerplaty.
+
+
+### Composition Methodolgy 2: Something Something Middleware
+
+"Middleware" is basically just fancy function composition, here.
+
+```
+type Middleware = next => (context, payload) => result;
+```
+
+So, yeah.  Define interceptors for each Action, I guess.  Or, that basically defines the overrides that would be found in the top-level `formsModule` composite in Methodology 1, so this might just be a better interface overtop that?  Hm.
+
+Then again, that makes sense: Vuex, like Redux, is a low level tool, so you're going to have to get into the nitty gritty about just how things compose together anyway.  The added boilerplate is really all necessary code.

@@ -475,9 +475,11 @@ Okay, maybe the top level one needs to be setup to dispatch all the other in the
 "Middleware" is basically just fancy function composition, here.
 
 ```
-type Middleware = next => (context, payload) => result;
+type MiddlewareMethod = next => (context, payload) => result;
 ```
 
 So, yeah.  Define interceptors for each Action, I guess.  Or, that basically defines the overrides that would be found in the top-level `formsModule` composite in Methodology 1, so this might just be a better interface overtop that?  Hm.
 
 Then again, that makes sense: Vuex, like Redux, is a low level tool, so you're going to have to get into the nitty gritty about just how things compose together anyway.  The added boilerplate is really all necessary code.
+
+And, also of course that means order of composition matters, but we already knew that.

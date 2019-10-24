@@ -99,4 +99,63 @@ reindentJsonStream.on('error', error => {
 });
 ```
 
+Or even more general:
+
+```js
+// should use the npm module, but meh.
+const stream = require('stream');
+
+function slurpStringTransformStream(transformFunction) {
+  return new stream.Transform({
+    transform(chunk, encoding, callback) {
+      this.collectedData = this.collectedData || ''
+
+      if (Buffer.isBuffer(chunk)) {
+        this.collectedData += chunk.toString('utf8');
+      }
+      else if (typeof chunk === 'string') {
+        if (encoding === 'utf8') {
+          this.collectedData += chunk;
+        }
+        else {
+          this.collectedData += Buffer.from(chunk, encoding).toString('utf8');
+        }
+      }
+
+      callback(null);
+    },
+
+    async flush(callback) {
+      try {
+        const transformedData = await transformFunction(this.collectedData);
+        callback(null, reserializedData);
+      }
+      catch (error) {
+        callback(error);
+      }
+    },
+  });
+}
+
+function transformJsonStream(jsonTransformFunction) {
+  return slurpStringTransformStream(stringData => {
+    const parsedData = JSON.parse(stringData);
+    const reserializedData = transformFunction(parsedData) + '\n';
+    return reserializedData;
+  });
+}
+
+const reindentJson = transformJsonStream(json => JSON.stringify(json, null, 2))
+
+stream.pipeline(
+  process.stdin,
+  reindentJson,
+  process.stdout,
+  (error) => {
+    console.error(error);
+    process.exit(1);
+  }
+);
+```
+
 And that's it.  Nice.

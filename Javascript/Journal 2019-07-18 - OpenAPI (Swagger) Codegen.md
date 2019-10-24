@@ -185,3 +185,17 @@ Some constraints:
 
 - To keep things simple for now, any type not defined by a `$ref` will receive an inline type or at least an interface local to the Request Creator.
     - `$ref` types will receive their own file, since presumably they'll be defined in `#/components/...`.
+
+
+
+## On Overrides: An Easier Way
+
+Probably the easiest way to do overrides is to not bother with fancy config things, but rather to just provide preprocessor functions: For each thing being generated, you receive a description of it and can return a new description (or mutate the existing one, it's all good here.)
+
+From there, you can really implement whatever you want.  Config driven modifier?  Knock yourself out.  Path-Based Module-Auto-Loader?  Go for it.
+
+That really makes it a matter of simple function composition, then.  It's functions all the way down.  Or classes if you're Java, but anyway.
+
+This also suggests an implementation model: each kind of codegen is just a separate function that emits any number of paths + contents.  I guess that means it's kind of a gulpish thing.  Heh.  So, for the above, just do 3 codegen modules: request creators, definition types, validators.  Each module is free to share common code of course, but you have 3 entry points.
+
+Nice.

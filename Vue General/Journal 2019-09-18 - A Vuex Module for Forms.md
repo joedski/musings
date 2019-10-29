@@ -418,6 +418,11 @@ As far as the interface goes, the changes are thus:
 - New array-centric operations for the field itself.
     - Push, unshift, pop, shift, move, swap, remove all, splice, etc.
         - All can be implemented in terms of splice, really, so they may end up being just convenience calls atop that.
+        - State Management will be a bit dicey, but it always is with array coordination.  Bleh.
+
+And, future me, if you're wondering "Can't I just store an array of values and be done with it?"  You can't!  You need the full array of field _states_!
+
+Also, I'm going to need a "clean"/"dirty" state, but that's another matter.
 
 
 

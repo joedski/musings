@@ -99,7 +99,7 @@ reindentJsonStream.on('error', error => {
 });
 ```
 
-Or even more general:
+Or even more general, with async support just for fun:
 
 ```js
 // should use the npm module, but meh.

@@ -633,3 +633,23 @@ function request<
     return requestDef(...args);
 }
 ```
+
+
+
+## Updates After Some Usage
+
+
+### Actions Revisions
+
+After some actual usage, I think the following operations are handy to define:
+
+- `dispatchRequest(store, requestConfig): Promise<void>` The basic-most operation.  It dispatches a request and, as a concession to other things, returns a promise.  The Promise always resolves to nothing and never rejects.
+- `dispatchRequestThenReadData(...): Promise<AsyncData<TData, TError>>` basically just used for the following, but may be useful?
+- `dispatchRequestThenGetDataOrThrow(store, requestConfig): Promise<TData>` Common for imperative flows like in form validation, by doing the following:
+    - `return dispatchRequestThenReadData(...).then(data => data.getDataOrThrow())`
+- `dispatchRequestIfNotNull(...): void` Mostly used for side effects like loading data on some component hook.  Because of this, it does not even return a promise.
+
+
+### Readers Revisions
+
+Also, a lesson learned about Readers: Don't try to be clever using Getters that return functions.  Those don't really work.  Better to just directly access store state, that gives better update subscriptions.

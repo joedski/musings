@@ -9,7 +9,7 @@ layout: page
     <ul>
       {% assign talk_entries = (site.talks | sort: 'date') | reverse %}
       {% for talk in talk_entries %}
-      <li><a href="./{{ talk.subdir }}">{{ talk.title }} (</a></li>
+      <li><a href="./{{ talk.subdir }}">{{ talk.title }} ({{ talk.date }})</a></li>
       {% endfor %}
     </ul>
   </section>

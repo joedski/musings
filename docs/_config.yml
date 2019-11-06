@@ -7,7 +7,7 @@ github_username: joedski
 
 # list of themes GH supports:
 # https://pages.github.com/themes/
-theme: slate
+theme: jekyll-theme-slate
 
 collections:
   talks:

@@ -1,4 +1,4 @@
-import { Vue, Component } from 'vue-property-decorator';
+import { Vue, Component, Prop } from 'vue-property-decorator';
 
 type TimeseriesData = Readonly<Array<{ x: number; y: number }>>;
 
@@ -18,8 +18,8 @@ function atom<T extends object>(v: T): Readonly<T> {
 
 @Component({})
 export default class TimeseriesController extends Vue {
-  // Technically reactive state, but not really.
-  protected vm!: Vue;
+  @Prop({ type: Object, required: true })
+  public vm!: Vue;
 
   // Reactive State
   protected timeseriesData: TimeseriesData = atom([]);
@@ -33,10 +33,6 @@ export default class TimeseriesController extends Vue {
         datum.x >= this.slice.start &&
         datum.x <= this.slice.end
     );
-  }
-
-  public init(vm: Vue): void {
-    this.vm = atom(vm);
   }
 
   public setSlice(start: number, end: number) :void {

@@ -5,6 +5,4 @@ An opinionated view on Vue Mixins.
 
 Summary:
 
-> Namespace and encapsulate!
->
-> ### OR ELSE.
+> Namespace via controllers!

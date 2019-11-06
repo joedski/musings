@@ -22,6 +22,13 @@ function atom<T extends object>(v: T): Readonly<T> {
 }
 
 export default Vue.extend({
+  props: {
+    vm: {
+      type: Object,
+      required: true,
+    },
+  },
+
   data(): TimeseriesControllerState {
     return {
       timeseriesData: atom([]),
@@ -43,10 +50,6 @@ export default Vue.extend({
   },
 
   methods: {
-    init(vm: Vue): void {
-      this.vm = vm;
-    },
-
     setSlice(start: number, end: number) :void {
       this.slice.start = start;
       this.slice.end = end;

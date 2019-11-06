@@ -13,6 +13,9 @@ export default class MultistepMixin extends Vue {
 
   // Provide this for components...
   @Provide()
-  protected $multistep: MultistepController =
-    new MultistepController(this);
+  protected get $multistep(): MultistepController {
+    // `this` is not reactive, so this computed prop is only
+    // computed once.
+    return new MultistepController(this);
+  }
 }

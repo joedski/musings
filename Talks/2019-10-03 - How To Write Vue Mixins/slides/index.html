@@ -13,6 +13,7 @@
 <body>
   <div class="reveal">
     <div class="slides">
+
       <section data-markdown>
         <script type="text/template">
           # Writing Vue Mixins
@@ -23,83 +24,70 @@
         </script>
       </section>
 
+      <!-- I don't really have any snippets here, so this isn't exactly applicable.  Hm. -->
+      <!-- <section data-markdown>
+        <script type="text/template">
+          ## Note About Examples
+
+          - Typescript
+          - `vue-class-component` and `vue-property-decorator`
+          - Over all method applies to JS too, though
+          - Probably more important in plain JS
+        </script>
+      </section> -->
+
       <section data-markdown>
         <script type="text/template">
-          ## A Note About Examples
+          ## If Possible, Don't
 
-          - Examples in this talk are written using `vue-class-components`, `vue-property-decorator`, and Typescript.
-          - The broader lessons apply just as well to plain Vue in vanilla JS.
-          - I believe they are actually more important in that case.
+          Instead, try...
+
+          - Utility Classes and Functions <!-- .element: class="fragment" -->
+          - Composing Components <!-- .element: class="fragment" -->
+            - Scoped default slots can help
+          - Vuex Modules <!-- .element: class="fragment" -->
+
+          <aside class="notes" data-markdown>
+            - Utility Classes and Functions
+              - More verbose, better for low repetition things.
+              - More explicit: next person sees how they're initialized on that component.
+              - Easier to type in Typescript.
+              - Cons:
+                - Not as friendly to things which require lots of coordination.
+                - Verbosity can be overwhelming/obscuring sometimes.
+              - Mixed:
+                - Sharing state across components is less well defined, not advisable.
+            - Child Components with Scoped Default Slots
+              - Hide all of the behavior in a fancy component.
+              - Configure it with Props.
+              - Get what it exposes via Scoped Slot Props.
+              - Cons:
+                - Doesn't give parent as much control.
+            - Vuex Modules
+              - Best suited to things which can in some way be generalized.
+              - Behaviors explicitly defined.
+              - Well-defined global access.
+              - Cons:
+                - Heavy Handed.
+                - Verbose to specify.
+              - Mixed:
+                - Explicit initialization and clearing.
+                - Data lifecycle tied to key rather than component lifecycle. (you have to do that)
+          </aside>
         </script>
       </section>
 
-      <section>
-        <section data-markdown>
-          <script type="text/template">
-            ## If Possible, Don't
-
-            instead try
-
-            - Utility Classes and Functions <!-- .element: class="fragment" -->
-            - Child Components with Scoped Default Slots <!-- .element: class="fragment" -->
-            - Vuex Modules <!-- .element: class="fragment" -->
-
-            <aside class="notes" data-markdown>
-              - Utility Classes and Functions
-                - More verbose, better for low repetition things.
-                - More explicit: next person sees how they're initialized on that component.
-                - Easier to type in Typescript.
-                - Cons:
-                  - Not as friendly to things which require lots of coordination.
-                  - Verbosity can be overwhelming/obscuring sometimes.
-                - Mixed:
-                  - Sharing state across components is less well defined, not advisable.
-              - Child Components with Scoped Default Slots
-                - Hide all of the behavior in a fancy component.
-                - Configure it with Props.
-                - Get what it exposes via Scoped Slot Props.
-                - Cons:
-                  - Doesn't give parent as much control.
-              - Vuex Modules
-                - Best suited to things which can in some way be generalized.
-                - Behaviors explicitly defined.
-                - Well-defined global access.
-                - Cons:
-                  - Heavy Handed.
-                  - Verbose to specify.
-                - Mixed:
-                  - Explicit initialization and clearing.
-                  - Data lifecycle tied to key rather than component lifecycle. (you have to do that)
-            </aside>
-          </script>
-        </section>
-
-        <section data-markdown>
-          <script type="text/template">
-            #### Example
-            ### Child Components with Scoped Default Slots
-
-            ```html
-            <my-counter :increment-by="2" v-slot="{ count, increment }">
-              <div>Count: {{ count }}</div>
-              <div>
-                <button @click="increment">Increment</button>
-              </div>
-            </my-counter>
-            ```
-          </script>
-        </section>
-      </section>
+      <!-- NOTE: Omitting the scoped-default-slot thing for now. -->
 
       <section data-markdown>
         <script type="text/template">
           ### Sometimes Mixins Are Less Worse
 
-          - Sometimes a combination is repeated quite often
-          - Even worse, the setup is super annoying
-          - Coordination between multiple things
-          - Especially when lifecycle hooks are involved
-          - Other reasons...
+          - A combination of features is repeated often (semi-baseclass)
+          - Super annoying feature-set setup
+          - Super annoying feature-set coordination
+          - Super annoying lifecycle hook stuff
+          - ~~Honestly hooks kinda ruin everything~~ (but they really kinda do)
 
           <aside class="notes" data-markdown>
             - Kind of acts like a semi-baseclass, though baseclasses are annoying and non-compositional
@@ -112,7 +100,7 @@
       <section>
         <section data-markdown>
           <script type="text/template">
-            ### If Do You Have To,
+            ### If You Have To
 
             ## Namespace and Encapsulate
 
@@ -124,20 +112,23 @@
               These items covered in more detail slides below.
 
               This is just an outline, so don't talk at length yet.
+
+              Item 3 can also be stated "Prefix interface extensions with the mixin name", but that's not as defined and exact.
             </aside>
           </script>
         </section>
 
-
         <section data-markdown>
           <script type="text/template">
-            ## Namespace and Encapsulate
+            ### Namespace and Encapsulate
 
             #1: Encapsulate all Mixin Behavior in a Controller
 
-            - Class, Factory Function, whatever flies your jet
-            - Controller can take Component Instance for binding if needed
-            - Controller can have own state if needed
+            - Class, Factory Function, etc
+            - Controller can take Component as argument if needed
+              - Better: expose component things via config
+            - Controller can have own state
+            - Can compose separate Controllers into bigger ones
 
             <aside class="notes" data-markdown>
               - State will be covered later under Tips.
@@ -146,59 +137,41 @@
                 - Lower cognitive burden.
               - Mixed:
                 - May be easier to test, but usually you'll need a component instance anyway, so, you can't really escape Vue there.
+              - Composition of controllers is an idea to get used to, for reasons someone other than me will explain later.
             </aside>
           </script>
         </section>
 
         <section data-markdown>
           <script type="text/template">
-            ## Namespace and Encapsulate
+            ### Namespace and Encapsulate
 
             #2: Write the Mixin Definition Separately
 
-            - Define Props
-              - Not Data!  Keep state in the Controller!
-            - Instantiate and bind Controller
+            - Define Props (Not Data!)
+            - Instantiate, configure, and bind Controller
             - Call Controller's Lifecycle Hooks at appropriate Vue Hooks
             - Handle Provide/Inject
             - Should be only boring glue code
-
-            <aside class="notes" data-markdown>
-              Basically what the slide says.
-            </aside>
           </script>
         </section>
 
         <section data-markdown>
           <script type="text/template">
-            ## Namespace and Encapsulate
-
-            #3: Prefix Component Names, Prop Names, and Event Names with Mixin Name
-
-            - Mixins that add props and other components to a given component are extending the given component's interface
-            - Events are always pretty much arbitrary
-            - Prefixing the the names of props, events, and other components reminds future devs what added those things: the mixin
-
-            <aside class="notes" data-markdown>
-              This is a reading-off-the-slide slide.  Bleh.
-            </aside>
-          </script>
-        </section>
-
-        <section data-markdown>
-          <script type="text/template">
-            ## Namespace and Encapsulate
+            ### Namespace and Encapsulate
 
             #3: Prefix Component Names, Prop Names, and Event Names with Mixin Name
 
             Example: `FooMixin`
 
-            - Props: `foo-show`, `foo-can-assume-direct-control`
-            - Events: `foo:show`, `foo:hide`, `foo:assuming-direct-control`
-            - Components: `<foo-current-collector>`, `<foo-lasers>`
+            - Props: `foo-show`, `foo-current`
+            - Events: `foo:show`, `foo:hide`
+            - Components: `<foo-slide>`, `<foo-container>`
 
             <aside class="notes" data-markdown>
-              This is a reading-off-the-slide slide.  Bleh.
+              It's all about reinforcing where interface extensions are coming from.
+
+              Interface extensions are evil, so to make them as least-evil as possible by namespacing things.  Future-you will hate you less.
             </aside>
           </script>
         </section>
@@ -208,18 +181,15 @@
         <script type="text/template">
           ## Key Benefits
 
-          - Keeps component interface extensions minimal
+          - Minimize component interface extensions (i.e. "surprises")
           - More obvious where props/components/events come from
           - Separate controllers allows for composability of mixin behaviors
+          - Basically, it's nice to future-you
 
           <aside class="notes" data-markdown>
-            - ... extensions minimal
-              - The more you extend a component interface, the more congnitive burden you get
-            - ... obvious where ... come from
-              - Anything which helps code navigability saves developer time
-            - ... composability of mixin behaviors
-              - By breaking things out into separate controllers apart from all the component malarkey, you can compose controllers as necessary without worrying about mixin order.
-              - Just create a new mixin with a new controller that composes the other controllers.
+            Basically, be nice to future-you.
+
+            Pro Tip: Don't be afraid to write controllers specific to a single component.
           </aside>
         </script>
       </section>
@@ -227,107 +197,160 @@
       <section>
         <section data-markdown>
           <script type="text/template">
-            ## Other Tips
+            ### Other Tips
 
-            - Controller State and Reactivity
-            - Mixin Config and Types in Typescript
-
-            <aside class="notes" data-markdown>
-            </aside>
+            - Before creating a new mixin, start with a controller directly on a component
+            - Try using controller-config to expose component-owned things the controller needs from the component
+            - Add docblocks to your stuff or I will create a time machine to find you and judge you
           </script>
         </section>
 
         <section data-markdown>
           <script type="text/template">
-            ## Other Tips
+            #### Other Tips
 
-            ### Controller State and Reactivity
+            Exposing Component-Owned Things to Controller via Config
 
-            - Controller State should cause reactive updates
-            - Use `Vue.observable({ ... })` for just reactive state
-            - Use a Renderless Vue Component for computed props that cache, watches, etc
+            ```typescript
+            const FooMixin = {
+              props: {
+                fooStartingItem: { type: Number, default: 0 },
+              },
 
-            <aside class="notes" data-markdown>
-              - Use ... just state
-                - Controller Getters that access the State will still be reactive, they just won't cache heavy calculations.
-              - Define ... for computed props, ...
-                - This is what Vuex does.
-            </aside>
+              beforeCreate() {
+                // passing in config instead of `this`.
+                this.$foo = new FooController({
+                  startingItem: () => this.fooStartingItem,
+                });
+              },
+            };
+            ```
+          </script>
+        </section>
+      </section>
+
+      <section>
+        <section data-markdown>
+          <script type="text/template">
+            ### Other Tips: Reactive Controller State
+
+            ~~Three~~ Two Options:
+
+            - Plain classes/objects: `Vue.observable()`
+            - Need computed, watches: Renderless Vue Component
+            - ~~Composition API~~ Soon...
           </script>
         </section>
 
         <section data-markdown>
           <script type="text/template">
-            ## Other Tips
+            #### Other Tips: Reactive Controller State
 
-            ### Mixin Config and Types in Typescript
+            Using `Vue.observable()`:
 
-            Use a Parametrized Mixin
+            <small>featuring Typescript</small>
+
+            ```typescript
+            class FooMixinController {
+              protected state = Vue.observable(this.getInitialState());
+
+              constructor(
+                protected vm: Vue
+              ) {}
+
+              // ...
+            }
+            ```
+          </script>
+        </section>
+
+        <section data-markdown>
+          <script type="text/template">
+            #### Other Tips: Reactive Controller State
+
+            Using a Renderless Vue Component:
+
+            ```typescript
+            const FooMixinController = Vue.extend({
+              props: {
+                vm: { type: Object, required: true },
+              },
+
+              data() {
+                return this.getInitialState();
+              },
+
+              // watch, computed, methods...
+            });
+            ```
+          </script>
+        </section>
+
+        <section data-markdown>
+          <script type="text/template">
+            #### Other Tips: Reactive Controller State
+
+            Using a Renderless Vue Component:
+
+            <small>featuring `vue-class-component` and Typescript</small>
 
             ```typescript
             @Component
-            class Foo extends Mixins(
-              FooMixin({
-                // stuff that might affect types
-              })
-            ) {
+            class FooMixinController {
+              @Prop({ type: Object, required: true })
+              public vm!: Vue;
+
+              // each plain instance prop is part of the data().
+              protected current: number = 0;
+              protected items: FooItem[] = [];
+
+              // watch, computed, methods...
             }
             ```
-
-            Technically that makes it a Mixin Factory, but Parametrized is more fun to say.
-
-            <aside class="notes" data-markdown>
-              - Takes the place of a config prop in the Vue Config Object.
-              - If you're at the point where you care about types affected by Mixin Config, you probably know how to proceed from this example.
-            </aside>
           </script>
         </section>
       </section>
 
-      <section data-markdown>
+      <!-- NOTE: Taking out the parametrized-mixin thing because that's kinda esoteric. -->
+
+      <!-- Not sure if I actually need to do this?  Examples might be better stepped through off-line -->
+      <!-- <section data-markdown>
         <script type="text/template">
           ## Examples
-
-          1. Controller with Reactive State
-          2. Controller as Renderless Component
-
-          <aside class="notes" data-markdown>
-            - These examples are illustrative only, not necessarily how you'd implement things for the named thing.
-          </aside>
         </script>
-      </section>
+      </section> -->
 
       <section data-markdown>
         <script type="text/template">
           ## Questions?
-
-          <aside class="notes" data-markdown>
-          </aside>
         </script>
       </section>
     </div>
-  </div>
 
-  <script>
-    Reveal.initialize({
-      dependencies: [
-        {
-          src: 'js/plugin/markdown/markdown.js',
-          async: true,
-        },
-        {
-          src: 'js/plugin/highlight/highlight.js',
-          async: true,
-          callback() {
-            hljs.initHighlightingOnLoad();
+    <!-- section[data-markdown]>script[type=text/template] -->
+
+    <script>
+      Reveal.initialize({
+        dependencies: [
+          {
+            src: 'js/plugin/markdown/markdown.js',
+            async: true,
           },
-        },
-        {
-          src: 'js/plugin/notes/notes.js',
-          async: true,
-        },
-      ],
-    });
-  </script>
+          {
+            src: 'js/plugin/highlight/highlight.js',
+            async: true,
+            callback() {
+              hljs.initHighlightingOnLoad();
+            },
+          },
+          {
+            src: 'js/plugin/notes/notes.js',
+            async: true,
+          },
+        ],
+      });
+    </script>
+
+  </div>
 </body>
 </html>

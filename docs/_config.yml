@@ -1,0 +1,15 @@
+title: Joe's Musings
+email:
+description: >-
+  Random musings and sometimes dev journals on
+  whatever I'm learning about at the moment.
+github_username: joedski
+
+# list of themes GH supports:
+# https://pages.github.com/themes/
+theme: slate
+
+collections:
+  talks:
+    order: date
+    output: false

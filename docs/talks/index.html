@@ -1,0 +1,16 @@
+---
+layout: page
+---
+<article>
+  <section>
+    <p>Slides for talks I've given on various things.</p>
+  </section>
+  <section>
+    <ul>
+      {% assign talk_entries = (site.talks | sort: 'date') | reverse %}
+      {% for talk in talk_entries %}
+      <li><a href="./{{ talk.subdir }}">{{ talk.title }} (</a></li>
+      {% endfor %}
+    </ul>
+  </section>
+</article>

@@ -643,13 +643,31 @@ function request<
 
 After some actual usage, I think the following operations are handy to define:
 
-- `dispatchRequest(store, requestConfig): Promise<void>` The basic-most operation.  It dispatches a request and, as a concession to other things, returns a promise.  The Promise always resolves to nothing and never rejects.
+- `dispatchRequestAsync(store, requestConfig): Promise<void>` The basic-most operation.  It dispatches a request and, as a concession to other things, returns a promise.  The Promise always resolves to nothing and never rejects.
+    - This is basically a wrapper around the Vuex action itself.
+- `dispatchRequest(store, requestConfig): void` The most commonly used one: this uses `dispatchRequestAsync` but discards the promise, making dispatch of the request a pure side effect, and making it easier to use in projects which require proper handling of all promises.
 - `dispatchRequestThenReadData(...): Promise<AsyncData<TData, TError>>` basically just used for the following, but may be useful?
 - `dispatchRequestThenGetDataOrThrow(store, requestConfig): Promise<TData>` Common for imperative flows like in form validation, by doing the following:
     - `return dispatchRequestThenReadData(...).then(data => data.getDataOrThrow())`
-- `dispatchRequestIfNotNull(...): void` Mostly used for side effects like loading data on some component hook.  Because of this, it does not even return a promise.
+- `dispatchRequestIfNotNull(...): void` Like `dispatchRequest` in that it's a pure side effect, but unlike `dispatchRequest` it only dispatches if the request argument is not null.
+- `dispatchRequestAsyncIfNotNull(...): Promise<void>` Async version of `dispatchRequestIfNotNull` for those cases where you do need a promise combined with conditional dispatch.
 
 
 ### Readers Revisions
 
 Also, a lesson learned about Readers: Don't try to be clever using Getters that return functions.  Those don't really work.  Better to just directly access store state, that gives better update subscriptions.
+
+
+### AsyncData Operators Gained From This
+
+Initial work led to the addition of `.getDataOr(elseValued)` and `getErrorOr(elseValue)`, but as noted above, a new one would would enable some common workflows to be more cleanly implemented:
+
+- `.getDataOrThrow(): TData` does what the name implies: gets the data value or, if the AsyncData is not in the Data case, throws an error.
+    - In this case, I may want a default behavior along with another one:
+        - `.getDataOrThrow(mapMaybeError: (error: unknown) => Error)`
+    - That might save on some extra `try/catch` wrapping.  Or maybe not.  Not sure!  But at least `.getDataOrThrow()` is itself useful.
+
+
+### Type Revisions
+
+This is more to do with the Request Config Creators than anything, but using `T extends RequestConfig<U>` was a bad idea: it's unnecessary, doesn't actually provide any benefits, and makes the type information significantly noisier for other devs.  Anything important should be made into an explicit type parameter and otherwise left generic to the type definition.

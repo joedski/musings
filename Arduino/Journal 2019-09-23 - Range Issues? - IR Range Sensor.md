@@ -58,3 +58,5 @@ Doing these produced actual good results... with the exception that the farthest
 The only proper way to test it then will be outside, but really farther than 3 feet will be risky outside, so I guess that range is about right.  Hum.
 
 In any case, I'll need to do an actual test outside, anyway, so eh.
+
+I also noticed, curiously, that there seems to be a much narrower window of functionality than the sensor tested in the original app note, though the one tested in said app note is of a different series, so it's likely I'd need to read the datasheets of both theirs and mine more closely to actually see their intended cases and differences.

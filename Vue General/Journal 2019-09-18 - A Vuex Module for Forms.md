@@ -488,3 +488,20 @@ So, yeah.  Define interceptors for each Action, I guess.  Or, that basically def
 Then again, that makes sense: Vuex, like Redux, is a low level tool, so you're going to have to get into the nitty gritty about just how things compose together anyway.  The added boilerplate is really all necessary code.
 
 And, also of course that means order of composition matters, but we already knew that.
+
+
+
+## On Rules and Actual Formish Things
+
+Considering further, field rules is kind of a weird thing to implement, at least in the way it is currently described.  This kind of diverges from the main part of a form which is basically just tracking key-value pairs (or key-many-values pairs...).  Trying to bake this into things at the root level is kind of just mixing too many things together, things which could be better be separated at the root level and recomposed at the top level.
+
+Consider: conditional or switched-out fields, that is fields which are only considered if some other field (or non-form datum!) has a particular value.
+
+Consider then that it has a rule stipulating it is required.
+
+- Is that field valid or invalid?
+- If a field is invalid, but is not being used, do we care?  If not, why should the entire form be invalidated when it's not being used?
+
+I think considerations such as this is why Redux-Forms didn't have any per-field rules definitions: it can get too arbitrary!
+
+Instead, rules (or rather field messages, error or otherwise) are really dependent on form state, among other things.  It's up to the thing rendering the form to do all that live validation and whatnot, feeding messages into the field components after recieving state updates, etc, etc.

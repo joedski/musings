@@ -15,3 +15,53 @@ Some things I am dealing with, places to start:
 Sequence of events that seems to be inducing unexpected behavior:
 
 1. ... TK!
+
+So.
+
+State:
+
+```typescript
+interface ExampleState {
+    object: {
+        nullableValue: string | null;
+    },
+    map: Record<string, ExampleItem>;
+}
+
+interface ExampleItem {
+    value: string;
+}
+
+const initialState: ExampleState = {
+    object: {
+        nullableValue: null;
+    },
+    map: {},
+};
+```
+
+Read scenarios:
+
+- Direct State reads:
+    - `state.object`
+    - `state.object.nullableValue`
+    - `state.map`
+    - `state.map[KEY_A]`
+    - `state.map[KEY_A] ? state.map[KEY_A].value : null`
+    - `state.map[KEY_B]`
+    - `state.map[KEY_B] ? state.map[KEY_B].value : null`
+- Getters Returning Functions:
+    - Function-Getter that touches state directly: `(key, elseValue) => (state.map[key] ? state.map[key].value : elseValue)`
+    - Function-Getter that uses `getters` or `rootGetters` argument: `...`
+- Getter/Computed that uses a Function-Getter:
+    - This tests the supposition that any access to underlying observables should still register subscriptions in a context that causes such registrations.
+
+To test reading subscriptions, I'll be defining computed props for each of the above scenarios, and then watching each one.
+
+Then, I'll see what has updates triggered under the following scenarios:
+
+1. `state.object.nullableValue = 'a string'`
+2. `Vue.set(state.map, KEY_A, { value: 'a' })`
+3. #2, then `state.map[KEY_A].value = 'b'`
+4. #2-#3, then `Vue.set(state.map, KEY_B, { value: 'a' })`
+5. #2-#4, then `state.map[KEY_B].value = 'b'`

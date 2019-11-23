@@ -459,4 +459,6 @@ Just to double check, I opened the first build and that's working fine, too.  So
 
 The only difference as far as I can tell is that I had a Twitch stream open in Firefox.  It's not out of the question that that could affect things, but it seems quite strange.
 
+I guess the next thing is to see if I can run it with a debugger active.  Hm.  Use CMake to make an XCode project?  That was listed as a target.
+
 [devilutionx]: https://github.com/diasurgical/devilutionX

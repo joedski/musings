@@ -65,3 +65,9 @@ Then, I'll see what has updates triggered under the following scenarios:
 3. #2, then `state.map[KEY_A].value = 'b'`
 4. #2-#3, then `Vue.set(state.map, KEY_B, { value: 'a' })`
 5. #2-#4, then `state.map[KEY_B].value = 'b'`
+
+Other questions to organize:
+
+- Suppose a computed prop derives from some reactive object and returns a primitive value, then another computed prop derives from that.
+    - If I change the data underlying the first computed prop but do not change the result of its computation, does the second computed prop update?
+        - Changes could be: some property that the first computed prop uses is updated; a whole object/object-slice that the first computed prop uses is updated...

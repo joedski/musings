@@ -22,3 +22,17 @@ In one sense, we could then say "Given n functions, call function 1 and await on
 In another, that's too early a generalization and we really want just "call poll callback and await on it, then call sleep and await on it, then call poll callback and await on it, then..." with the reasoning that if we want to add extra switching later, we could.
 
 Of course, a fair question might be to ask if it even matters to any further processing just which one of the above methodologies is used.  The answer is probably "no", so I'm not sure I should care too much and could probably just use a cycle thingy for now.
+
+It could be considered that the barest set of IO for this is:
+
+- Inputs:
+    - Calls to Poll Immediately
+    - Start Polling (Poll Immediately: Yes/No)
+    - Stop Polling
+    - Reset State
+- Outputs:
+    - Updates:
+        - Poll Settlement: (Result: Success (Data) / Error (Error))
+        - Sleep Timeout: ()
+    - Subscription State: (...?)
+    - Data Updates: (AsyncData (Data, Error))

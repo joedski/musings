@@ -505,3 +505,18 @@ Consider then that it has a rule stipulating it is required.
 I think considerations such as this is why Redux-Forms didn't have any per-field rules definitions: it can get too arbitrary!
 
 Instead, rules (or rather field messages, error or otherwise) are really dependent on form state, among other things.  It's up to the thing rendering the form to do all that live validation and whatnot, feeding messages into the field components after recieving state updates, etc, etc.
+
+I mean, it's either that or back to the Vuex Module Composition thing, because async validation was pretty easy to implement relative to previous implementations.  That said, it still feels dirty to specifically tie the Forms Module base implementation to my Requests Module.
+
+
+### Is The Above Really Problematic?
+
+Of course, one could just say "well if the default `isInvalid` algo is not what you want then don't use it" but that's kind of the entire point: a default algo is provided that may not be what you want, but you can't swap it out so that you can have a correct derived value.
+
+There are certainly ways around this:
+
+- If you use plain function accessors, then you can just sub out that particular function.
+    - That contradicts the original assessment of it not being replaceable, so I guess that's something.
+- If you use a wrapper class, you can subclass it to override the default behavior, which is basically the same as the first point but more Java-esque.
+
+So, I guess that actually isn't correct anyway.  So.  Weh.

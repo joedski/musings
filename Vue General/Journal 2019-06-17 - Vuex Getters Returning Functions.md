@@ -1,6 +1,8 @@
 Journal 2019-06-17 - Vuex Getters Returning Functions
 =======
 
+> Update 2019-12-02: It's really pretty simple, and the initial example is not really all that great.
+
 - Suppose a Vuex Getter returns a Function.
     - This Function will find a datum within a collection within the Actual State.
     - As expected, at minimum, this Function must close over a reference to Actual State, not Derived State.
@@ -134,3 +136,75 @@ del {
   color: rgba(0, 0, 0, 0.3);
 }
 ```
+
+
+
+## A Later Look
+
+After some consideration and experimentation, I've come to the following conclusion:
+
+- If you need to cache over some derived data, you should prefer to return that derived data collection directly.
+- Where access into that is made less complicated by a custom interface, you can return a function over that derived data, bearing in mind the function itself will also be created anew each time the base data is updated. (as expected, because it's itself derived data)
+- If you just need to access state directly according to parameters, directly return only a function that does the desired parametric state access.
+- If you just need to access the state directly because you're using `typesafe-vuex` or some other similar thing...
+    - Give `this.$store` a proper type
+    - Create a getter that just returns a function that itself accepts an accessor, `getState(state) { return fn => fn(state); }`, and use that one rather than defining a new getter for each separate datum in the state.
+
+Why?
+
+- When a wholly new derived datum is returned from a computed prop/getter, it is not deeply reactive.  Rather, access of that computed prop/getter itself is what registers subscriptions.
+- When a function is returned from a computed prop/getter, a few things happen:
+    - Once the computed prop/getter computor returns, Vue stops checking for subscription registrations for that computor.
+    - However, if the returned function is called within another computed prop (at a component, perhaps) then Vue is still checking for subscription registrations, but for that still-executing computor rather than the computor that returned the function.
+        - Therefore, access to any reactive data (store state in this case) during that time will register appropriate subscriptions.
+- By not registering any subscriptions for the returned function itself, it is cached once over the lifetime of the component or store, and actual subscription registrations are deferred until the actual points of use.
+    - By this, it can be seen that outside of bad practice or bad API workarounds, parametrized getters by and large do not need to be defined in the store and should instead be defined as free functions.
+- If you're accessing stuff in a non-computed/non-getter context, you're not creating subscriptions anyway, and so it doesn't matter.
+
+
+### Effects On The Previous Example
+
+The code will be better like this:
+
+```js
+const store = new Vuex.Store({
+  state: {
+    todos: [
+      { text: "Learn JavaScript", done: false },
+      { text: "Learn Vue", done: false },
+      { text: "Play around in JSFiddle", done: true },
+      { text: "Build something awesome", done: true },
+    ],
+  },
+  getters: {
+    todosIncludingText(state) {
+      return function getTodosIncludingText(text) {
+        return state.todos.filter(todo => todo.text.includes(text));
+      };
+    },
+  },
+  mutations: {
+    toggleTodoDone(state, index) {
+      state.todos[index].done = ! state.todos[index].done;
+    },
+  },
+});
+
+new Vue({
+  el: "#app",
+  computed: {
+    todos() {
+      return store.state.todos;
+    },
+    todosIncludingLearn() {
+      return store.getters.todosIncludingText('Learn');
+    },
+  },
+  methods: {
+    toggle: function(index){
+      store.commit('toggleTodoDone', index);
+    },
+  },
+});
+```
+

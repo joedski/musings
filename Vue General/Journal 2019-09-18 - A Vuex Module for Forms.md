@@ -520,3 +520,18 @@ There are certainly ways around this:
 - If you use a wrapper class, you can subclass it to override the default behavior, which is basically the same as the first point but more Java-esque.
 
 So, I guess that actually isn't correct anyway.  So.  Weh.
+
+
+### Deferral of Wrapping
+
+Another thought occurs to me.  There's all this hemming and hawing about just where and how to compose the different integrations, but as one part noted: do we even need to store this all in one module?  Can they be entirely separate modules whose functionality is tied together at the point of use?
+
+That seems like it might be annoying at first, except that in practice I've found the easiest way to interface with the Forms module is with an "imperative wrapper", a utility object/class that uses getters for state reads and setters to dispatch actions, allowing a more natural interaction with Vue's imperative/mutational style.
+
+The additional behavior can then be hooked into here, composing each new behavior atop the previous.  This is probably the first case that could be made for class extension, I think, given that it's basically being used as a way to implement the middleware pattern, and is being done as a way to specialize/compose behavior at the point of use.
+
+The other way to do it would be to effectively create a subclass or instance that just has a middleware stack specified, and the subclass itself actually executes that middleware.  I think the effects are equivalent in this case.  The middleware method would effectively instantiate each middleware class with a "prev" entry that and would then do all the custom behavior based on that.  I think that would allow overriding of each setter without killing the getter?  ... I'm not actually sure how getters and setters work with JS classes if you override just one.
+
+The answer is, [the other half of a getter/setter pair is undefined, so you lose that functionality and must specify it in the subclass](../Javascript/Journal%202019-12-02%20-%20Subclasses%20And%20Getters%20And%20Setters.md).  Good to know!
+
+The middleware stack solution is less tightly binding, since you don't have a million things extending atop each other, rather they all extend from a base implementation, but use `this.next.whatever` instead of `super.whatever`, so I think that's a benefit.  On top of that, the base class doesn't even specify any implementation, which is even better.  Or worse, I suppose, since it's actually the wrapper that defines the base implementation.  But, so long as everything implements the appropriate interface it's fine?

@@ -199,3 +199,334 @@ That really makes it a matter of simple function composition, then.  It's functi
 This also suggests an implementation model: each kind of codegen is just a separate function that emits any number of paths + contents.  I guess that means it's kind of a gulpish thing.  Heh.  So, for the above, just do 3 codegen modules: request creators, definition types, validators.  Each module is free to share common code of course, but you have 3 entry points.
 
 Nice.
+
+
+### What's Needed Per Request for TS Request Config Creators?
+
+In my current project, each endpoint gets a corresponding request config creator that looks something like this:
+
+```typescript
+import createAppRequest from '@/src/requests/createAppRequest';
+import ICreateFooRequest from '@/src/requests/interfaces/ICreateFooRequest.interface';
+import ICreateFooResponse from '@/src/requests/interfaces/ICreateFooResponse.interface';
+
+export default function postCreateFoo(params: {
+    request: ICreateFooRequest;
+}) {
+    return createAppRequest.post(
+        '/foos',
+        params.request,
+        {
+            validate: (v: unknown) => assumeType<ICreateFooResponse>(v)
+        }
+    );
+}
+
+export default postCreateFoo;
+```
+
+We have a number of things needed, then:
+
+- Relative Output File Path
+- Interface imports
+- Function name
+- Params (will include path, body, and query)
+- HTTP Method
+- Path, including any path arams
+- Which param is the body param
+- Request Options:
+    - `validate` option: Success Response Type(s), if any
+        - Used for paramtrizing `validate` option.
+    - `params` option: Query params, if any
+
+Should also be able to hold errors and warnings.
+
+- Errors should be used to block generation of a given Request Config Creator.
+- Warnings should not block generation, but should still be loud.
+
+Some other things that should probably be added:
+
+- Docblock text: sometimes it can be nice to have some extra information.
+
+With all those things, we can then add further transforms that will conditionally act on the above created things.  Types themselves will still be specified using JSONSchema since that's well defined, but we'll need special wrappers for TS Utility Types.  Mostly `Parttial<T>`, though.
+
+
+### Typescript Utility Type Schemas
+
+I want some way to explicitly mark a type as `Partial<T>` or `Required<T>` or `Readonly<T>` or whatever.
+
+The quickest way I can think of is to just create a specific type for each one:
+
+```json
+{ "type": "ts", "tsPartial": { "$ref": "#/definitions/Foo" } }
+```
+
+```json
+{ "type": "ts", "tsReadonly": { "$ref": "#/definitions/Foo" } }
+```
+
+and so on.
+
+Another way would be to just use a name and arguments.  This would be generic and allow for, well, darn near anything.
+
+So, using `Partial<T>` would look like:
+
+```json
+{
+    "type": "ts",
+    "tsGenericType": {
+        "name": "Partial",
+        "params": [
+            { "$ref": "#/definitions/Foo" }
+        ]
+    }
+}
+```
+
+And using `Omit<T, K>` might look like:
+
+```json
+{
+    "type": "ts",
+    "tsGenericType": {
+        "name": "Omit",
+        "params": [
+            { "$ref": "#/definitions/Foo" },
+            { "enum": ["A", "B", "C"] }
+        ]
+    }
+}
+```
+
+Anything more exotic would probably require some sort of custom implementation that I really don't feel like thinking about right now.  Something built with `lodash.template` I guess.
+
+```json
+{
+    "type": "ts",
+    "tsTemplate": {
+        "template": "keyof <%= type %>",
+        "schemas": {
+            "type": { "$ref": "#/definitions/Foo" }
+        }
+    }
+}
+```
+
+
+Either that or just manual stringy stuff, where you can specify a string for raw output and a schema for any other type.
+
+```json
+{
+    "type": "ts",
+    "tsRaw": [
+        "keyof ",
+        { "$ref": "#/definitions/Foo" }
+    ]
+}
+```
+
+The latter is easier to write, but harder to read.  The former is significantly noiser to write, but the template itself is easier to read.
+
+Given they'd both be gated behind functions, I'm not sure it really matters ultimately which one is used, the end user devs don't see them.
+
+
+
+## Defining Exceptions
+
+> NOTE: I think I need a better name than "Exception".  That calls to mind errors, what with that name being actually used in Python.  "Irregularity"?  "Workaround"?  "Hax"?  "Suboptimality"?
+
+So, as noted elsewhere, in my current project the backend's OpenAPI doc isn't quite perfect for our needs:
+
+- Some properties can actually be omitted from request payloads and the backend will fill them in with reasonable defaults.
+    - Or in some cases they'll actually be ignored or aren't used...
+- Some properties somehow lose type information.
+    - Some enums devolve to just `{ "type": "string" }`
+- Enums are never placed in the OpenAPI Doc Definitions.
+
+Because of that, currently we do this:
+
+- When rendering an object schema to a TS Interface, assume all properties are required (`"requiredProperties"` has every key in `"properties"`) unless specified otherwise.
+    - That is, if there's no `"requiredProperties"` present, treat the schema as if it has a `"requiredProperties"` with every key in `"properties"`.
+- Manually move some enums out to actual `enum` declarations and replace the inline types with references to those enums.
+
+Now, currently these will be pretty common in our codebase, but it would be nice to actually not have to do this.  As well, the exceptions are, well, exceptional.
+
+So, when defining an exception, we should also define what it is we're replacing.
+
+Also, for general things like the `"requiredProperties"` thing we should only warn once since otherwise that would get excessively noisy.
+
+
+### Exception Guards
+
+Ideally, what would happen is this:
+
+- The guard is just a partially specified schema.
+- If the guard matches part of the schema, you get to transform just that part.
+    - Which would be just the part you specify in the guard, which is a const value.  So, actually you don't even need that, you just return a new thing.
+    - But, being able to operate on a clone of the input would be nice, since you can then just mutate only the parts you need to and return that.
+- The transformed part then is used to patch the original before processing.
+    - I don't know how this part might work, it's kinda not well defined.  Maybe something like "deleting anything that matches this then merging the transformed in"?
+    - Maybe get one of those object diff algos, create a diff from the guard to the transformed, then apply that to the actual document?
+
+```js
+const exc = defineEndpointException({
+  // This matches the current internals better.
+  whereEndpoint: {
+    path: "/foos/{foo_id}/bars",
+    method: "get",
+    schema: {
+      // ...
+    }
+  },
+  // or maybe just this?  This matches the raw document better.
+  whereDoc: {
+    paths: {
+      "/foos/{foo_id}/bars": {
+        get: {
+          // ...
+        }
+      }
+    }
+  },
+  // Most work should be doable here.
+  transformSchema(schemaSlice) {
+    // ...
+    return schemaSlice;
+  },
+  // But, just in case, we should have this too.
+  transformDefinition(endpointDefinition) {
+    // ...
+    return endpointDefinition;
+  },
+});
+```
+
+That looks pretty good to start with for endpoints.  Definitions/interfaces should be similar, but probably not quite as complex because they're just schemas?
+
+```js
+const exc = defineDefinitionException({
+  // Like the first option above, more closely reflects
+  // what happens internally.
+  whereDefinition: {
+    name: 'Foo',
+    schema: {
+      // ...
+    },
+  },
+  // More general...
+  whereDoc: {
+    definitions: {
+      Foo: {
+        // ...
+      },
+    },
+  },
+  transformSchema(schemaSlice) {
+    // ...
+    return schemaSlice;
+  },
+  transformeDefinition(definitionDefinition) {
+    // ...
+    return definitionDefinition;
+  },
+});
+```
+
+Also makes me wonder just when they get applied, or just when they error.
+
+- The `whereEndpoint` and `whereDefinition` guards are much easier to error on:
+    - You can first select by the name or path+method, and yell if they don't exist.
+    - Then you can check if the input matches the given schema, and yell if there's a mismatch.
+- The `whereDoc` ones are much more general, allowing you to arbitrarily test the document.
+
+
+### Generating Enums
+
+These are a bit harder.
+
+- Currently, the way to do this is basically to pick an existing enum schema and generate the values from that.
+- Then, we replace the enum schemas with that enum name.
+
+This is already hacks upon hacks, so probably what we'll want to do is something like:
+
+- Guard: check that certain objects have properties matching a given schema.
+- On success:
+    - Generate a new file which is just that enum.
+- Other Exceptions will just assume the enum is generated successfully?
+    - Either that or we replace each target schema with a reference to the enum before any codegen takes place.
+
+Hm.
+
+We could do something a bit more interesting for this with Definition Exceptions, then.
+
+```js
+const exc = defineDocumentException({
+  whereDoc: {
+    paths: {
+      "/foos/{foo_id}/bars": {
+        get: {
+          // ...
+        },
+      },
+    },
+    definitions: {
+      Foo: {
+        properties: {
+          someEnum: {
+            enum: ['foo', 'bar'],
+          }
+        }
+      }
+    }
+  },
+  transformDocument(documentSlice) {
+    const enumName = 'SomeEnum';
+    const enumRef = () => ({ '$ref': `#/definitions/${enumName}` });
+
+    // Define our enum schema.
+    documentSlice.definitions[enumName] = {
+      // flag it explicitly?
+      tsEnum: true,
+      enum: documentSlice.definitions.Foo.properties.someEnum.enum,
+    };
+
+    // Patch the document.
+    documentSlice.definitions.Foo.properties.someEnum = enumRef();
+
+    return documentSlice;
+  },
+});
+```
+
+Hum.
+
+- I have `tsEnum: true` in there because the current default behavior when creating types from enum schemas is to create an inline type union.
+    - I want to maintain that default behavior, so need some way to opt out of that.
+    - Then again, maybe the Definition Codegen module handles top-level enums differently from non-top-level enums?  That may be all the difference: You can't define a TS enum inline, you can only define them when you declare them which requires a statement. (as opposed to expression)
+- This is a bit broader than other definition exceptions: it transforms the entire document rather than just the schema for a given type.
+    - In light of that, I've renamed it `defineDocumentException`.
+
+I suppose one could do something funky to semi-automate it?  Mmmm, not sure if I want that.
+
+```js
+const exc = defineEnumException({
+  whereEnum: {
+    values: ['foo', 'bar'],
+    document: {
+      // ...
+    }
+  },
+  enumName: 'SomeEnum',
+});
+```
+
+Ugh.  That's starting to get a bit noisy is the problem there, though admittedly the vast majority of cases should exist in `#/definitions` rather than anyhwere else in the document, so there's that much at least.
+
+In which case maybe we just have a set of values and paths?
+
+Also, not much we can do about strings.
+
+
+### Should Schema and Document Transforms be Separated Logically From Codegen Definition Transforms?
+
+I'm starting to think so.  They're applied at different points, so using one interface for two different places seems weird.  I think that would also make the guards a bit easier to deal with, possibly.  Maybe.  Maybe not.

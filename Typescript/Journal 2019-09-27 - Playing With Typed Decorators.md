@@ -170,3 +170,137 @@ class C extends Vue {
 ```
 
 Hm, not like a normal watch that uses `this`.  Hmmm.
+
+
+
+## Another Poke
+
+I know I can't get away without specifying the class name up front, because of course decorators don't add to the existing interface, they only decorate the existing interface.
+
+So, here's another try, with some messy typing.
+
+```typescript
+type AnyWatchHandler<TValue> =
+  | ((next: TValue, prev: TValue | void) => void)
+  | ((next: TValue) => void)
+  | (() => void)
+  ;
+
+type TypedMethodDescriptor<T> = Omit<TypedPropertyDescriptor<T>, 'get' | 'set'>;
+
+function TypedWatch<TClass extends Vue, TResult>(watchFn: (vm: TClass) => TResult, watchOptions: WatchOptions = {}) {
+  const impl = createDecorator((options, handlerName) => {
+    if (!Array.isArray(options.mixins)) {
+      options.mixins = [];
+    }
+
+    options.mixins.push({
+      beforeCreate(this: TClass) {
+        const handler: TClass[keyof TClass] | void = this[handlerName as keyof TClass];
+        if (typeof handler === 'function') {
+          // Ugh, need better typing here.
+          this.$watch(
+            function () { return watchFn(this); },
+            handler as any,
+            watchOptions
+          );
+        }
+      }
+    })
+  });
+
+  return function TypedWatchDecorator(target: TClass, propertyKey: string, descriptor: TypedMethodDescriptor<AnyWatchHandler<TResult>>) {
+    impl(target, propertyKey, descriptor as any);
+  }
+}
+```
+
+Used then like so:
+
+```typescript
+@Component
+export default class Foo extends Vue {
+  @TypedWatch((vm: Foo) => vm.$route, {})
+  protected handleChangeRoute(next: Route) {
+    // ... do stuff.
+  }
+}
+```
+
+So that works.
+
+I had to use give the prev value `TValue | void` to cover `{ immediate: true }` cases.  I can't really do any better because of course by default TS doesn't infer the const value of a boolean value (`true` or `false`), it only infers only `boolean`; because of that I can't even do `TOptions extends WatchOptions`.  So, prev param gets `TValue | void`.
+
+I dunno if there's any need to be more strict than that, given that `TypedMethodDecorator` seems to raise an error if the method params don't match the type of the vaule returned by the watch function.  That said, the type error that does show up is not really all that helpful, which is supremely annoying.
+
+Example: The watch function returns `string` but the handler expects `boolean`:
+
+```
+Argument of type 'TypedPropertyDescriptor<(next: boolean) => void>' is not assignable to parameter of type 'Pick<TypedPropertyDescriptor<AnyWatchHandler<string>>, "enumerable" | "configurable" | "writable" | "value">'.
+  Types of property 'value' are incompatible.
+    Type '((next: boolean) => void) | undefined' is not assignable to type '(() => void) | ((next: string, prev: string | void) => void) | ((next: string) => void) | undefined'.
+      Type '(next: boolean) => void' is not assignable to type '(() => void) | ((next: string, prev: string | void) => void) | ((next: string) => void) | undefined'.
+        Type '(next: boolean) => void' is not assignable to type '() => void'.
+```
+
+It's ... helpful, but very high noise.
+
+
+### Typing the Decoration Target Better?
+
+I tried tooling around with the type of `target` in there a bit, but ran into an issue with property visibility: you can have `public`/`protected`/`private` things, and they are important when dealing with assignability.
+
+Specifically, if you just specify `{ foo: boolean }` then the property `foo` is by default given the visibility `public`, which is a problem if your component declares the watch handler as anything other than that.
+
+First thing I tried:
+
+```typescript
+type ClassWithPropExtendingType<TClass extends object, TPropKey extends string, TPropType> =
+  TPropKey extends keyof TClass ? TClass[TPropKey] extends TPropType ? TClass : never : never;
+
+function TypedWatch<TClass extends Vue, TResult>(watchFn: (vm: TClass) => TResult, watchOptions: WatchOptions = {}) {
+  // ...
+
+  return function TypedWatchDecorator<TPropKey extends string>(
+    target: TClass & { [K in TPropKey]: AnyWatchHandler<TResult> },
+    propertyKey: TPropKey,
+    descriptor: TypedMethodDescriptor<AnyWatchHandler<TResult>>
+  ) {
+    impl(target, propertyKey, descriptor as any);
+  }
+}
+```
+
+This gets an error that looks like this:
+
+```
+Argument of type 'Foo' is not assignable to parameter of type 'Foo & { handleChangeRoute: AnyWatchHandler<string>; }'.
+  Type 'Foo' is not assignable to type '{ handleChangeRoute: AnyWatchHandler<string>; }'.
+    Property 'handleChangeRoute' is protected in type 'Foo' but public in type '{ handleChangeRoute: AnyWatchHandler<string>; }'.
+```
+
+Hmmmm.
+
+Try being indirect next?
+
+```typescript
+type ClassWithPropExtendingType<TClass extends object, TPropKey extends string, TPropType> =
+  TPropKey extends keyof TClass ? TClass[TPropKey] extends TPropType ? TClass : never : never;
+
+function TypedWatch<TClass extends Vue, TResult>(watchFn: (vm: TClass) => TResult, watchOptions: WatchOptions = {}) {
+  // ...
+
+  return function TypedWatchDecorator<TPropKey extends string>(
+    target: ClassWithPropExtendingType<TClass, TPropKey, AnyWatchHandler<TResult>>,
+    propertyKey: TPropKey,
+    descriptor: TypedMethodDescriptor<AnyWatchHandler<TResult>>
+  ) {
+    impl(target, propertyKey, descriptor as any);
+  }
+}
+```
+
+And there `ClassWithPropExtendingType` just returns never.  Probably because I'm only getting public property keys.  Bleh.  I'm also not sure 
+the `TClass[TPropKey] extends TPropType` part would ever work in a general case.
+
+Ah well.

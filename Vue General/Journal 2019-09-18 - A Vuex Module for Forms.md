@@ -535,3 +535,34 @@ The other way to do it would be to effectively create a subclass or instance tha
 The answer is, [the other half of a getter/setter pair is undefined, so you lose that functionality and must specify it in the subclass](../Javascript/Journal%202019-12-02%20-%20Subclasses%20And%20Getters%20And%20Setters.md).  Good to know!
 
 The middleware stack solution is less tightly binding, since you don't have a million things extending atop each other, rather they all extend from a base implementation, but use `this.next.whatever` instead of `super.whatever`, so I think that's a benefit.  On top of that, the base class doesn't even specify any implementation, which is even better.  Or worse, I suppose, since it's actually the wrapper that defines the base implementation.  But, so long as everything implements the appropriate interface it's fine?
+
+
+### Extensions of Interface
+
+I know I said that the middleware stack was probably better, but there's one thing where it doesn't actually win out, and that's in dealing with features that extend the interface, and most of the interesting features do extend the interface.
+
+Key among extensions are things related to async validation.  Not only must it change how `field.errorMessages` would be computed, it must also add `field.validationState: AsyncData` and `field.isValidating: boolean`.
+
+This means we can't just assume everything follows some minimal interface, because most things will want to build on that interface.
+
+I'm not entirely sure what a good way to do that is, then.  Maybe it's just that you have to build all the base classes into a bespoke class every time.
+
+Or maybe you just create your app's own base class then specialize that for each different form you have.  Paramtrization and configuration by subclassing.  It's just another way of specializing, I guess.
+
+
+### On Initialization
+
+Another thing that bothers me is that, while the form is configured up front, it is actually only dealt with in the store in terms of keys, and it's kind of a trick that you have to pass in the entire config but only the keys are used.
+
+As currently imagined, this is required for proper typing of fields when dealing with forms in TS.
+
+I'd like to maintain strict but specifiable typing, since I don't think one should be restricted in what value exactly is returned by a field, but if decoupling field initialization from form initialization, or indeed fields from a form, how do we actually maintain that?
+
+- Type-checking every time is slow, since you have to check every time you read.
+- I don't know outside of that.
+
+I guess this is the same sort of problem you encounter when dealing with any genericized storage.  And, in a sense, a specialized form binding per form is probably the safest, even if under the hood things are actually really unsafe.
+
+Though, if we look at how Redux Form handled things, you could specify the to-store/from-store transforms, though I never was able to keep which one was named what straight.  I suppose that's also something that can be done.
+
+I think for now, I'll keep things as is, until something better occurs to me.

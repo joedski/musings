@@ -84,7 +84,7 @@ export default {
         })
     }
   },
-}
+};
 ```
 
 This works here because values from daggy are meant to be treated as immutable atoms.  They're not really, of course, but we can treat them as such, and daggy's API encourages treating them as such.
@@ -119,7 +119,39 @@ function atom(value) {
 vm.someReactiveProp = atom({ forbidden: 'Semprini' })
 vm.$watch('someReactiveProp', next => {
     vm.derivedProp = vm.someReactiveProp.map(value => ({
-        forbidden: value.forbidden.toUpperCase()
-    }))
-})
+        forbidden: value.forbidden.toUpperCase(),
+    }));
+});
 ```
+
+
+
+## Other Ways of Achieving the Same Effect
+
+If not as elegantly, anyway.
+
+Vue has a couple other things it does not reactify:
+
+- Functions
+- Getters/Setters
+
+This is because it's assumed that those things are intentionally invoking complex behavior.
+
+So, this gives you two options:
+
+- Hide a value in a constant-function that just returns that value.
+- Hide a value behind a getter that just returns that value.
+
+In other words:
+
+```js
+function hideValueInFunction(value) {
+    return () => value;
+}
+
+function hideValueInGetter(value) {
+    return { get value() { return value; } };
+}
+```
+
+The former looks weird due to involving a function invocation, while the latter involves a property-access of `.value` which may be a bit more expected.

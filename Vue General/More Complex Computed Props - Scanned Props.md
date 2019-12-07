@@ -558,6 +558,8 @@ Over all, this is probably the easiest to implement since you just add a bunch o
 
 The only issue of course it that it's more of an implementation modality than a formalization, but the fact that it's implementable like this means you can easily wrap it up, so maybe that's less a complaint and more of a whining about how lazy I am in this section.  Eh.
 
+UPDATE: Or another reason that the Composition API is superior to the Options API.
+
 
 
 ## Another Simplest Approach that Doesn't Work Directly With Vue: Functiony-Thing
@@ -581,3 +583,26 @@ function createProp(initValue) {
 ```
 
 The problem with that is that Vue deliberately skips Function values when it does dependency tracking, so without some way of actually specifying some reactive prop, you won't get an update.
+
+A solution?  Explicitly opt back into Vue:
+
+```js
+function createProp(initValue) {
+    // can't really do anything with `value: undefined`,
+    // so we create the reactive state with `null` instead.
+    const state = Vue.observable({ value: null });
+
+    // Then we can init it.
+    state.value = initValue;
+
+    function prop() {
+        if (arguments.length > 0) {
+            state.value = arguments[1];
+        }
+
+        return state.value;
+    }
+
+    return prop;
+}
+```

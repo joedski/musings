@@ -38,3 +38,59 @@ function get3<
     return target[key1][key2][key3];
 }
 ```
+
+Another way to think about those is:
+
+```typescript
+function get1<
+    T extends object,
+    K extends keyof T
+>(target: T, key: K): T[K] | void {
+    return target[key];
+}
+
+function get2<
+    T extends object,
+    K1 extends keyof T,
+    K2 extends keyof T[K1]
+>(target: T, key1: K1, key2: K2): T[K1][K2] | void {
+    const subtarget = get1(target, key1);
+    if (subtarget == null) return undefined;
+    return subtarget[key2];
+}
+
+function get3<
+    T extends object,
+    K1 extends keyof T,
+    K2 extends keyof T[K1],
+    K3 extends keyof T[K1][K2]
+>(target: T, key1: K1, key2: K2, key3: K3): T[K1][K2][K3] | void {
+    const subtarget = get1(target, key1, key2);
+    if (subtarget == null) return undefined;
+    return subtarget[key3];
+}
+```
+
+Hm.
+
+```typescript
+type Head<T extends any[]> = T[0];
+// Still have to do the function trick for now.
+// `T extends [any, ...infer TRest]` gets "A rest element type must be an array type."
+type Rest<T extends any[]> =
+    ((...args: T) => any) extends ((a: T[0], ...rest: infer TRest) => any)
+        ? TRest
+        : [];
+
+type T0 = ['foo', 'bar', 'baz'];
+type T0H = Head<T0>;
+type T0R = Rest<T0>;
+
+// Error: Type alias 'Get' circularly references itself.
+type Get<T, KS extends (string | symbol | number)[]> =
+    KS extends [any, ...any[]]
+    ? Get<T, Rest<KS>>
+    : T;
+```
+
+Basically, it's about recursive types.  So, yeah, can't do that (yet?).

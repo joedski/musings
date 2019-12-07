@@ -89,7 +89,9 @@ type T0R = Rest<T0>;
 // Error: Type alias 'Get' circularly references itself.
 type Get<T, KS extends (string | symbol | number)[]> =
     KS extends [any, ...any[]]
-    ? Get<T, Rest<KS>>
+    ? Head<KS> extends keyof T
+        ? Get<T[Head<KS>], Rest<KS>>
+        : void
     : T;
 ```
 

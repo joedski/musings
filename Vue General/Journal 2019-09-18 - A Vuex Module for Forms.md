@@ -558,7 +558,7 @@ As currently imagined, this is required for proper typing of fields when dealing
 
 I'd like to maintain strict but specifiable typing, since I don't think one should be restricted in what value exactly is returned by a field, but if decoupling field initialization from form initialization, or indeed fields from a form, how do we actually maintain that?
 
-- Type-checking every time is slow, since you have to check every time you read.
+- Real Type-checking every time is slow, since you have to check every time you read.
 - I don't know outside of that.
 
 I guess this is the same sort of problem you encounter when dealing with any genericized storage.  And, in a sense, a specialized form binding per form is probably the safest, even if under the hood things are actually really unsafe.
@@ -566,3 +566,32 @@ I guess this is the same sort of problem you encounter when dealing with any gen
 Though, if we look at how Redux Form handled things, you could specify the to-store/from-store transforms, though I never was able to keep which one was named what straight.  I suppose that's also something that can be done.
 
 I think for now, I'll keep things as is, until something better occurs to me.
+
+
+### How Much Does It Matter?
+
+I suppose one question is "how much does it matter?" where "it" here is "actual strictness"?
+
+Consider the question about initialization and config vs just keys.
+
+Does it really matter how far down the config goes into the store, and how much we check it, if we have a safe-enough-but-flexible-enough wrapper implementation?
+
+... Did I just make an argument for moving actions out of the store?  Hm.  Maybe only composing actions outside of the store.  I guess it depends on just how much ends up implemented outside of the store.
+
+Anyway, one thing to point out: async validation basically doesn't require anything from any forms store module aside from an action and a debounce thing.  Given this, it could be implemented purely outside of the store, a composition of Forms Module actions and Requests Module actions.
+
+That would actually better mirror how things are used in Components.
+
+Hm!
+
+
+### On Field Arrays and Entry-Specific Rules
+
+One thing that deserves some consideration is this: to support all use cases required of Field Arrays, they need to support per-field config, or at least per-field conditional rules.
+
+This could be done a few ways:
+
+- Allow every field to also have a context/argument. (an object with some data, basically)
+- Don't actually worry about rules strictly and just pass different sets of rules to the Actions every time.
+
+Certainly something that deserves consideration.  And again, also probably why Redux-Form only gave one top-level validation thing for each form, and you just spit out error messages on that, so you can customize the logic to suit, and only implement the bare minimum you need to.  Or go hog wild if you really want to.

@@ -73,3 +73,11 @@ module.exports = {
 Customize to taste.
 
 Theoretically simple.
+
+
+
+## Actually Linting Everything
+
+So, I sorta got things setup for TS and for our config and repo automation files which are _not_ TS...  And things work well except for vue files.
+
+Maybe [the `parserOptions.parser` option is what's needed](https://eslint.vuejs.org/user-guide/#how-to-use-custom-parser)?

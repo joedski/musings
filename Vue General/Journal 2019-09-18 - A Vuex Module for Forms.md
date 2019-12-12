@@ -595,3 +595,7 @@ This could be done a few ways:
 - Don't actually worry about rules strictly and just pass different sets of rules to the Actions every time.
 
 Certainly something that deserves consideration.  And again, also probably why Redux-Form only gave one top-level validation thing for each form, and you just spit out error messages on that, so you can customize the logic to suit, and only implement the bare minimum you need to.  Or go hog wild if you really want to.
+
+#### Just Use An Index
+
+It occurs to me that if I have access to the field's array index then I can use that to access element-specific anything.  No need for storing anything, just nice clean derivation.  Yum.

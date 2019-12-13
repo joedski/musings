@@ -81,3 +81,120 @@ Theoretically simple.
 So, I sorta got things setup for TS and for our config and repo automation files which are _not_ TS...  And things work well except for vue files.
 
 Maybe [the `parserOptions.parser` option is what's needed](https://eslint.vuejs.org/user-guide/#how-to-use-custom-parser)?
+
+So we'll try that, then:
+
+```
+npm install --save-dev eslint vue-eslint-parser
+```
+
+```diff
+diff --git i/.eslintrc.js w/.eslintrc.js
+index 9939a83d..2e4683c2 100644
+--- i/.eslintrc.js
++++ w/.eslintrc.js
+@@ -17,8 +17,8 @@ module.exports = {
+     },
+     {
+       // enable the rule specifically for src/ and tests/
+-      files: ['src/**/*.ts', 'src/**/*.js', 'tests/**/*.ts', 'tests/**/*.js'],
+-      parser: '@typescript-eslint/parser', // Specifies the ESLint parser
++      files: ['src/**/*.ts', 'src/**/*.vue', 'src/**/*.js', 'tests/**/*.ts', 'tests/**/*.vue', 'tests/**/*.js'],
++      parser: 'vue-eslint-parser',
+       plugins: ['@typescript-eslint'],
+       env: {
+         browser: true,
+@@ -28,6 +28,7 @@ module.exports = {
+         'plugin:@typescript-eslint/recommended', // Uses the recommended rules from the @typescript-eslint/eslint-plugin
+       ],
+       parserOptions: {
++        parser: '@typescript-eslint/parser',
+         project: path.resolve(__dirname, './tsconfig.json'),
+         tsconfigRootDir: __dirname,
+         ecmaVersion: 2018, // Allows for the parsing of modern ECMAScript features
+```
+
+Running with that gives...
+
+```
+14:48 $ npx eslint src/App.vue 
+
+/.../src/App.vue
+  0:0  error  Parsing error: "parserOptions.project" has been set for @typescript-eslint/parser.
+The file does not match your project config: src/App.vue.
+The extension for the file (.vue) is non-standard. You should add "parserOptions.extraFileExtensions" to your config
+
+✖ 1 problem (1 error, 0 warnings)
+```
+
+Okay, poke things a bit more then...
+
+```diff
+diff --git i/.eslintrc.js w/.eslintrc.js
+index 9939a83d..09612945 100644
+--- i/.eslintrc.js
++++ w/.eslintrc.js
+@@ -17,8 +17,9 @@ module.exports = {
+     },
+     {
+       // enable the rule specifically for src/ and tests/
+-      files: ['src/**/*.ts', 'src/**/*.js', 'tests/**/*.ts', 'tests/**/*.js'],
+-      parser: '@typescript-eslint/parser', // Specifies the ESLint parser
++      // files: ['src/**/*.ts', 'src/**/*.vue', 'src/**/*.js', 'tests/**/*.ts', 'tests/**/*.vue', 'tests/**/*.js'],
++      files: ['src/**/*.vue', 'tests/**/*.vue'],
++      parser: 'vue-eslint-parser',
+       plugins: ['@typescript-eslint'],
+       env: {
+         browser: true,
+@@ -28,6 +29,8 @@ module.exports = {
+         'plugin:@typescript-eslint/recommended', // Uses the recommended rules from the @typescript-eslint/eslint-plugin
+       ],
+       parserOptions: {
++        parser: '@typescript-eslint/parser',
++        extraFileExtensions: ['.js', '.ts'],
+         project: path.resolve(__dirname, './tsconfig.json'),
+         tsconfigRootDir: __dirname,
+         ecmaVersion: 2018, // Allows for the parsing of modern ECMAScript features
+```
+
+That gave back the same error.  Reading the error more closely, it's actually complaining about `parserOptions.project`, but is complaining about `.vue` files being non-standard.  Let's change that array to just `.vue`, then?
+
+```diff
+diff --git i/.eslintrc.js w/.eslintrc.js
+index 9939a83d..09612945 100644
+--- i/.eslintrc.js
++++ w/.eslintrc.js
+@@ -17,8 +17,9 @@ module.exports = {
+     },
+     {
+       // enable the rule specifically for src/ and tests/
+-      files: ['src/**/*.ts', 'src/**/*.js', 'tests/**/*.ts', 'tests/**/*.js'],
+-      parser: '@typescript-eslint/parser', // Specifies the ESLint parser
++      // files: ['src/**/*.ts', 'src/**/*.vue', 'src/**/*.js', 'tests/**/*.ts', 'tests/**/*.vue', 'tests/**/*.js'],
++      files: ['src/**/*.vue', 'tests/**/*.vue'],
++      parser: 'vue-eslint-parser',
+       plugins: ['@typescript-eslint'],
+       env: {
+         browser: true,
+@@ -28,6 +29,8 @@ module.exports = {
+         'plugin:@typescript-eslint/recommended', // Uses the recommended rules from the @typescript-eslint/eslint-plugin
+       ],
+       parserOptions: {
++        parser: '@typescript-eslint/parser',
++        extraFileExtensions: ['.vue'],
+         project: path.resolve(__dirname, './tsconfig.json'),
+         tsconfigRootDir: __dirname,
+         ecmaVersion: 2018, // Allows for the parsing of modern ECMAScript features
+```
+
+Okay, now running `npx eslint src/App.vue` exits successfully, and an unused import is flagged correctly.
+
+However, now in VSCode, I get this error:
+
+```
+Parsing error: "parserOptions.project" has been set for @typescript-eslint/parser.
+The file does not match your project config: src/App.vue.
+The file must be included in at least one of the projects provided.
+```
+
+And I have no idea why.  It's like, I did exactly the thing it told me to, and it's still like "nope".

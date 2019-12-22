@@ -155,3 +155,30 @@ function hideValueInGetter(value) {
 ```
 
 The former looks weird due to involving a function invocation, while the latter involves a property-access of `.value` which may be a bit more expected.
+
+
+### Making It Mildly Friendlier
+
+You can of course make both of these a bit friendlier by giving them a method or two.  The most basic being `map`, which is basically the same as the above example in the Post-Final Amusement.
+
+```js
+function hideValueInFunction(value) {
+    const value = () => value;
+
+    value.map = fn => hideValueInFunction(fn(value()));
+
+    return valu;
+}
+
+function hideValueInGetter(value) {
+    return {
+        get value() { return value; },
+
+        map(fn) {
+            return hideValueInGetter(fn(this.value));
+        },
+    };
+}
+```
+
+There're more efficient implementations, but you get the idea.

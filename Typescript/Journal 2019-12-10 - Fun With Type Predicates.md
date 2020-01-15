@@ -127,3 +127,11 @@ Modified rapture.
 Perhaps then predicates should always be written in such a form as to either be or create a function which has just a single value parameter, and that further parametrization should be done via an outer function.
 
 That is, generally, either `el => el is T` or `config => el => el is T`.  Otherwise, the predicate just gets subsumed into a generic `boolean` return type which is entirely not the point of having predicates.
+
+
+
+## Running Rampant With Predicates
+
+One thing that's annoying is to validate that some random value is (assignable to) an object-type.  You have to check that every single property on it is of some specific type.
+
+By building higher-order predicates like the Array-of-Type one shown above, this can be made somewhat less annoying.

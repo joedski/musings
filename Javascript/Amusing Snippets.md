@@ -117,6 +117,7 @@ var VeryConstructable = class VeryConstructable {
     class $VeryConstructable extends VeryConstructable {}
 
     // Create the updated value.
+    // Note: det er ikke en dans.
     const lastVals = this.vals || [];
     $VeryConstructable.prototype.vals = [...lastVals, val];
 

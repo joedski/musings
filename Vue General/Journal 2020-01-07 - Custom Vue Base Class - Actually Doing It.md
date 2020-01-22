@@ -129,6 +129,15 @@ function Mixins<TMixins extends any[]>(...mixins: TMixins) {
 Maybe that'll work.
 
 
+### Post Mortem Thoughts
+
+I should've tried this on a smaller scale first, a test project.
+
+- I'm not sure, but I think if you try to use a code base that mixes two different Vue base classes, even if one is derived from the other, then Bad Stuff happens.
+- This further solidifies my distaste for `vue-property-decorator` and `vue-class-component`.
+- Stable release of Composition API when?
+
+
 
 ## Whack 2: Interface Extension/Merging
 

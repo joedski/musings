@@ -120,3 +120,44 @@ Where it takes 2 to 3 arguments:
 Kind of annoying in that it separates required from non-required, but that's the only way I can think of to do it without adding extra validation somewhere.
 
 Though, I suppose with codegen, we could actually make the request creators themselves return null if not all of the required parameters are present.  Hmmm.
+
+
+### Most General Solution: Just The Request
+
+After playing with the idea elsewhere, I've decided that the best way to do this is also the simplest: Just define a getter that gets a nullable request.
+
+```js
+export default Vue.extend({
+  computed: {
+    /** @returns {number | null} */
+    applicationId() {
+      return toEntityId(this.$route.parameters.applicationId);
+    },
+
+    applicationRequest() {
+      return new RequestBinding(this, {
+        request: () => {
+          if (this.applicationId != null) {
+            return getApplicationDetails({
+              applicationId: this.applicationId,
+            });
+          }
+          return null;
+        },
+      });
+    },
+
+    applicationName() {
+      return this.applicationRequest.data
+        .map(data => data.name)
+        .getDataOr('');
+    },
+  },
+
+  beforeMount() {
+    this.applicationRequest.dispatch();
+  },
+});
+```
+
+And because `RefreshableData` is also a frequent thing, we can handle that as well with a `RefreshableRequestBinding` that also adds a watch that updates an internal `RefreshableData`.  In fact, `RefreshableRequestBinding` could be implemented as a strict subclass of `RequestBinding`.

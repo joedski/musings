@@ -221,8 +221,6 @@ export default function postCreateFoo(params: {
         }
     );
 }
-
-export default postCreateFoo;
 ```
 
 We have a number of things needed, then:

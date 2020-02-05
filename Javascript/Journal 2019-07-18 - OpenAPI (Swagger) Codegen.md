@@ -524,7 +524,27 @@ In which case maybe we just have a set of values and paths?
 
 Also, not much we can do about strings.
 
+> UPDATE: Also, rather than Exception, probably use Workaround.  Exception is used by other languages where JS uses Error, but it's still too close to those that it can cause crossed wires.  That and Workaround feels closer to what's being described.
+
 
 ### Should Schema and Document Transforms be Separated Logically From Codegen Definition Transforms?
 
 I'm starting to think so.  They're applied at different points, so using one interface for two different places seems weird.  I think that would also make the guards a bit easier to deal with, possibly.  Maybe.  Maybe not.
+
+
+
+## First Updates From Initial Implementation
+
+After actually playing around with implementing some of these things, I've found that a few stages naturally emerge:
+
+- Pre-default-operations: used to apply any necessary modifications to the original JSON document slice.
+- Post-default-operations: used to apply any overrides to the codegen record itself that can't be done in the JSON document slice.
+    - Most of the operations I can think of can be done at the pre-default-operations stage, though, so I'm not sure this is necessary.
+- Post-default-checks: used to apply any additional checks, though I don't know that there necessarily will be any.
+    - Most of the current ones can probably be handled as default checks, and could even be applied before actual default-operations.
+
+I separated record creation and record population just because I didn't want to think about anything there, but that does lead to the annoying case of having to define default values.  That's fine, though, it made the operations themselves easier to write.
+
+I implemented operations as mutations rather than pure functions, though there's strictly speaking no reason either has to be preferred.  That said, a lot of mutation will be outright replacing things with new data, so it's kinda both, but any mutation means everything must be assumed to be mutation, so there's that too.
+
+Of course, I could do a deep clone of everything to guarantee mutations don't leak out past operations on a given item, and when doing any mutations to JSON documents I'll want to start with that so that the original document itself isn't mutated, but otherwise yeah.

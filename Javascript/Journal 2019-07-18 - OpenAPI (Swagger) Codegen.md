@@ -548,3 +548,51 @@ I separated record creation and record population just because I didn't want to 
 I implemented operations as mutations rather than pure functions, though there's strictly speaking no reason either has to be preferred.  That said, a lot of mutation will be outright replacing things with new data, so it's kinda both, but any mutation means everything must be assumed to be mutation, so there's that too.
 
 Of course, I could do a deep clone of everything to guarantee mutations don't leak out past operations on a given item, and when doing any mutations to JSON documents I'll want to start with that so that the original document itself isn't mutated, but otherwise yeah.
+
+
+### On Suppressing Notices
+
+It might be useful to suppress notices that you know won't actually affect things.  In this case, an additional "check" could be implemented that removes certain notices.
+
+One thing that might make this easier is to just explicitly declare types of notices (notice prefabs), or at least define constant values that can be used to identify those kinds of notices.  After that, metadata extraction will have to be done somehow too.  Maybe a nullable getter?  Hm.  That's starting to get annoying.  Exporting an interface for item specific metadata might be enough.
+
+
+### Do We Need So Many Hooks When We Can Augment The Schema?
+
+Given that we're already augmenting the schema with additional Typescript specific things, or import/export symbol information in the case of `$ref`s, do we really need all the hooks?  We can just add new "validation" keys that do and express whatever we need.
+
+Something to think about, certainly.
+
+It's probably still prudent to include the option to specify processing and checks at other points just to cover all cases.  And, if the list of operations is defined as an array of individual ops, then there's no real need for hooks at all because, well, you define everything that goes in.
+
+Honestly that's probably what the first version will do.  No need to get fancy.
+
+#### What About Validation?
+
+Since we're using Typescript, we're delegating validation of data sent to the server to the type system/compiler and developer diligence.  That leaves validation to just data we receive from the server, though theoretically that shouldn't be necessary, and hasn't been necessary yet.  While this is possible to add, it's not something we're quite interested in just yet.
+
+Supposing we did want to do this, if for no other reason than to issue warnings when the server sends something different so that we know something's up, do we need to do anything now that would make this possible?  Reduce future friction?
+
+Would any of the processing steps affect this, and if so what might we want to watch out for?
+
+I think for the most part, the response types aren't touched, nor have they needed to be touched.  In fact, the vast majority are `$ref`s, though the types themselves that are `$ref`ed could be altered during their processing steps.
+
+Easiest might be to redo the Typescript things to be adjunct keys rather than their own keys.  Things like Partial and Required would trigger certain things during codegen but otherwise not affect AJV.  Some of our transforms could even be things which produce a different schema, but still implementing the desired TS behavior in pure JSON Schema.
+
+Practically speaking however, I think most of the TS things are going to be used in things that the Client handles or sends, rather than things that the server sends.
+
+That is, most TS related things will be in:
+
+- Request creator parameters
+- The Request Body specifically in some cases
+    - A number of create/update entity requests don't require the client to send the whole thing, some data which the client doesn't have in the first place anyway
+
+So yeah.  That's something.
+
+
+
+## Implementing Overrides: Workarounds
+
+I'm going to use the term Workaround since it's both distinct and descriptive.
+
+I don't even know what language to create for defining these, so I'll follow the old tried and true: Implement a few manually and see what patterns fall out and what things are actually important and what aren't.

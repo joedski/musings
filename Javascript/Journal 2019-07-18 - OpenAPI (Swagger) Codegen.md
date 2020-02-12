@@ -598,6 +598,67 @@ I'm going to use the term Workaround since it's both distinct and descriptive.
 I don't even know what language to create for defining these, so I'll follow the old tried and true: Implement a few manually and see what patterns fall out and what things are actually important and what aren't.
 
 
+### On Composing Workarounds
+
+Workarounds as presently defined (see the later section _Accounting for Unused Specific Workarounds_) two major components and one primarily for later diagnosis:
+
+- Name: the name of this workaround.
+- Test: optional test for whether or not this workaround should attempt its operation on the current record.
+- Operate: actual operation to perform on the current record.
+
+The thing of course about writing workarounds, especially when dealing with schemas, is that JSON Schema keys are all optional.  Their values aren't, but the main validation keys are all optional.  This means you have to validate every single access and, in the case of codegen, (usually) set notices when you can't access something expected.
+
+There's a few operations I've run into so far that are used multiple times:
+
+- Update a Specifically Named Property Schema of an Object Schema.
+- Update the `required` key of an Object Schema.
+
+There's a couple ways I can think of to do this:
+
+- Define Schema Alterations as a distinct Workaround that accepts two parameters: Record and Schema.
+- Pass an altered Record to the sub-Workaround.
+
+In either case we need the Codegen Record because we need to be able to set Notices.
+
+I'm leaning towards the former, where `AlterSchemaWorkarounds` are their own explicit thing.
+
+- Pro `AlterSchemaWorkaround`:
+    - Explicit is usually better.
+    - Removes ambiguity about if you can use an `AlterSchemaWorkaround` as a `CodegenOperation`: you can't.
+    - No faking out sub-Workarounds: the record is always the given record.
+- Contra `AlterSchemaWorkaround`:
+    - A wrapper is now always needed because an `AlterSchemaWorkaround` expects a Schema argument, but `Workaround`s are just `CodegenOperation` definitions whose operation doesn't have that second argument.
+
+On the other hand, by defining them in terms of plain `CodegenOperation` definitions, you can just reuse known composition semantics.
+
+- Pro `CodegenOperation`:
+    - Composition semantics already defined.
+    - Fewer concepts to juggle about.
+- Contra `CodegenOperation`:
+    - Faking out the sub-Workarounds: you create a fake record whose data is in some way unrelated to the rest of the record.
+    - Not easy to use across both Type Definition records and Endpoint records, only the former has `schema` at the top level.
+
+That last Contra point is probably the biggest point against trying to reuse `CodegenOperation` directly.
+
+#### On Composition and Names
+
+One of the points of all this malarkey around `CodegenOperation`, `AlterSchemaWorkaround`, etc, is that there are actual names everywhere to make it easier for a developer to track down exactly what workaround produced what message.  Composition then requires that the names are also composed.
+
+Currently, I'm thinking:
+
+- Operation Names should be just joined via `/`.
+- Key/Name parameters should come after the Operation Name, in parentheses.
+
+So, given this:
+
+```js
+const opDefs = workaroundsForDefinition('#/definitions/Foo', [
+    alterSchema(requiredProps(['foo', 'bar'])),
+]);
+```
+
+We end up with one CodegenOperation whose name is `workaroundsForDefinition("#/definitions/foo")/alterSchema/requiredProps(["foo", "bar"])`.  Better probably would've been to make `name` a `string[]`, but oh well.
+
 
 ## Making Notices A Bit Dev-Friendlier
 
@@ -680,6 +741,22 @@ Nullable then just becomes `{ oneOf: [originalSchema, { type: 'null' }] }`.
 
 ## On the SwaggerDoc Type
 
-I've run into an issue where I'm operating on things pulled from the Swaggerdoc which must then be extendable with our custom schema stuff.  This is fixable by just specifying the Schema type as a type parameter.
+I've run into an issue where I'm operating on things pulled from the Swaggerdoc which must then be extendable with our custom schema stuff.
 
-So, `PartialOpenApiDocument<TSchema extends OpenApiSchemaObject>`.  Of course, that means all the other sub-types must also deal with that type parameter, but that's the same with any sort of parametrization.
+One way is to specify the Schema type as a type parameter.
+
+So, `PartialOpenApiDocument<TSchema extends OpenApiSchemaObject>`.  Of course, that means all the other sub-types must also deal with that type parameter, but that's the same with any sort of parametrization.  Now, a possible issue is that I'm not sure my extended type (implemented as an alias defined as a union) is actually entirely assignable to `OpenApiSchemaObject`, meaning it would actually fail the constraint.
+
+The better option, which requires rewriting some of the internal utils, would be to make my custom schema type a strict extension of `OpenApiSchemaObject`, following the JSON Schema thing of having all keys optional and not doing anything funny with requiring pairs.  By making all extensions optional, every extended schema is automatically assignable to the base schema type, and even vice versa!
+
+> Technically, there are keys that only work in coordination with other keys, but the implementation of validation around such keys also requires defining behavior in the absence of any other keys.
+
+I think I'll bite the bullet and go with the better option, that one's less noisy.
+
+It also means changing all the various subset types to be strict subsets of that extended type, again with all props optional, or basically `Partial<T>`.  In fact, that might be a good way to do it, to guarantee such things are indeed strict sub sets.  If I don't have a given key defined, it'll tell me!
+
+Then if I want to guarantee some things, I can just do `Required<T, K>`.  Mixed ones will require doing `Required<Pick<T, KReq>> & Pick<T, KOpt>` but there you go, I guess.
+
+EDIT: Actually, `Pick<>` doesn't maintain optionality, though it does maintain the union with `undefined`.  Rather, you have to explicitly do `Required<Pick<...>> & Partial<Pick<...>>`.  Ah well.
+
+On the plus side, this will make type predicates much easier to write.

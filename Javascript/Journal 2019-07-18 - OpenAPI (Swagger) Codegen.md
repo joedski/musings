@@ -596,3 +596,90 @@ So yeah.  That's something.
 I'm going to use the term Workaround since it's both distinct and descriptive.
 
 I don't even know what language to create for defining these, so I'll follow the old tried and true: Implement a few manually and see what patterns fall out and what things are actually important and what aren't.
+
+
+
+## Making Notices A Bit Dev-Friendlier
+
+It would be nice to automatically have the name of the operation that set a given notice in that notice so you don't have to try parsing a stack trace.  Probably the easiest way to do this is to use either a specific name, or to use `Function.name`.
+
+Not sure if I should include an error code or something after that, but the operation name itself would at least go a long way to narrowing down where a given notice came from.
+
+
+
+## Accounting for Unused Specific Workarounds
+
+One thing that should be done as a matter of course is checking that a given specific workaround was actually executed at least once.
+
+This requires either the given workaround itself tracking that, or else separating tests from execution.  I don't know what that'll look like yet, but it'll probably involve something with a `recordsAccepted` property or similar, where `undefined` is treated as `Infinity`, more or less.  Just has to be greater than 0.
+
+A better option would be to change Workarounds from functions into descriptions, which are always more flexible but also require implementling a execution engine for.
+
+The description would start out at minimum as:
+
+```typescript
+interface CodegenOperation<TRecord> {
+    name: string;
+    test?: (record: TRecord) => boolean;
+    operate: (record: TRecord) => void;
+    recordTestPassCount: number;
+}
+```
+
+Then we wouldn't have to finagle `Function.name` with silly things.
+
+
+
+## On Imported Generic Types
+
+Currently, there's two different ways of handling types referenced by symbol name:
+
+1. Imported symbols
+2. Typescript Generics
+
+Now, granted, there are two different things going on here:
+
+1. Imported symbols are imported and referenced as is, but must be included in the Import Statements at the top of the file.
+2. Generics are currently all assumed to be globally defined ones from the built in library of types that Typescript installs with.
+
+But currently these are handled with entirely separate things.
+
+Present examples:
+
+```typescript
+interface RefSchema {
+    $ref: string;
+    $refDefaultImport?: string;
+    $refNamedImport?: string;
+    $refNamedImportAlias?: string;
+}
+
+interface TypescriptGenericSchema {
+    typescriptGeneric: {
+        name: string;
+        parameters: TypeSchema[];
+    }
+}
+```
+
+Could both of these be used together?  Is there some duplication?
+
+One way this could be handled is by using `$refNamedImport` or `$refDefaultImport` to handle the `typescriptGeneric.name` which would leave just `typescriptGeneric.parameters`.  That's probably good enough, really.  Either that or we just ensure that `name` and `$refNamedImport` or `$refDefaultImport` both match.
+
+I guess if we just change it to `typescriptGenericParameters`, flatten things out and just have the keys coordinate, then we can use `$refNamedImport` or `$refDefaultImport` over `typescriptGenericName` if those two are specified.
+
+
+
+## On Nullables And Arbitrary Unions (And Intersections)
+
+Probably the easiest way to handle a union is using the `oneOf` key.  Similarly, intersections can be handled with `allOf`.
+
+Nullable then just becomes `{ oneOf: [originalSchema, { type: 'null' }] }`.
+
+
+
+## On the SwaggerDoc Type
+
+I've run into an issue where I'm operating on things pulled from the Swaggerdoc which must then be extendable with our custom schema stuff.  This is fixable by just specifying the Schema type as a type parameter.
+
+So, `PartialOpenApiDocument<TSchema extends OpenApiSchemaObject>`.  Of course, that means all the other sub-types must also deal with that type parameter, but that's the same with any sort of parametrization.

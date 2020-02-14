@@ -660,6 +660,125 @@ const opDefs = workaroundsForDefinition('#/definitions/Foo', [
 We end up with one CodegenOperation whose name is `workaroundsForDefinition("#/definitions/foo")/alterSchema/requiredProps(["foo", "bar"])`.  Better probably would've been to make `name` a `string[]`, but oh well.
 
 
+### On Normalizing Composition A Bit Better
+
+So, to compose two workarounds, you have basically have to compose three things:
+
+- The name
+- The test
+- The operation
+
+These composition operations should be defined on CodegenOperation, or on an adjunct util.  Regardless of where they go, what they do should be as follows.
+
+#### Composing Names
+
+This was already stated: CompName(A, B) should result in `${A.name}/${B.name}`.
+
+#### Composing Tests
+
+This one is simple as well: CompTest(A, B) should result in `A.test(record) && B.test(record)`.  A special case could also be defined if neither A nor B define a test: in that case, CompTest(A, B) results in no test.
+
+#### Composing Operations
+
+Since Operations were originally defined as only being mutations/side effects, not maps/transforms, this seems fairly simple: CompOp(A, B) should result in `A.operate(record); B.operate(record)` however that's not necessarily always the case.  A more general way would be to define how the composition occurs with a higher order function.
+
+Basically, A would define its operation as actually `B.op => record => {...}` and would therefore decide how to go from there.
+
+In practice, since the definition of a Workaround would itself be written in terms of the Codegen Operation Composition operator, it would control all of A and accept B as a parameter.  Thus in such a case we colud write A only in terms of HOFs.
+
+#### Is That Necessary?
+
+In more practical practice, this is confusing to read for many people, and honestly not really nceessary.  We can get really far by just writing an "operation description normalizer" so that we can accept anything and turn it into a `CodegenOperationOptions` object.
+
+```js
+function normalizeOperationDefinition(opDef) {
+    if (typeof opDef === 'function') {
+        return {
+            name: opDef.name,
+            test: null,
+            operate: opDef,
+        };
+    }
+
+    // If using TS types, then this is exhaustive.
+    return opDef;
+}
+
+function compName(nameA, nameB) {
+    return `${nameA || '[anonymous]'}/${nameB || '[anonymous]'}`;
+}
+
+function compTest(testA, testB) {
+    if (testA && testB) {
+        return function composedTest(record) {
+            return testA(record) && testB(record);
+        };
+    }
+
+    const definedTest = testA || testB;
+
+    if (definedTest) {
+        return definedTest;
+    }
+
+    return null;
+}
+
+// NOTE: No compOperate because it's too arbitrary.
+
+function workaroundForDefinition(jsonRef, workaround) {
+    const workaroundDef = normalizeOperationDefinition(workaround);
+    return {
+        name: compName(
+            `workaroundForDefinition(${jsonRef})`,
+            workaroundDef.name
+        ),
+        test: compTest(
+            record => record.jsonRef === jsonRef,
+            workaroundDef.test
+        ),
+        operate: workaroundDef.operate,
+    };
+}
+```
+
+What would the HOF form look like, though?
+
+```js
+function composeCodegenOperationDefinition(higherOrderOp) {
+    return function comp(opB) {
+        const opBNormed = normalizeOperationDefinition(opB);
+        return {
+            name: compName(higherOrderOp.name, opBNormed.name),
+            test: compTest(higherOrderOp.test, opBNormed.test),
+            operate: higherOrderOp.operate(opB.operate),
+        };
+    };
+}
+
+function workaroundForDefinition(jsonRef, workaround) {
+    return composeCodegenOperationDefinition({
+        name: `workaroundForDefinition(${jsonRef})`,
+        test: record => record.jsonRef === jsonRef,
+        operate: nextOp => nextOp,
+    })(workaround);
+}
+
+// or...
+
+function workaroundForDefinition(jsonRef) {
+    return composeCodegenOperationDefinition({
+        name: `workaroundForDefinition(${jsonRef})`,
+        test: record => record.jsonRef === jsonRef,
+        operate: nextOp => nextOp,
+    });
+}
+```
+
+Kind of a lot to keep in mind, I guess.  Concise, but not necessarily what I might consider idiomatic to Javascript.
+
+
+
 ## Making Notices A Bit Dev-Friendlier
 
 It would be nice to automatically have the name of the operation that set a given notice in that notice so you don't have to try parsing a stack trace.  Probably the easiest way to do this is to use either a specific name, or to use `Function.name`.

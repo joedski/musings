@@ -175,3 +175,12 @@ If you still want short names, you'll have to do the `@typedef` thing again, but
 /** @type {Foo} */
 const foo = {id: 5, name: 'yay'};
 ```
+
+
+### Very Modified Rapture
+
+I'm not actually sure the `///` directives are doing anything, any more.  Intellisense autocompletes are no longer happening, and I still have no idea under what conditions they did work.
+
+Also, the `@typedef` thing only works with types that don't have type parameters, that is to say types that are not generics.  You can't do `@typedef {import('./foo.types').GenericFoo<T>} GenericFoo<T>` either.  Bah.
+
+Of course, this is in TS 3.5.x.  Maybe things will change in the future?  Or maybe I'll figure out just how to use `///` directives.

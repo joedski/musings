@@ -604,3 +604,56 @@ Another thought: Do I really need to use the original constructor?  I could just
 This is probably easier, I think, since it means I can wrap the interface to suit.  There'll still be the question of adding methods, but hey, it's a start.
 
 The current constructor lacks one thing: the type for each property.  Thing is, we still need to provide that property name in value land to ensure we can actually pass it down.  We also need some way to allow deferring specification of type parameters, a tricky proposition.
+
+
+### Parallel Definition
+
+I don't like it, but honestly you only define a given type once so does it really matter that much?  Definition being verbose and possibly redundant is a one-time cost , well worth paying if point of actual use is fine.
+
+The main issue is that we have two different things going on:
+
+- The value constructor argument names are concrete string values, and must be so that the run time code can actually use them as instance property names.
+- Type information is not concrete, it's type information, which means it's not something that has a run time value (outside of maybe class metadata).
+
+On top of this, we still have the Tag Names to deal with.
+
+These are necessarily placed in two different places, then.
+
+Currently, to define a Tagged Sum with Daggy, it looks like this:
+
+```js
+const Maybe = daggy.taggedSum('Maybe', {
+  Some: ['value'],
+  None: [],
+});
+```
+
+For type information, then, we need to somehow associate a list of types, one for each argument label, with the tag name, and each list must be the same size.  If we wanted to stick with the original code, we'd have to do something like this:
+
+```typescript
+const Maybe = daggy.taggedSum<{
+    <T>Some: [T];
+    None: [];
+}>('Maybe', {
+    Some: ['value'],
+    None: [],
+});
+```
+
+What is `Maybe` here, though?  It's only a namespace for some factories and utilities that all share a common parametrization.  Notably, it's not a type.  Hm.  We'd still have to add something like `type Maybe<T> = ...`, and how do you do that?
+
+Maybe instead of having the types and contructors in one thing, we instead define the type and constructors separately.
+
+```typescript
+const Maybe = daggy.taggedSum('Maybe', {
+    Some: ['value'],
+    None: [],
+});
+
+type Maybe<T> = TaggedSumType<typeof Maybe, {
+    Some: [T];
+    None: [];
+}>;
+```
+
+By default, the constructors in `Maybe` return something like `TaggedSumValue<[unknown]>`, but the `Maybe<T>` would change that to `<TaggedSumValue<[T]>`.  If the parametrization is put to each constructor then the types will be automatically inferred, as well.  They wouldn't use the type alias name `Maybe<T>`, though, which is inconvenient, when actually using them with tooling.

@@ -8,6 +8,7 @@ I wondered then if you just place a getter on the Observable itself, if that wou
 It seems the answer is "yes", at least in Vue 2.6.10, and probably other versions too.  Fascinating.
 
 ```js
+const assert = require('assert');
 const Vue = require('vue');
 
 class Foo {
@@ -40,10 +41,12 @@ const Comp = Vue.extend({
 });
 
 async function task() {
+  const vals = [];
   const comp = new Comp({
     propsData: {
       watchHandler(next, prev) {
         console.log('changed from', prev, 'to', next);
+        vals.unshift(next);
       },
     },
   });
@@ -51,19 +54,28 @@ async function task() {
   comp.foo.state.id = 2;
   await Vue.nextTick();
   // should log "changed from [Foo #1] to [Foo #2]"
+  assert(vals[0] === '[Foo #2]');
 
   comp.foo.state.id = 42;
   await Vue.nextTick();
   // should log "changed from [Foo #2] to [Foo #42]"
+  assert(vals[0] === '[Foo #42]');
 
   comp.foo.state.name = 'something else!';
   await Vue.nextTick();
   console.log('what is foo.state.name after setting it to something else?', comp.foo.state.name);
   // should log "what is foo.name? [Foo #42]"
+  assert(vals[0] === '[Foo #42]');
 
   comp.foo.state.id = 255;
   await Vue.nextTick();
   // should log "changed from [Foo #42] to [Foo #255]"
+  assert(vals[0] === '[Foo #255]');
+
+  comp.foo.state.id = 255;
+  await Vue.nextTick();
+  // should log nothing, because id didn't change.
+  assert(vals.length === 3);
 }
 
 task()

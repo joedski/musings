@@ -777,6 +777,76 @@ function workaroundForDefinition(jsonRef) {
 
 Kind of a lot to keep in mind, I guess.  Concise, but not necessarily what I might consider idiomatic to Javascript.
 
+I'd probably still do it in personal projects, though, just for uniformity, mostly because having to remember to do that when it's optional is just obnoxious.
+
+
+### On Operations: Mutations vs Maps
+
+Originally, I implemented Operations (and thus Workarounds) as mutation-only, and they return nothing.  This turned out to be a mistake, because there are some things that are best expressed as a map rather than a mutation!  Indeed, mutation-only is not as easy to compose, and you quickly reach a point where you're having to add a mapper-wrapper because you want to replace this schema here with a new derived schema defined by... a map function.
+
+It basically boils down to this: maps are strictly more powerful than plain mutations since you can return a wholly new record to replace the old one.
+
+Now, because this is ugly dirty JS, no one is saying you actually have to return a different object, you could just mutate the existing one and return it, but the point is you _can_ return a _different_ object if you want to wholly replace it, even if most of the time you don't.
+
+> The other option is to just define a return value of `undefined` as `return input record`, but more polymorphism in an interface means more to learn, especially when you come back to it later and have forgotten about it.  No thanks.
+
+This doesn't change anything about composition, that's still most easily done with HOFs, just eliminates a few interfaces we have to care about.
+
+
+### On Schema Operations
+
+Another thing that emerged while working on Workarounds was the separate class of operations known as Schema Operations.  These are nearly the same as regular Codegen Operations but their `operate` interface accepts an additional parameter `schema` and returns a (maybe) new `schema`.
+
+Thus:
+
+```typescript
+interface CodegenOperationDefinition<TRecord extends AnyCodegenRecord> {
+    name: string;
+    test?(record: TRecord): boolean;
+    operate(record: TRecord): TRecord;
+}
+
+interface SchemaOperationDefinition<TRecord extends AnyCodegenRecord> {
+    name: string;
+    operate(record: TRecord, schema: ExtendedJsonSchema): ExtendedJsonSchema;
+}
+```
+
+In principle, a Schema Operation could also have a `test`, but in practice I've never seen one use one.  It's optional even on Codegen Operation Definitions so it's not like we couldn't just go back and add it later.
+
+Codegen Operations still need the `test` because we want to know if any Operation is never used, since it means we probably have a stale workaround.  The other option is to deepclone the record before every operation and deepequals check against the record after the given operation to see if anything happened.  We could certainly do it, but meh.
+
+Well, there's another option: enforce returning a new value.  In plain JS this isn't really possible without deep-freezing, which is its own bag of worms especially with the ref to the whole API Doc, but in TS this could be enforced by creating a deep-readonly version of the record interface.  Not sure that's worthwhile, but it's possible.
+
+Theoretically this should be doable by making a deep-readonly type alias.  Not sure if this is practical, [but it seems to work](https://www.typescriptlang.org/play/?ssl=1&ssc=1&pln=23&pc=1#code/C4TwDgpgBAIhFgEoQIYBMD2A7ANiAPACoB8UAvFIVBAB7ARZoDOUGARgFYQDGwAUFEFQA-FADeUAE6pMuEFADaAaSgBLLFADWEEBgBmlALoAuWPCQzseIssPEA3FAC+AoacL2+fdfUl6U3NAAYhgY4q6CqmimWACuALZsEJKeQlBYKPEQpkzAkuoA5qlCGGDAwjl5hcWCTLFswAAWhaZiEWlq0ekJSSntaXqSKFgFqmw42VBsoRPDNc7zOKq5pgCCkkMEEnVsUTE9yY5ODu3AsWATpgr9Qrn5IwA0N4JxiclPHUKvvQqGH0KGeZYWjAUwhDCeFx8UCQKCIADy4PIZgQyHQVgI4JOQA)?
+
+```typescript
+type DeepReadonly<T> = T extends object
+    ? { readonly [K in keyof T]: DeepReadonly<T[K]>; }
+    : T;
+
+interface Foo {
+    id: number;
+    name: string;
+    opt?: string;
+    subthing: {
+        id: number;
+        frangible: boolean;
+    };
+    list: Array<{ subid: number; }>;
+    tuple: [
+        string,
+        number,
+        number[],
+    ];
+    next: Foo;
+}
+
+type ROFoo = DeepReadonly<Foo>;
+```
+
+It doesn't die, at least as of TS 3.7, so maybe that's a thing to do.
+
 
 
 ## Making Notices A Bit Dev-Friendlier

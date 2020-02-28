@@ -29,7 +29,7 @@ const Component = {
       )),
     ])
   },
-}
+};
 ```
 
 I'm not sure what all you can pass as children in Mithril, they probably restrict it to VNode objects and some primitive values, so it'd have to be props.  [they did mention render props][ss-1].  It might be more `m(Tabs, { render: (mTab, mTabPane) => (...) })`.  Either way, this a parent to share state/state-mutation with children in a controlled manner, something usually done with context or passing props.  I usually did the latter.
@@ -62,7 +62,7 @@ const tabDefs = [
       return m(SomeThingElseEntirely)
     },
   },
-]
+];
 
 const Component = {
   view() {
@@ -81,5 +81,5 @@ const Component = {
       ])
     )
   }
-}
+};
 ```

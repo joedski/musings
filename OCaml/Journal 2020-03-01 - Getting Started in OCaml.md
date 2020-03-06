@@ -9,6 +9,8 @@ Anyway, just noting my learnings from [going through the manual](http://caml.inr
 
 > NOTE: For anyone else reading this, this is from the perspective of someone who's daily driver is Typescript.
 
+Another good browse-through is [this "things I wish I knew when learning OCaml" post](https://baturin.org/docs/ocaml-faq/).  Modified in 2018, too.
+
 
 
 ## Basics

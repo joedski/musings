@@ -8,7 +8,7 @@ I wondered then if you just place a getter on the Observable itself, if that wou
 It seems the answer is "yes", at least in Vue 2.6.10, and probably other versions too.  Fascinating.
 
 ```js
-const assert = require('assert');
+const assert = require('assert').strict; // node >= 9.9
 const Vue = require('vue');
 
 class Foo {

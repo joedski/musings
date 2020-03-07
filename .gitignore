@@ -4,6 +4,7 @@ bower_components/
 # Examples and other things that I want to place somewhere
 # but don't want to actually commit.
 .examples/
+__examples__/
 
 # ---------------
 # Specific Things

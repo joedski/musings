@@ -7,7 +7,7 @@ It's also the sort of language/culture where `npm install ocaml` is a thing, so.
 
 Anyway, just noting my learnings from [going through the manual](http://caml.inria.fr/pub/docs/manual-ocaml/).
 
-> NOTE: For anyone else reading this, this is from the perspective of someone who's daily driver is Typescript.
+> NOTE: For anyone else reading this, this is from the perspective of someone who's daily driver is Typescript, but has touched Elm and sometimes pretends to be able to read bits of Haskel.
 
 Another good browse-through is [this "things I wish I knew when learning OCaml" post](https://baturin.org/docs/ocaml-faq/).  Modified in 2018, too.
 
@@ -493,3 +493,106 @@ val insert : 'a -> 'a btree -> 'a btree = <fun>
 ## Disambiguation in Records and Variants
 
 Oh hey, they actually call this out.  I did somewhat wonder about this when the repl inferred `ratio` in the above functions dealing with that record type rather than just having a raw record type there.
+
+
+### Explicit Disambiguation: Annotations
+
+First off, you can always annotate things yourself if you want to be absolutely sure.  This is good practice in cases where ambiguity arrises.
+
+Suppose their examples:
+
+```
+# type first_record  = { x:int; y:int; z:int }
+  type middle_record = { x:int; z:int }
+  type last_record   = { x:int }
+;;
+# type first_variant = A | B | C
+  type last_variant  = A
+;;
+```
+
+If you want, you can annotate a parameter by wrapping it in parens and adding `:` followed by the type:
+
+```
+# let look_at_x_then_z (r: first_record) =
+  let x = r.x in
+    x + r.z
+    ;;
+val look_at_x_then_z : first_record -> int = <fun>
+```
+
+Here, even though `middle_record` also matches the parameters used in the fuction body, the first parameter has the type `first_record` because we said so.
+
+Incidentally, this also works with type constructors, which themselves already include such type annotations.  Their example:
+
+```
+# type wrapped = First of first_record;;
+type wrapped = First of first_record
+# let f (First r) = r, r.x;;
+val f : wrapped -> first_record * int = <fun>
+```
+
+Since the destructuring requires the argument to f be a value of `wrapped`, `r` can only be `first_record` because `wrapped`'s only variant is `First of first_argument`, which has `first_argument` by definition.
+
+> Aside: Tuples are constructed with commas, but their types are declared with elements separated by asterisks.  That is, `type key_and_value = string * float` creates a tuple type and `let a = "a key", 3.` creates a value of that type.
+
+
+### Automatic Measures: Inferrence Details
+
+Again, using their examples:
+
+```
+# let project_and_rotate { x; y; _ } = { x = -y; y = x; z = 0 };;
+val project_and_rotate : first_record -> first_record = <fun>
+```
+
+Here, OCaml can deduce the type by the fields used: `y` only appears in the `first_record` type, and so the records here can only be `first_record`.
+
+However, suppose we don't use all of the fields?  Or have fields used by multiple ones?  What does it do then?
+
+```
+# let look_at_xz { x; z } = x;;
+val look_at_xz : middle_record -> int = <fun>
+```
+
+Both `first_record` and `middle_record` have the fields `x` and `z`, but it chose the latter.  The manual states that this is because, given multiple types which could be inferred, OCaml takes the _last_ type, and in this case since `middle_record` was defined later it wins.
+
+They then go on to note that OCaml does this as eagerly as it can.  Here's another example they give:
+
+```
+# let look_at_x_then_y r =
+    let x = r.x in
+        x + r.y
+        ;;
+              ^
+Error: This expression has type last_record
+       The field y does not belong to type last_record
+```
+
+Why?
+
+- The parameter `r` doesn't say anything, so OCaml can't determine a type yet.
+- At `let x = r.x`, `r` now has a record field access to the field `x`.
+    - Multiple types in the current scope have the field `x`, so OCaml picks the last one: `last_record`.
+- `x + r.y` causes an error because `r` has already been disambiguated as `last_record` which does not have the field `y`.
+
+The rectification for this would be: `let look_at_x_then_y (r: first_record) = ...`
+
+Another contrived example they give:
+
+```
+# let is_a_or_b x = match x with
+  | A -> true
+  | B -> true
+  ;;
+    ^
+Error: This variant pattern is expected to have type last_variant
+       The constructor B does not belong to type last_variant
+```
+
+There are two possible rectifications here:
+
+1. Parameter: `let is_a_or_b (x: first_variant) = ...`
+2. Match expression: `| (A: first_variant) -> ...`
+
+They go on to note that one should not depend on any given type staying the "last defined compatible type", so if there is any ambiguity you should really just add some annotations.

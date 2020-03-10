@@ -55,3 +55,7 @@ The thing which spawned this ponderance was a permissions type thing, but the pe
 What else would be similarly complicated?  Copyrights?  Certainly with different nations having different copyright laws that would be complicated.
 
 As for what it is generally that's actually necessary to build a sufficiently nasty thing to spawn these thoughts, I'm not sure exactly.  Something about prefetching data to make later queries easier, sure, but how do you construct something where that's necessary?  It might be because I'm thinking more in technical design rather than functional requirements that I'm not actually hitting my head against the wall I want to hit.
+
+The other thing is, it's not just that the process itself was complicated and dependent on many data, but also that the implementation differed from the process as written, even if the end results were ultimately the same.  Unfortunately, I'm not very imaginative on that front, and you can't really beat reality.
+
+Best case scenario would be to find some equivalent government classification process outline thing.

@@ -176,7 +176,7 @@ type Zipper2Tuple<
   K1 extends string,
   V0, V1,
   TKs extends [K0, K1],
-  TVs extensd [V0, V1]
+  TVs extends [V0, V1]
 >(tks: TKs, tvs: TVs): { [TKs[0]]: TVs[0], [TKs[1]]: TVs[1] } {
   return {
     [tks[0]]: tvs[0],
@@ -657,3 +657,167 @@ type Maybe<T> = TaggedSumType<typeof Maybe, {
 ```
 
 By default, the constructors in `Maybe` return something like `TaggedSumValue<[unknown]>`, but the `Maybe<T>` would change that to `<TaggedSumValue<[T]>`.  If the parametrization is put to each constructor then the types will be automatically inferred, as well.  They wouldn't use the type alias name `Maybe<T>`, though, which is inconvenient, when actually using them with tooling.
+
+#### Other Way Around?
+
+```typescript
+type Maybe<T> = TaggedSum<
+    'Maybe',
+    | ['Some', ['value', T]]
+    | ['None']
+>;
+
+const Maybe: TaggedSumNamespace<Maybe> = daggy.taggedSum('Maybe', {
+    Some: ['value'],
+    None: [],
+});
+```
+
+Doesn't really work, for the same reason the single-line definition doesn't work: What do we do with `T` there?  We can't, because we're trying to produce a concrete value but still stay in type land.  Types can be generic, but values cannot be.  Values are concrete.  The only type Values can be generic is if they're functions, thereby putting off concreteness until later.
+
+#### Using a Function?
+
+```typescript
+const Maybe = daggy.taggedSum<
+    <T>() => ['Some', T] | ['None']
+>('Maybe', {
+    Some: ['value'],
+    None: [],
+});
+```
+
+That could give us the deferral we need.  I think Typescript's handling of unspecified or unused type parameters has improved since I started this madness, so this may be viable now even if it's still ugly.
+
+How would that work typewise, then?
+
+```typescript
+type AnyFactory = () => [string, ...any[]];
+
+// Non-distributive: since we're mapping K in keys, we only have
+// one type for K at a time.
+type TagSchematicFor<
+    TFactory extends AnyFactory,
+    K extends ReturnType<TFactory>[0]
+> =
+    Extract<ReturnType<TFactory>, [K, ...any[]]> extends [K, ...infer TRest]
+    ? TRest extends any[]
+    ? { [I in keyof TRest]: string }
+    : []
+    : []
+    ;
+
+type TagSchematics<TFactory extends AnyFactory> = {
+    [K in ReturnType<TFactory>[0]]: TagSchematicFor<TFactory, K>;
+};
+
+declare function taggedSum<
+    TSum extends string,
+    TFactory extends AnyFactory
+>(sum: TSum, tags: TagSchematics<TFactory>)
+```
+
+EDIT: Also, I'll have to go back and read under what circumstances they actually can forward type, and I think that's just when you partially apply a function or something.  This for instances does _not_ work:
+
+```typescript
+type C0_Option = <T>() => ['Some', T] | ['None'];
+type C1_AsyncData = <D, E>() => ['NotAsked'] | ['Waiting'] | ['Error', E] | ['Data', D];
+
+type Narrowed<T extends () => [string, ...any[]], K> = () => Extract<ReturnType<T>, [K, ...any[]]>;
+
+// :: () => ['Error', unknown]
+type C1_AsyncData_1 = Narrowed<C1_AsyncData, 'Error'>;
+```
+
+#### Using Two Functions?
+
+```
+type Tail<T> =
+    T extends any[]
+    ? ((...args: T) => any) extends ((arg0: any, ...tail: infer TTail) => any)
+    ? TTail
+    : never
+    : never
+    ;
+
+type AnyFactory = () => [string, ...any[]];
+
+// Non-distributive: since we're mapping K in keys, we only have
+// one type for K at a time.
+type TagSchematicFor<
+    TFactory extends AnyFactory,
+    K extends ReturnType<TFactory>[0]
+> =
+    Tail<Extract<ReturnType<TFactory>, [K, ...any[]]>> extends infer TT
+    ? TT extends any[]
+    ? { [I in keyof TT]: string }
+    : []
+    : []
+    ;
+
+type TagSchematics<TFactory extends AnyFactory> = {
+    [K in ReturnType<TFactory>[0]]: Readonly<TagSchematicFor<TFactory, K>>;
+};
+
+type Factory = <
+    TF extends AnyFactory,
+    TSs extends { [K in string]: [...string[]] }
+    >(tagSchematics: TSs) => {};
+
+type FactoryDeferred<TF extends AnyFactory> =
+    <TSs extends TagSchematics<TF>>(tagSchematics: TSs) => {};
+
+// tests.
+
+type Coext<T, U> = T extends U ? U extends T ? true : false : false;
+
+type C0_Option = <T>() => ['Some', T] | ['None'];
+
+type RT0 = ReturnType<C0_Option>;
+
+type T0 = Tail<ReturnType<AnyFactory>>;
+type T1 = Tail<ReturnType<C0_Option>>;
+
+type TSF0 = TagSchematicFor<C0_Option, 'Some'>;
+const tsf0: Coext<TSF0, [string]> = true;
+type TSF1 = TagSchematicFor<C0_Option, 'None'>;
+const tsf1: Coext<TSF1, []> = true;
+
+type TSs0 = TagSchematics<C0_Option>;
+
+const f0: Factory = (tagSchematics) => ({});
+f0<C0_Option>({
+    Some: ['value'],
+    None: [],
+});
+
+var f1!: <T extends AnyFactory>() => FactoryDeferred<T>;
+const f1_1 = f1<C0_Option>();
+f1<C0_Option>()({
+    Some: ['value'],
+    None: []
+} as const);
+f1_1({
+    Some: ['value'],
+    None: []
+} as const);
+```
+
+`f1` down there at the bottom shows what's probably the closest, but it still required wrapping things in a second function that doesn't do anything at run time, just allows deferral of one type parameter.
+
+Suboptimal.
+
+
+
+## Gut Check: Do I Need The Property Names?
+
+Thinking about it, I can't actually remember a time I've used the constructor property names, and for one simple reason:
+
+- Any given value could be in any of the given cases.
+
+It's like accessing an array without doing a bounds check, first: you might be asking for something that's not there!  The only way to actually use the things consistently (and in the mannor they're expected to be used!) is to specify operations that ultimately handle every case, which is done using `cata()`.
+
+The only useful way to do things without `cata()` is basically a switch statement on `@@tag`, which incidentally would also be the only time the property names would come up.
+
+If that's the case, then the property names are just a distraction, and we don't really care what they are, which means the only thing we actually care about is the number of arguments and their types to each constructor.
+
+Theoretically we don't actually care about more than 1 constructor arg, either, but practically Daggy allows that.

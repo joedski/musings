@@ -32,7 +32,7 @@ const enhance = withAsyncData<OwnProps>(c => (c
     }),
     initial: (initOwnProps: OwnProps) => ({} as { [k: string]: AsyncData<Bar, Error> })
   })
-))
+));
 ```
 
 More control, at the cost of a weird Non-JSish looking API.  Bluh.

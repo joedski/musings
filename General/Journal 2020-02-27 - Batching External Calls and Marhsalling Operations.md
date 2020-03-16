@@ -120,6 +120,8 @@ In the above, you'd end up with these sets of executions:
 
 Hm.  Looking at that, that is still better since we can state "Read(B, 1)" anywhere else and actual execution will still occur on the first step, but this doesn't handle the case of things like "Read all of (A) because we know we'll need them later".  In that case, I'm not sure you can actually can determine this up front, since the exact items you need to read for "Read(A, abc)" are unknown until you've done "Map(A0, B0, C0)".
 
+#### Is That Actually Sufficient?
+
 The actual implementation, or at least what I recall for why it differed in exact order of operations from the procedure as stated, it was stated that many items were fetched before hand because it was determined from prior analysis that that is more efficient because it's a single call with mulitple data.  Of course, without the actual implementation, I don't know how that worked, and without the actual original process document, I don't know how it differed.
 
 Ugh, anonying.

@@ -88,7 +88,7 @@ const client = new LazySwaggerClient(SWAGGER_DOC, executeRequest, {
         ['application/json', res => res.json()],
         ['*', res => res.blob()],
     ],
-})
+});
 ```
 
 I have it as an array of arrays to allow arbitrary matchers and a defined order.  Though, just using a function may be better.
@@ -103,7 +103,7 @@ const client = new LazySwaggerClient(SWAGGER_DOC, executeRequest, {
         // on the basis that there may be point-of-use-dependent handling.
         return undefined
     },
-})
+});
 ```
 
 More verbose, sure, but the most general.  In any case, a body to be validated must be returned in a validatable form.

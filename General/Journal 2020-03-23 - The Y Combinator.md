@@ -185,3 +185,42 @@ type Y<TArgs extends any[], R> =
 ```
 
 If you're thinking "that's a tuple, not an array", then you're right.  But while many languages and TypeScript's type system have a notion of tuples, JS doesn't, and TypeScript's tuples are just fixed-length, fixed-element-type JS arrays.
+
+Anyway, that only covers the definition of Y itself.  What you can't exactly type are those two functions that enable the recursion, which I named `fx1` and `fx2`.  What are they?
+
+They're functions that accept themselves as the first argument, which means their type could only be defined in terms of themself.  Oof.
+
+Did you notice the original Y Combinator was given in _untyped_ lambda calculus?  I think that's one reason it works there: to invoke recusive behavior means you also need a recursive type if you want to know the type of that expression!  And I think that was also the point being made with it: there's 
+
+```typescript
+type YFX<N, A, R> = (fx: YFX<N, A, R>) => (a: A) => R;
+```
+
+That has self-referential recursion.  How about, um.
+
+```typescript
+type YFXd<N, A, R> = (fx: N) => (a: A) => R;
+type YFX<A, R> = YFX<YFX<...???, A, R>, A, R>;
+```
+
+Yeah.
+
+The cheap route would be just to escape with `any`:
+
+```typescript
+type YFX<A, R> = (fx: ((nfx: any) => (a: A) => R)) => (a: A) => R;
+```
+
+Of course, that's not really necessary, since TypeScript actually allows the first type-recursive definition, but the point was to try to create a non-recursive type, which we can't do.  If we allow recursion, though, we again just get the simpler definition:
+
+```typescript
+function Y<A, R>(
+    fn: (next: (a: A) => R) => (a: A) => R
+): (a: A) => R {
+    return (a: A) => fn(Y(fn))(a);
+}
+```
+
+And you can make the adjustments mentioned before if you want n-arity support.
+
+Amusingly, there's a place where this is possibly useful, and that's if you want to recur with anonymous functions.  However, I feel in that case you'd still be better off just actually naming the darn thing, whether by using a named function or by referencing a const the function is assigned to, because it's much clearer what's going on.

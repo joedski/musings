@@ -49,10 +49,9 @@ set autocommit off
 -- just in case...
 COMMIT;
 
--- name just for logging purposes...
-SET TRANSACTION READ WRITE NAME 'doing a thing...';
-
 BEGIN
+    -- name just for logging purposes...
+    SET TRANSACTION READ WRITE NAME 'doing a thing...';
     -- ... do stuff here!
     COMMIT;
 EXCEPTION WHEN OTHERS THEN
@@ -60,3 +59,42 @@ EXCEPTION WHEN OTHERS THEN
     RAISE; -- we still want to see the error.
 END;
 ```
+
+Hm.  sqlplus was giving me guff about expecting `WORK` to come after `COMMIT`.  I'll try that, then?  It should have no effect on whether 
+
+```sql
+-- Only commit when specified, usually at the end of the block.
+set autocommit off
+
+-- just in case...
+COMMIT WORK;
+
+BEGIN
+    -- name just for logging purposes...
+    SET TRANSACTION READ WRITE NAME 'doing a thing...';
+    -- ... do stuff here!
+    COMMIT WORK;
+EXCEPTION WHEN OTHERS THEN
+    ROLLBACK;
+    RAISE; -- we still want to see the error.
+END;
+```
+
+Hum.  Perhaps a [PL/SQL language reference](https://docs.oracle.com/cd/E11882_01/appdev.112/e25519/toc.htm) might be good to peruse?
+
+> NOTE: When I first wrote the above, I wasn't quite clear on the way sqlplus actually worked.  To use PL/SQL Blocks with sqlplus, [you need to `RUN` them after you declare them](./Journal%202020-04-15%20-%20Running%20PLSQL%20Blocks%20in%20SQLPlus.md).
+>
+> ```sql
+> BEGIN
+>     -- do things...
+>     -- do more things...
+> EXCEPTION WHEN OTHERS THEN
+>     ROLLBACK;
+>     RAISE;
+> END;
+> 
+> run
+> ```
+>
+> Often a `/` is used instead, as that is an alias for `RUN`.
+

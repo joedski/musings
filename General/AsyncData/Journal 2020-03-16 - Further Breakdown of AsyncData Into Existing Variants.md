@@ -63,4 +63,4 @@ It could be thought of as this breaking the entire process into a series of bina
 
 I suppose looking at it like that, you could define it as `Maybe (Maybe (Result data error))`. (or `('data, 'error) result maybe maybe` which looks just as silly.)
 
-Of course, just because that technically can be represented like that doesn't mean it's a good or meaningful representation.  For one thing, it's not very helpful when debugging.
+Of course, just because that technically can be represented like that doesn't mean it's a good or meaningful representation.  For one thing, it's not very helpful when debugging.  The whole point of creating our own data types is to better express intention.

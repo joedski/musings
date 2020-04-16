@@ -1,6 +1,87 @@
 Journal 2019-04-05 - RefreshableData - AsyncData across Time
 ============================================================
 
+> 2020-04-16: Updated to reflect current understanding.
+
+AsyncData is good for representing just the instantaneous state, but sometimes I need more: Both the instantaneous state, and the last displayable state.
+
+The best way I've found to do this is to just retain all possible cases:
+
+- Current: The most recent AsyncData value.
+- Last Settled: The most recent AsyncData value that's either Data or Error.
+- Last Data: The most recent AsyncData value that's Data.
+- Last Error: The most recent AsyncData value that's Error.
+
+By just making RefreshableData a quadruple, this covers every case I've encountered to date, so much so in fact that I've considered baking it into the actual Requests Module implementation.  Considered it, but so far I've not had any actual need to do that that couldn't be covered by just initializing a given RefreshableData stream using the currently stored value in the Requests Module.
+
+Since RefreshableData is meant to cover the "Over Time" use cases, naturally you need a scanner/reducer:
+
+```typescript
+class RefreshableData<D, E> {
+    constructor(
+        protected current: AsyncData<D, E> = AsyncData.NotAsked(),
+        protected lastSettled: AsyncData<D, E> = current,
+        protected lastData: AsyncData<D, E> = current,
+        protected lastError: AsyncData<D, E> = current,
+    ) {}
+
+    next(nextData: AsyncData<D, E>): RefreshableData<D, E> {
+        return new RefreshableData(
+            nextData,
+            this.nextLastSettled(nextData),
+            this.nextLastData(nextData),
+            this.nextLastError(nextData)
+        );
+    }
+
+    nextLastSettled(nextData: AsyncData<D, E>): AsyncData<D, E> {
+        if (nextData.tag === 'Data' || nextData.tag === 'Error') {
+            return nextData;
+        }
+
+        if (this.lastSettled.tag === 'Data' || this.lastSettled.tag === 'Error') {
+            return this.lastSettled;
+        }
+
+        return nextData;
+    }
+
+    nextLastData(nextData: AsyncData<D, E>): AsyncData<D, E> {
+        if (nextData.tag === 'Data') {
+            return nextData;
+        }
+
+        if (this.lastData.tag === 'Data') {
+            return this.lastData;
+        }
+
+        return nextData;
+    }
+
+    nextLastError(nextData: AsyncData<D, E>): AsyncData<D, E> {
+        if (nextData.tag === 'Error') {
+            return nextData;
+        }
+
+        if (this.lastData.tag === 'Error') {
+            return this.lastData;
+        }
+
+        return nextData;
+    }
+}
+```
+
+I don't think there's anything else that's really needed.  Everything else I've needed was just operations on AsyncData.
+
+
+
+
+Previous Version (2019-04-05)
+=============================
+
+> The previous version of this document is retained for historical purposes.
+
 AsyncData is good for representing just the instantaneous state, but sometimes I need more: Both the instantaneous state, and the last displayable state.
 
 I've got two thoughts on this:

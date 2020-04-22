@@ -275,19 +275,19 @@ That's a lot to suddenly digest.  Bit by bit, then...
 # Usage:  docker run [OPTIONS] IMAGE [COMMAND] [ARG...]
 
 docker run \
-	## [OPTIONS]
-	# Remove this new container once it's done running.
+## [OPTIONS]
+# Remove this new container once it's done running.
 	--rm \
-	# Share the volumes from SRC_CONTAINER
+# Share the volumes from SRC_CONTAINER
 	--volumes-from SRC_CONTAINER \
-	# Mount the host working directory as the volume `/backup` (could be any name but obvious ones are good.)
+# Mount the host working directory as the volume `/backup` (could be any name but obvious ones are good.)
 	-v $(pwd):/backup \
-	## IMAGE
-	# Image to use.  `busybox` is what I'll use here because it's tiny.
+## IMAGE
+# Image to use.  `busybox` is what I'll use here because it's tiny.
 	IMAGE \
-	#$ [COMMAND {ARGS}]
-	# Write the contents of one of the volumes from SRC_CONTAINER to a tarball in `/backup`.
-	# DATA_VOLUME is the absolute path to the volume from SRC_CONTAINER that we want to tar up.
+#$ [COMMAND {ARGS}]
+# Write the contents of one of the volumes from SRC_CONTAINER to a tarball in `/backup`.
+# DATA_VOLUME is the absolute path to the volume from SRC_CONTAINER that we want to tar up.
 	tar cvf /backup/ARCHIVE_NAME.tar DATA_VOLUME
 ```
 

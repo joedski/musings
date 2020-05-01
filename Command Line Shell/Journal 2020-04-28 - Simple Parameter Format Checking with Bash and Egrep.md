@@ -88,13 +88,16 @@ Examples:
     Exit the calling script with an error status if validation fails.
 
   \$0 new-user-id    id    'd34db33f' \\
-      new-user-email email 'moo@cow.com' \\
+     new-user-email email 'moo@cow.com' \\
+     new-user-foo   format:'^foo[0-9]{4}$' 'foo1234' \\
   || exit 1
 
-    Same as above but with an additional parameter, 'new-user-email'
-    whose value is 'moo@cow.com' and should match the format 'email'.
+    Same as above but with two additional parameters, 'new-user-email'
+    whose value is 'moo@cow.com' and should match the format 'email';
+    and 'new-user-foo' whose value is 'foo1234' and which must match
+    the custom format '^foo[0-9]{4}$'.
 
-    Exit if one or both parameters fail validation.
+    Exit calling script if one or more parameters fail validation.
 " >&2
 
   # Exit 1 here to always invalidate tests.
@@ -164,8 +167,9 @@ while (( $# > 0 )); do
       maybe_error $? "$arg_name" "'$arg_value' is not one of the valid values: $(echo -n "${valid_value_set[@]}")"
       ;;
 
-    # Escape hatch for any one-off formats, though specific formats
+    # Escape hatch for any one-off formats, though named formats
     # should be preferred since that's more documentational.
+    # Just add another case here.
     ( format:* )
       egrep_test "$arg_value" "${arg_format#format:}"
       maybe_error $? "$arg_name" "'$arg_value' does not match expected format: ${arg_format#format:}"

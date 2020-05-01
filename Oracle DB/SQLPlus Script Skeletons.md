@@ -12,10 +12,47 @@ Just so prefab skeletons to grab and go.  I guess that makes this a cook book.
     - Starting a line with `set` or other internal SQLPlus commands performs those commands.
     - Starting a line with a Block element will put it into buffering mode where it will buffer everything you enter.
         - This mode is exited by entering a `.` or `/` on its own line with nothing else besides whitespace.
-        - `/` will not only exit this buffering mode, but also send the buffered input to the remote database system to execute.  It is an alias/shorthand for the internal `run` command.
-        - For these reasons, any scripts with PL/SQL blocks will usually end with `run` or `/`.
+        - `/` will not only exit this buffering mode, but also send the buffered input to the remote database system to execute.
     - For the most part, I will have internal commands lower case and PL/SQL language constructs upper case.  There's no real reason for this.
 - Most scripts will run `set serveroutput on` so that any `DBMS_OUTPUT.PUT_LINE()` will cause the server to immediately spit text back out to SQLPlus.
+- There's a slight difference between running a script with `@` and `@@`.
+    - [Running a script with `@` ("at" sign)](https://docs.oracle.com/cd/B28359_01/server.111/b31189/ch12002.htm) searches the "current default directory", which usually starts out as the CWD in which `sqlplus` was called.
+        - That is, `@` searches relative to the CWD of SQLPlus.
+        - Usually, when running a script manually from the SQLPlus prompt, use `@`.
+    - [Running a script with `@@` (double "at" sign)](https://docs.oracle.com/cd/B28359_01/server.111/b31189/ch12003.htm) searches searches for the named file starting in the same directory as the script that ran the `@@` command.
+        - That is, when a script uses `@@`, SQLPlus searches relative to that script.
+        - Thus, usually, when running a script from another script, use `@@` to make sure you path relative to the outer script rather than from SQLPlus's CWD.
+        - If used from the SQLPlus prompt, though, the behavior is essentially the same as `@`, where SQLPlus searches relative to the CWD.
+    - Note that `@` and `@@` are SQLPlus commands, not PL/SQL statements.  This means you cannot use them in Blocks.
+
+
+
+## Current General Purpose Skeleton
+
+- Turns off autocommit, though that's not necessary if you're only reading.
+    - Technically I'm not sure it's necessary if everything is wrapped in a block, either.
+
+```sql
+set autocommit off;
+set serveroutput on;
+set echo off;
+
+DECLARE
+  -- Declare variables, records, types, procs, etc here.
+BEGIN
+  COMMIT WORK;
+  -- Use "READ WRITE" if you need to mutate anything.
+  SET TRANSACTION READ ONLY;
+
+  COMMIT WORK;
+-- Only necessary if you're mutating anything.
+-- EXCEPTION WHEN OTHERS THEN
+--   ROLLBACK;
+--   RAISE;
+END;
+/
+```
+
 
 
 ## Simple Script With Block
@@ -41,8 +78,7 @@ BEGIN
     );
   END LOOP;
 END;
-
-run
+/
 ```
 
 
@@ -70,8 +106,7 @@ BEGIN
     );
   END LOOP;
 END;
-
-run
+/
 ```
 
 
@@ -99,8 +134,7 @@ BEGIN
     );
   END LOOP;
 END;
-
-run
+/
 ```
 
 
@@ -127,8 +161,7 @@ BEGIN
     found_rec.ID || ': ' || found_rec.NAME
   );
 END;
-
-run
+/
 ```
 
 
@@ -154,6 +187,5 @@ BEGIN
   VALUES new_rec
   ;
 END;
-
-run
+/
 ```

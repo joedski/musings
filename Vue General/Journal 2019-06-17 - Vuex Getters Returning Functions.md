@@ -1,6 +1,12 @@
 Journal 2019-06-17 - Vuex Getters Returning Functions
 =======
 
+> Update 2020-05-04: Actually, it's simpler than that.
+>
+> - Return a function, don't do any fancy pre-computation unless profiling warrants it.  This function itself could potentially have memoization, though, but it's usually not important because...
+> - If the function is used in a component's Computed Prop, then the computation will be cached and the appropriate reactivity listeners will be registered because it's what Vue does.
+> - If the function is used in a component's Template or Render function, then the same thing applies because those're (sorta) like Computed Props.
+
 > Update 2019-12-02: It's really pretty simple, and the initial example is not really all that great.
 
 - Suppose a Vuex Getter returns a Function.

@@ -117,7 +117,7 @@ You could even avoid attaching novel properties to objects you shouldn't do that
 const loadScript = (() => {
     const loadedPromises = new WeakMap()
 
-    return function loadScript(scriptSrc) {
+    function loadScript(scriptSrc) {
         let scriptTag = document.head.querySelector(`script[src="${scriptSrc}"]`)
 
         if (! scriptTag) {
@@ -148,7 +148,11 @@ const loadScript = (() => {
 
         return loadedPromises.get(scriptTag)
     }
-})()
+
+    loadScript.loadedPromises = loadedPromises;
+
+    return loadScript;
+})();
 ```
 
 Easy peasy.

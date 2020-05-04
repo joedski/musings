@@ -9,11 +9,19 @@ This is going to be written from the point of view of a Vue project, with things
 
 ## General Approaches
 
-- In general, keep integrations of services/plugins/whatevers as close to the entry point as possible.
+Ideally, you want to avoid Spaghetti in your code.  Spaghetti is best made with noodles, not code.  Spaghetti made of code leads to headaches and upset stomachs.
+
+- In general, keep integrations/installations of services/plugins/whatevers as close to the entry point as possible.
     - If you're concerned about bundle size, prefer implementing a (mostly) transparent lazy loading methodology rather than spreading imports all over the codebase.
 - In general, keep import hierarchies as shallow as possible.
 - In general, the View components that render the Routes are where specific combinations of State, Services, etc, are tied together.
+    - That is, those View components are where the identifying information in the Route is combined with the data access of the Services/Stores to get the specific data to show to the user.
 - In general, state specific to a View should live at the View components, and should never be accessed by other Views because that's Spaghetti.
+    - If you need to access data specific to one View in another View, consider if you really need to make a Service to handle that data instead.
+- In general, data retrieved from any remote services should be untouched.
+    - If you need a specific piece of it, created a computed prop.
+    - If you need a modified version, track the user edits as separate state then create a computed prop showing the old data transformed by the user edits.
+    - Only mutate data directly if profiling shows it's necessary for efficiency, otherwise you're wasting dev time by creating code prone to Spaghetti.
 
 
 
@@ -38,9 +46,9 @@ My advice here is to always keep things simple.
 - If your parent component does not need to control the state, then it is okay to leave all that state in the child components and not worry about it.
 - If your parent component does need to control the state, then it should control the state and override the child components.
 
-Not sticking to one of these means you now much synchronize state, which almost always means tracking extra state in the parent.  This is annoying.
+Not sticking to one of these means you now must synchronize state, which almost always means tracking extra state in the parent.  This is annoying.
 
-If you have certain cases where you do need to do this, because you must coordinate state across multiple components (e.g. Table + Pagination (because you need a different pagination style than they give you)), consider instead creating a wrapper component that pre-composes those things and handles such state coordination such that you can then deal with it in one of the two manners above.
+If you have certain cases where you do need to do this, because you must coordinate state across multiple components (e.g. Table + Pagination (because you need a different pagination style than they give you)), consider instead creating a wrapper component that pre-composes those things and handles such state coordination so that you can then deal with it in one of the two manners above.
 
 If you sometimes need to arrange things automatically, slots + flex-box + `justify-content: spaced` may be your friends.
 
@@ -204,7 +212,7 @@ A few other things:
 #### Why AsyncData (Short Version)
 
 - Request state (NotAsked, Waiting, Error, Data) is up front and obligated.  You can't ignore it, and this is good.
-    - Normally, you must deal with request state separate from the requested data, which is error prone.  By putting it front and center, it is explicit.  Wonderfully and horribly explicit.
+    - Normally, you must deal with request state separate from the requested data, which is error prone because humans are forgetful.  By putting it front and center, it is explicit.  Wonderfully and horribly explicit.
 - Request state is synchronous, meaning you _always_ have a defined value, even if that value is "NotAsked".
     - This means you can _always_ render something based on it.
 - No bikeshedding on default values: anything using the data picks the default value appropriate to its own use case.

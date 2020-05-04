@@ -753,7 +753,7 @@ Wash Points:
 Uncertainties
 - Not sure about the exact interface of the manager, but it probably won't change that much?
 - And I'm still thinking of controlling the current values of some `data` props with the Sinks.  That's just handy.
-- Referincing a sink as a source is not forbidden, but is a bad idea.  Maybe it should be warned?  Hm.
+- Referencing a sink as a source is not forbidden, but is a bad idea.  Maybe it should be warned?  Hm.
 
 Never the less, this seems like an improvement to me: `source`'s weirdness is gone, `fromWatch` is more meaningful, and knowing about `sources` and `sinks` is enforced.  Plus, `sinks` ends up looking a bit closer to Cycle, which is probably a good thing.
 
@@ -765,7 +765,7 @@ Or v0.3.0, I guess.  Still in the v0.x versions, after all.
 ```js
 function StreamsManager(vm) {
     const config = vm.$options.streams
-    const hasConfig = config && config === 'object'
+    const hasConfig = config && typeof config === 'object'
     if (hasConfig && ! (
         typeof config.sources === 'function'
         && typeof config.sinks === 'function'
@@ -860,7 +860,7 @@ export default {
 }
 ```
 
-The only tough part, then, is `streamFromWatch`.  Can any Typescript stuff actually apply typing to watches?  That might require some type anotations that can't actually be proven at compile time.  Hm.  You might have to just use only Function for Watch Bindings for that, that's the only thing I can think of.  Which is fine.  `fromWatch(() => this.foo)` is only a little longer than `fromWatch('foo')`.
+The only tough part, then, is `streamFromWatch`.  Can any Typescript stuff actually apply typing to watches?  That might require some type annotations that can't actually be proven at compile time.  Hm.  You might have to just use only Function for Watch Bindings for that, that's the only thing I can think of.  Which is fine.  `fromWatch(() => this.foo)` is only a little longer than `fromWatch('foo')`.
 
 
 ### Type Musing

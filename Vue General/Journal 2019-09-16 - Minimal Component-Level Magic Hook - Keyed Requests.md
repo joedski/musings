@@ -120,3 +120,9 @@ In which case, it would setup a `watch`.  This is probably more performant?
 To keep things not unperformant, it'd use either a class or `Object.create()`, one of those things to keep everything but the config prop on the prototype.
 
 Of course, one could just do `new RequestorHelper(this, ...)` then.  So, eh.
+
+
+
+## Or, How About a Dedicated Requests Service
+
+Another option is to just make a dedicated Requests service/mixin that does all the extra per-component registration and hook stuff for you.  Since the ideas in this were meant to be specific to Requests, that's a reasonable option.

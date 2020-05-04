@@ -146,6 +146,7 @@ while (( $# > 0 )); do
   arg_value=$1
   shift
 
+  # Add whatever formats are needed in your scripts here.
   case "$arg_format" in
     ( id )
       egrep_test "$arg_value" '^[0-9a-f]{8}$'
@@ -184,3 +185,157 @@ done
 
 exit $any_test_did_error
 ```
+
+
+### Another Thought: Custom Error Messages
+
+I lose the easy check for argument triples, but sometimes you really do want custom error messages.  Mostly for the `format:*` format.
+
+```bash
+#!/bin/bash
+
+if (( $# < 3 )); then
+  echo "
+Usage: \$0 {(<name> <format> <value> [-m <error-message>]) (<name> <format> <value> [-m <error-message>]) ...}
+
+Validates parameters against formats and emits error messages to stderr
+for any parameters that fail, then exits non-0 if any parameters fail.
+
+  name
+    Parameter name so the user knows which one failed formatting.
+
+  format
+    What format to check the value against.
+
+  value
+    Value to check.
+
+  -m <error-message>
+  --message <error-message>
+    Optional error message.
+    Must have either '-m' or '--message' followed by the error message,
+    and this must come after the value that the error-message applies to.
+
+Examples:
+
+  \$0 new-user-id id 'd34db33f' \\
+  || exit 1
+
+    Validate that the parameter being called 'new-user-id' whose value
+    is 'd34db33f' matches the format 'id'.
+
+    Exit the calling script with an error status if validation fails.
+
+  \$0 new-user-id    id    'd34db33f' \\
+     new-user-email email 'moo@cow.com' \\
+     new-user-foo   format:'^foo[0-9]{4}$' 'foo1234' -m 'Only use users you know exist' \\
+  || exit 1
+
+    Same as above but with two additional parameters, 'new-user-email'
+    whose value is 'moo@cow.com' and should match the format 'email';
+    and 'new-user-foo' whose value is 'foo1234' and which must match
+    the custom format '^foo[0-9]{4}$', and which has a custom error message
+    of 'Only use users you know exist'.
+
+    Exit calling script if one or more parameters fail validation.
+" >&2
+
+  # Exit 1 here to always invalidate tests.
+  exit 1
+fi
+
+function egrep_test () {
+  echo -n "$1" | egrep "$2" > /dev/null
+}
+
+# Technically could be done with egrep too, but I'm not sure
+# if I really want to bother going down that road.
+function in_set_test () {
+  local value=$1
+  shift
+  local test_set
+  test_set=( "$@" )
+
+  for test_el in "${test_set[@]}"; do
+    if [[ $value = $test_el ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+any_test_did_error=0
+
+function maybe_error () {
+  local ret_val=$1
+  local arg_name=$2
+  local error_message=$3
+
+  if (( $ret_val != 0 )); then
+    echo "$arg_name: $error_message" >&2
+    any_test_did_error=1
+  fi
+}
+
+while (( $# > 0 )); do
+  arg_name=$1
+  shift
+  arg_format=$1
+  shift
+  arg_value=$1
+  shift
+
+  arg_error_message=
+
+  if [[ $1 == -m || $1 == --message ]]; then
+    if [[ -z $2 ]]; then
+      echo "the '$1' option requires a message." >&2
+      exit 1
+    fi
+
+    arg_error_message=$2
+    shift
+    shift
+  fi
+
+  # Add whatever formats are needed in your scripts here.
+  case "$arg_format" in
+    ( id )
+      egrep_test "$arg_value" '^[0-9a-f]{8}$'
+      maybe_error $? "$arg_name" "${arg_error_message:-"'$arg_value' is not id-like"}"
+      ;;
+
+    ( email )
+      # It's intentionally broad because the real rules about what's allowed
+      # are super complicated and I don't care.
+      egrep_test "$arg_value" '^[^@]+@[^@]+$'
+      maybe_error $? "$arg_name" "${arg_error_message:-"'$arg_value' is not email-like"}"
+      ;;
+
+    # This sort of thing will be specific to a given pile of scripts.
+    ( user-role )
+      valid_value_set=( Admin Manager User )
+      in_set_test "$arg_value" "${valid_value_set[@]}"
+      # Hm.  What to do about spaces...?
+      maybe_error $? "$arg_name" "${arg_error_message:-"'$arg_value' is not one of the valid values: $(echo -n "${valid_value_set[@]}")"}"
+      ;;
+
+    # Escape hatch for any one-off formats, though named formats
+    # should be preferred since that's more documentational.
+    # Just add another case here.
+    ( format:* )
+      egrep_test "$arg_value" "${arg_format#format:}"
+      maybe_error $? "$arg_name" "${arg_error_message:-"'$arg_value' does not match expected format: ${arg_format#format:}"}"
+      ;;
+
+    # Always tell yourself when you messed up.
+    ( * )
+      maybe_error 1 "$arg_name" "Unknown format '$arg_format'"
+      ;;
+  esac
+done
+
+exit $any_test_did_error
+```
+

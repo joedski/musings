@@ -596,3 +596,210 @@ There are two possible rectifications here:
 2. Match expression: `| (A: first_variant) -> ...`
 
 They go on to note that one should not depend on any given type staying the "last defined compatible type", so if there is any ambiguity you should really just add some annotations.
+
+
+
+## Imerative Stuff
+
+OCaml is a pragmatic language among strongly functional languages, with built in imperative features:
+
+- `for` and `while` loops
+- Mutable data structures such as arrays and mutable record fields
+
+Arrays, it should be noted, must be pre-allocated or pre-filled.  They don't mention here if they can be resized, but I can look that up later.
+
+
+### For Loops!
+
+Here's an example then of where a `for` loop would be used:
+
+```
+# let add_vect v1 v2 =
+    let len = min (Array.length v1) (Array.length v2) in
+    let res = Array.make len 0.0 in
+    for i = 0 to len - 1 do
+      res.(i) <- v1.(i) +. v2.(i)
+    done;
+    res
+    ;;
+val add_vect : float array -> float array -> float array = <fun>
+# add_vect [|1.; 2.|] [|3.; 5.|];;
+- : float array = [|4.; 7.|]
+```
+
+Note that the syntax is:
+
+```
+for NAME = START to END do
+  ...
+done;
+```
+
+> NOTE: You can also use `START downto END` if going the other way.
+
+I seem to recall something about the single semicolon...  [Oh yeah, that one bit in "Things I wish I Knew When Learning OCaml"](https://baturin.org/docs/ocaml-faq/#the-double-semicolon).
+
+```ocaml
+(* This... *)
+let foo x y =
+  print_endline "Hello world!";
+  x + y
+
+(* ... is equivalent to this! *)
+let foo x y =
+  let _ = print_endline "Hello world!" in
+  x + y
+```
+
+Good to know.
+
+That means the `for` loop is actually this:
+
+```
+let _ = for NAME = START to END do
+  ...
+done
+```
+
+What does a `for` return?  Dunno!
+
+```
+# for i = 1 to 5 do print_endline "hi" done;;
+hi
+hi
+hi
+hi
+hi
+- : unit = ()
+```
+
+Unit, it seems!  To emphasize the imperative nature of it, I suppose.
+
+What if the expression in there doesn't return unit like `print_endline` does?
+
+```
+# for i = 1 to 5 do i done;;
+Warning 10: this expression should have type unit.
+- : unit = ()
+```
+
+Hum.
+
+
+### Mutable Record Fields
+
+See that `<-` thingy?  That's the assignment.  Array indices aren't the only things that can be modified by that, mutable record fields can be as well!  What are those?  They're fields notated as `mutable`.  How nice.
+
+```
+# type mutable_point = { mutable x: float; mutable y: float };;
+type mutable_point = { mutable x : float; mutable y : float; }
+# let translate p dx dy =
+  p.x <- p.x +. dx;
+  p.y <- p.y +. dy;;
+val translate : mutable_point -> float -> float -> unit = <fun>
+# let mypoint = { x = 0.; y = 0. };;
+val mypoint : mutable_point = {x = 0.; y = 0.}
+# translate mypoint 1. 3.;;
+- : unit = ()
+# mypoint;;
+- : mutable_point = {x = 1.; y = 3.}
+```
+
+Gosh golly it's changed!
+
+
+### References... Technically We Just Did Those!
+
+They note that OCaml doesn't really have a notion of variables, rather `let` introduces a value associated with a name.
+
+You can redo an old name with a new value, but that just introduces a new scope with that name bound to the new value, but if that new value itself references the name, then it actually references the old value!
+
+```
+# let x = 5.;;
+val x : float = 5.
+# let x = function () -> x;;
+val x : unit -> float = <fun>
+# x ();;
+- : float = 5.
+```
+
+That's why `let rec` is separate.
+
+Can we do a variable type thing, though?  Yes!  Sorta!
+
+It uses a thing called a reference.  Here's their example that uses it to implement the insertion sort:
+
+```
+# let insertion_sort a =
+  for i = 1 to Array.length a - 1 do
+    let val_i = a.(i) in
+    let j = ref i in
+    while !j > 0 && val_i < a.(!j - 1) do
+      a.(!j) <- a.(!j - 1);
+      j := !j - 1
+    done;
+    a.(!j) <- val_i
+  done;;
+val insertion_sort : 'a array -> unit = <fun>
+```
+
+Things to note there:
+
+- `let j = ref i` creates a reference `j` whose value is initialized to `i`.
+- `j := !j - 1` updates the value of the reference `j`.
+- `!j` gets the value in the ref `j`.
+
+So, what is a ref, anyway?  I noted that we actually already saw it...
+
+```
+# let myref = ref 0.;;
+val myref : float ref = {contents = 0.}
+```
+
+It's just a record with a single mutable field `contents`!
+
+What about `:=` and `!`?
+
+```
+# (:=);;
+- : 'a ref -> 'a -> unit = <fun>
+# (!);;
+- : 'a ref -> 'a = <fun>
+```
+
+Huh.  Well how bout that.
+
+In fact, they even show the definitions in their tutorial:
+
+```
+# type 'a ref = { mutable contents: 'a };;
+type 'a ref = { mutable contents : 'a; }
+# let ref contents = { contents };;
+val myref : 'a -> 'a ref = <fun>
+# let ( ! ) r = r.contents;;
+val ( ! ) : 'a ref -> 'a = <fun>
+# let ( := ) r newval = r.contents <- newval;;
+val ( := ) : 'a ref -> 'a -> unit = <fun>
+```
+
+They didn't list that ref one, but I did it myself:
+
+```
+# let myref contents = { contents };;
+val myref : 'a -> 'a ref = <fun>
+```
+
+nice.
+
+#### Polymorphic Function as Values
+
+Apparently, automatic polymorphism only happens at the top level.  If you're inside a declaration, such as when declaring the type of a record type's field, then you have to specify the type parameters explicitly.  Their example shown here:
+
+```
+# type idref = { mutable id: 'a. 'a -> 'a };;
+type idref = { mutable id : 'a. 'a -> 'a; }
+# let r = { id = fun x -> x };;
+```
+
+
+### While Loops?

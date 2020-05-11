@@ -5,6 +5,24 @@ It's strange I don't yet have a journal where I talk about this, besides some pi
 
 This is going to be written from the point of view of a Vue project, with things organized by particular Vue libraries, but can likely be applied to many different projects where you've got a fat web client.
 
+Ultimately the goal is a seemingly simple one: create an architecture such that better decisions are easier to implement than worse decisions.
+
+If this kinda starts to make Vue look like Angular with a slightly different skin, then, well, now you know why Angular was the way it was.
+
+
+
+## Some Words About Words
+
+- Controller: When I say "Controller" in this document, I don't mean any particular kind of Controller (route, view, whatever) by this.  Rather, I mean "something which encapsulates a certain unit of behavior".
+    - Service Controllers are Controllers that are general across your application.
+        - That is, a Service Controller is what implements the behavior of the given Service.
+        - "Service" and "Service Controller" can usually be used interchangeably.
+        - "Service" can be taken to refer to the interface that the "Service Controller" implements the behavior of, if you want to split hairs.
+    - Delegate Controllers or Sub Controllers are what I call units of encapsulated behavior that enable reusability of that behavior across Vue Components.
+        - The Component's Controller instantiates those Delegate Controllers and wires them up.
+        - This is basically how functionality in the Composition API is, well, composed, but the way Delegate Controllers are defined is different there versus how they're defined for the Vue Object Component API.
+        - You can blame iOS for the "delegate" language.
+
 
 
 ## General Approaches
@@ -18,10 +36,22 @@ Ideally, you want to avoid Spaghetti in your code.  Spaghetti is best made with 
     - That is, those View components are where the identifying information in the Route is combined with the data access of the Services/Stores to get the specific data to show to the user.
 - In general, state specific to a View should live at the View components, and should never be accessed by other Views because that's Spaghetti.
     - If you need to access data specific to one View in another View, consider if you really need to make a Service to handle that data instead.
-- In general, data retrieved from any remote services should be untouched.
+- Because in general, all Views should be written as if they are the only View in the app.
+    - If a View needs data from a Parent View, it should be passed down via Props and treated as immutable.
+    - However, it's better to just re-request the data and have provisions in your request service to deduplicate such requests.
+- In general, data retrieved from any remote services should never be mutated.
     - If you need a specific piece of it, created a computed prop.
     - If you need a modified version, track the user edits as separate state then create a computed prop showing the old data transformed by the user edits.
+        - If the nature of the edits means it's easier to just directly mutate an object, then deep-clone the original datum.
     - Only mutate data directly if profiling shows it's necessary for efficiency, otherwise you're wasting dev time by creating code prone to Spaghetti.
+
+Hopefully some of this looks familiar.  They are extensions or extrapolations of many general principles of clean coding with a dash of _actual_ RESTfulness.
+
+- Separation of Responsibility.
+- Small, composable units of functionality.
+- etc.
+
+If this makes things start to feel like a bunch of disconnected pages that could be static HTML... That's intentional.
 
 
 
@@ -64,6 +94,17 @@ If you sometimes need to arrange things automatically, slots + flex-box + `justi
     - If you actually do need a View's state to persist across navigations to that view or be used by other views, consider if what you have/need is actually a Service of some sort.
 - I also do not like directly using Vuex.  Rather, I prefer to use it as the "persistence layer" and wrap access to in Service Controllers that View Components (among other things) use.
 
+#### On Vuex for Route-View State
+
+The issue I have with using Vuex for Route-View state is basically this: it creates a tight coupling between the Route-View Component and the Store.
+
+- Why is the coupling tight?
+    - Because any Vuex Module that is specific to Route-View is defined by the needs of that Route-View.
+- Why is this bad?
+    - Because the Vuex Module is globally defined, which allows easy access to it from any other Route-View.
+        - If any other Route-View uses that Vuex Module, then it must be assume all Route-Views may potentially use it, which means many more tight couplings.
+    - Rather, one should create the architecture such that good decisions are easier to implement, and bad decisions are harder to implement.
+
 #### On Vuex Getters
 
 Vuex Getters are for a few things only:
@@ -102,6 +143,8 @@ A short summary of how to use the Router without hating everything:
     - Route-View Components take the identifying information from the Route and pick out the specific data from the Service.
     - Different Route-View Components may use the same identifying information to make different API requests because they need different data related to the same identifiers.
 - If a place in your app can be navigated to via button, link, or whatever else, then it must have a Route.
+
+It can help to think about Routes in a RESTful manner, but instead of the Resource being some data, the Resource is a View or unit of interaction.
 
 And now some rules to follow, as your life (or at least happiness) depends on it:
 
@@ -217,3 +260,12 @@ A few other things:
     - This means you can _always_ render something based on it.
 - No bikeshedding on default values: anything using the data picks the default value appropriate to its own use case.
 - Vue Reactivity friendly.
+
+
+### Global Event Bus
+
+There are a few cases where a global event bus is useful, but there are some things to keep in mind:
+
+- Like a well defined Requests Module, your Events all have specific types associated with their names.  You may want to encode this information in explicit code rather than implicit usage, similar to how Requests are encoded with Request Options Creators.
+- You will want a well defined Service wrapper whose implementation takes care of deregistering listeners upon component destruction.  Failure to handle this will inevitably lead to hard to debug issues that only happen after a series of steps that no one thinks to write down.
+    - Basically, same as any event emitter only worse because the event bus is never deallocated in the app's lifetime.

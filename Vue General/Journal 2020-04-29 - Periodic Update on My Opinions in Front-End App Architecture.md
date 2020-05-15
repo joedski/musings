@@ -268,4 +268,4 @@ There are a few cases where a global event bus is useful, but there are some thi
 
 - Like a well defined Requests Module, your Events all have specific types associated with their names.  You may want to encode this information in explicit code rather than implicit usage, similar to how Requests are encoded with Request Options Creators.
 - You will want a well defined Service wrapper whose implementation takes care of deregistering listeners upon component destruction.  Failure to handle this will inevitably lead to hard to debug issues that only happen after a series of steps that no one thinks to write down.
-    - Basically, same as any event emitter only worse because the event bus is never deallocated in the app's lifetime.
+    - Basically, same as any event emitter only worse because the event bus itself is never deallocated in the app's lifetime.

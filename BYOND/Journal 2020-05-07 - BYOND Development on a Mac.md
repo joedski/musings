@@ -222,3 +222,60 @@ And, success!
     - I didn't bother to try running the `dmb` file from the Docker volume, though, since I had to already run `DreamMaker` on a copy.
 
 Probably some other things as I think about them.  It's late.  Bed time.
+
+Probably just have a couple scripts:
+
+1. Build: copies stuff out of volume, builds, puts build artifacts/logs into volume.
+2. Run: copies `dmb` out of volume, runs it.
+
+That's about it.  Could create a new container each time, though that's kinda wasteful.  Better to just guarantee there's an existing container every time, creating one only if necessary.
+
+I suppose I could also have a third script for running `DreamDownloader`, too, but eh.
+
+Here's some initial thoughts
+
+```bash
+#!/bin/bash
+
+# $0 <project-dir>
+# <project-dir> is a dir which contains a `.dme` file.
+
+set -ex
+
+temp_path=/home/byond/temp
+project_path=/home/byond/mount/$1
+
+[[ -d "$temp_path" ]] && rm -rf "$temp_path"
+mkdir -p "$temp_path"
+
+cp -r "$project_path"/* "$temp_path"/
+pushd "$temp_path"
+DreamMaker *.dme
+cp *.dmb "$project_path"/
+```
+
+```bash
+#!/bin/bash
+
+# $0 <dmb-file>
+
+set -ex
+
+temp_path=/home/byond/temp
+bytecode_file_mount=/home/byond/mount/$1
+bytecode_file_local=$temp_path/$(basename "$bytecode_file_mount")
+logfile_mount=${bytecode_file_mount%.dmb}.log
+jail_dir=$(dirname "$bytecode_file_local")
+
+[[ -d "$temp_path" ]] && rm -rf "$temp_path"
+mkdir -p "$temp_path"
+
+cp "$bytecode_file_mount" "$bytecode_file_local"
+DreamDaemon "$bytecode_file_local" 9001 \
+    -invisible \
+    -cd "$jail_dir" \
+    -home "$jail_dir" \
+    -safe \
+    2>&1 \
+| tee "$logfile_mount"
+```

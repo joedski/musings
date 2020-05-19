@@ -63,18 +63,49 @@ If this makes things start to feel like a bunch of disconnected pages that could
 - A few kinds:
     - Common Components: These are not (usually) associated with any particular Route, and are usually used by many Views.
         - Can be thought of as app-specific library components.
-    - Shared Views: Views that are used across multiple Routes.  It's not very common, but it does happen.
+        - These are usually free of any route-specific or state-specific behavior, but that is not always the case.  Sometimes they do depend on global state, but are reused so much that making them a Common Component is worthwhile.
+    - Shared Views: Views that are used across multiple Routes.  It's not always common, but it does happen.
     - Views: Non-Shared View Components are specific to a single Route.
+
+#### When To Break Views Into Separate Components
+
+> TK: More thought needed here.
+
+It helps to write Views in at least 2 passes:
+
+1. Get it to work.
+2. If it's too big, break it into logical sub views.
+
+Determining when it's "too big" is usually a matter of judgement, but when you can write your component state like this:
+
+```js
+export default {
+    data() {
+        return {
+            thisPart: { /* ... state for `thisPart` */ },
+            thatOtherPart: { /* ... state for `thatOtherPart` */ },
+        };
+    },
+}
+```
+
+Then you probably want to break `thisPart` and `thatOtherPart` into sub-view components.
+
+This is especially the case if you have repeated units of interaction on your page.  Sometimes, that's indicative of not just sub-views, but actual reusable components that should be placed in the Common Components section of your app.
+
+Another way to determine if you need to break things up: If you're making a card-based interface, then you've got free division of your UX already.
+
+If you have a group of controls for, say, a table or chart, that itself can usually be captured into its own component.  State can then be managed by either just emitting a whole new object, or by `.sync`ing a bunch of separate properties.  If `.sync`ing a bunch of separate properties, I recommend grouping them into an object anyway, since that keeps them together in the `data()` definition, and can make it easier to split things into sub-views later if necessary.
 
 
 ### Stateful Child Components
 
-Sometimes you'll encounter or be tempted to implement stateful child components.  Examples of such things include any form components, Vuetify forms, Bootstrap Vue tables, etc.  Exercise caution around such things.
+Sometimes you'll encounter or be tempted to implement what I will refer to as stateful child components.  Examples of such things include any form components, Vuetify forms, Bootstrap Vue tables, etc.  Basically, anything that maintains internal state instead of expecting the parent to always manage that state.  Exercise caution around such things.
 
 My advice here is to always keep things simple.
 
 - If your parent component does not need to control the state, then it is okay to leave all that state in the child components and not worry about it.
-- If your parent component does need to control the state, then it should control the state and override the child components.
+- If your parent component does need to control the state, then it should always control the state and override the child components.
 
 Not sticking to one of these means you now must synchronize state, which almost always means tracking extra state in the parent.  This is annoying.
 
@@ -266,6 +297,7 @@ A few other things:
 
 There are a few cases where a global event bus is useful, but there are some things to keep in mind:
 
-- Like a well defined Requests Module, your Events all have specific types associated with their names.  You may want to encode this information in explicit code rather than implicit usage, similar to how Requests are encoded with Request Options Creators.
+- Like a well defined Requests Module, your Events all have specific types associated with their names.
+    - You may want to encode this information in explicit code rather than implicit usage, similar to how Requests are encoded with Request Options Creators.
 - You will want a well defined Service wrapper whose implementation takes care of deregistering listeners upon component destruction.  Failure to handle this will inevitably lead to hard to debug issues that only happen after a series of steps that no one thinks to write down.
-    - Basically, same as any event emitter only worse because the event bus itself is never deallocated in the app's lifetime.
+    - Basically, same as any event emitter only worse because the event bus itself is never deallocated in the app's lifetime, because _every component is touching it_.

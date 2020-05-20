@@ -53,6 +53,8 @@ Hopefully some of this looks familiar.  They are extensions or extrapolations of
 
 If this makes things start to feel like a bunch of disconnected pages that could be static HTML... That's intentional.
 
+And, if this makes it sound something like a Spring Boot application, just with Route Views instead of Controllers, then... Well, I like to think there's a reason for that.  (Technically the Route Views' _Controllers_ are what combine all the Services together to the specific use cases, sooo not actually so different even in that respect.)
+
 
 
 ## How I Use Various Libraries And Other Things
@@ -258,7 +260,7 @@ Fun fact: every request in Axios can specify its own Adapter, which means every 
 
 Fun fact: this makes every request instantly stubbable for testing.
 
-My current (as of 2020-05-01) favorite method of dealing with API requests is a light wrapper around Axios (which itself is already a wrapper) that exposes request data via AsyncData objects.
+My current (as of 2020-05-01) favorite method of dealing with API requests is a light wrapper around Axios (which itself is already a wrapper) that exposes request data via [AsyncData](../General/AsyncData/README.md) objects.
 
 #### The Requests Module
 
@@ -274,13 +276,13 @@ My preferred requests module is very simple at its core, and does only a few thi
 There are some basic derived things it provides, if only because most abstractions built atop it need them:
 
 - Reads request promise.
-- Reads request data, returned as AsyncData.
+- Reads request data, returned as [AsyncData](../General/AsyncData/README.md).
 - Dispatches a request then returns the promise for chaining.  Promise always resolves to void, never rejects.  This is used when needing to chain on request finishing, but not on the response itself.
 - Dispatches a request then upon promise settlement reads request data or throws.  This is mostly used when submitting forms or doing other such one-off operations.
 
 A few other things:
 
-- The Requests Module does not transform server data before storage.  Rather, anything using the data transforms data received from the server in a manner specific to its own use case.
+- The Requests Module does not transform server data before storage.  Rather, anything using the data can transform the data received from the server in a manner specific to its own use case.
     - This means fewer interfaces to memorize: what the API server's docs show you is what you get, and any view-specific transforms of that data are where they should be: on that view.
 
 #### Why AsyncData (Short Version)

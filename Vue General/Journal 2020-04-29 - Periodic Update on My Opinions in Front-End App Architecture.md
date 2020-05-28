@@ -176,8 +176,7 @@ A short summary of how to use the Router without hating everything:
     - Route-View Components take the identifying information from the Route and pick out the specific data from the Service.
     - Different Route-View Components may use the same identifying information to make different API requests because they need different data related to the same identifiers.
 - If a place in your app can be navigated to via button, link, or whatever else, then it must have a Route.
-
-It can help to think about Routes in a RESTful manner, but instead of the Resource being some data, the Resource is a View or unit of interaction.
+- Route Paths should follow RESTish practices, although the Resource you're identifying isn't some datum but rather some View or Interaction.
 
 And now some rules to follow, as your life (or at least happiness) depends on it:
 
@@ -227,6 +226,7 @@ Breadcrumb Items are fairly simple on the surface:
 For best sanity, the Breadcrumb must follow one simple rule:
 
 - The Breadcrumb does not create definitions for breadcrumb items.
+    - Otherwise, this creates a tight coupling between your Breadcrumb and every single other View in the App.  This is a maintenance headache and is basically Spaghetti One Step Removed.
 
 Where are those definitions placed?  That depends on your Breadcrumb operating model:
 

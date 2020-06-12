@@ -230,9 +230,9 @@ For best sanity, the Breadcrumb must follow one simple rule:
 
 Where are those definitions placed?  That depends on your Breadcrumb operating model:
 
-- Navigation History based Breadcrumb Items requires tracking said history elsewhere, but not on the Breadcrumb because multiple places may need that.
+- Having Navigation History based Breadcrumb Items requires tracking said history elsewhere, but not on the Breadcrumb because multiple places may need access to that.
     - You may have a History service that itself is separate.
-- What I've seen more commonly: Hierarchy based Breadcrumb Items does not require tracking any more state than already exists in the Route Definitions.
+- What I've seen more commonly: having Hierarchy based Breadcrumb Items does not require tracking any more state than already exists in the Route Definitions.
     - Which means the Breadcrumb Item Definitions live on the Route Definitions.
     - Which also means they do not live in the Breadcrumb.
 

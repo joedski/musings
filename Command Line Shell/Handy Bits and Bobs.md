@@ -291,3 +291,43 @@ If you don't need to be able to manipulate the current environment, you can just
 ```sh
 ( IFS=/; echo "${array[*]}" )
 ```
+
+
+## Taking The First n Characters of a String Var
+
+This can be done in [a few ways](https://stackoverflow.com/q/1405611) without invoking other programs.
+
+1. Using substring extraction, which is in Bash but not Sh.
+2. Using prefix and suffix removal, which is in both Bash and Sh.
+
+Suppose we want to get the first two characters of some string:
+
+```sh
+foo="|foo|bar|baz"
+
+# We want "|f" for whatever reason.
+
+# Bash only.
+echo "${foo:0:2}"
+
+# Sh and Bash.
+echo "${foo%${foo#??}}"
+```
+
+Another option is to use `printf`, which is a Bash built-in:
+
+```sh
+printf "%-2.s" "$foo"
+```
+
+Naturally, the [above SO question](https://stackoverflow.com/q/1405611) has numerous other ways that do involve invoking other programs, many of which are useful when you need to operate on multiple lines and/or when piping stuff about.
+
+
+### Can We Take the Last n Characters?
+
+Yes!
+
+```sh
+echo "${l_foo:$(( ${#l_foo} - 2 )):${#l_foo}}"
+echo "${l_foo#${foo%??}}"
+```

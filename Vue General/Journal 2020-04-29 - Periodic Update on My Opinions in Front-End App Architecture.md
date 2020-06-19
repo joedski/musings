@@ -5,13 +5,17 @@ It's strange I don't yet have a journal where I talk about this, besides some pi
 
 This is going to be written from the point of view of a Vue project, with things organized by particular Vue libraries, but can likely be applied to many different projects where you've got a fat web client.
 
-Ultimately the goal is a seemingly simple one: create an architecture such that better decisions are easier to implement than worse decisions.
+One major goal is a seemingly simple one: create an architecture such that better decisions are easier to implement than worse decisions.
+
+Another major goal is to maintain loose coupling between all Views on different Routes, as this makes long-term maintenance significantly less burdensome.
 
 If this kinda starts to make Vue look like Angular with a slightly different skin, then, well, now you know why Angular was the way it was.
 
 
 
 ## Some Words About Words
+
+> NOTE: I'm going to try to stay consistent but things may get a little... well, not consistent.  Inconsistent as people say.
 
 - Controller: When I say "Controller" in this document, I don't mean any particular kind of Controller (route, view, whatever) by this.  Rather, I mean "something which encapsulates a certain unit of behavior".
     - Service Controllers are Controllers that are general across your application.
@@ -56,6 +60,18 @@ If this makes things start to feel like a bunch of disconnected pages that could
 And, if this makes it sound something like a Spring Boot application, just with Route Views instead of Controllers, then... Well, I like to think there's a reason for that.  (Technically the Route Views' _Controllers_ are what combine all the Services together to the specific use cases, sooo not actually so different even in that respect.)
 
 
+### Use TypeScript
+
+I favor the use of TypeScript over plain JavaScript in any large project, and especially in any project that is already compiling sources, for 1 simple reason: the cost of adding types to your project is far outweighed by the benefits to re/entering the project at a later time.
+
+Types in TypeScript (or any typed language) are what I myself call "functional documentation", which is "documentation that has an effect on the program or compilation thereof".  Sure, "compilation" means "mostly just stripping out types", but the compiler does type checking and that's great.
+
+- Types are in the code instead of in comments.
+- Not updating types almost always produces errors somewhere.
+- If you codegen types/interfaces, you can almost always find places you need to update by just following the type errors.
+- Save yourself from tired-brain errors.
+
+
 
 ## How I Use Various Libraries And Other Things
 
@@ -68,6 +84,18 @@ And, if this makes it sound something like a Spring Boot application, just with 
         - These are usually free of any route-specific or state-specific behavior, but that is not always the case.  Sometimes they do depend on global state, but are reused so much that making them a Common Component is worthwhile.
     - Shared Views: Views that are used across multiple Routes.  It's not always common, but it does happen.
     - Views: Non-Shared View Components are specific to a single Route.
+        - These almost always depend on global state and should be primarily about integrating various service calls together to implement some interaction.
+        - They should contain very little code that itself needs unit testing.  Any unit testable code specific to them can (and perhaps should) be put into another Service, even if that Service is specific to a given View.
+
+#### Non-Shared View Components Should Not Know About Views On Other Routes
+
+Non-Shared View Components should not know about Views on other Routes, and should be written from the perspective that they are the only View in the App.  Every opinion in this document is geared towards this perspective, as this means Views can only ever be loosely coupled, which is wonderful for the long-term maintenance of the app.
+
+This means the only thing that a View should know about concerning other locations is the only thing global that any View should know about any location: the Route.
+
+Because Routes and Route Transitions should never contain actual data, only identifiers, this means Views cannot and in fact should never send actual data to other Views, as this creates a tight coupling between two different views in the app, which makes things more difficult to maintain.
+
+Any data passage mechanism you do want, if you have an actual justifyable use case, should be general to the whole application, exposed as a global service.  It should never be specific to any given View, as that creates a tight coupling.
 
 #### When To Break Views Into Separate Components
 
@@ -95,7 +123,7 @@ Then you probably want to break `thisPart` and `thatOtherPart` into sub-view com
 
 This is especially the case if you have repeated units of interaction on your page.  Sometimes, that's indicative of not just sub-views, but actual reusable components that should be placed in the Common Components section of your app.
 
-Another way to determine if you need to break things up: If you're making a card-based interface, then you've got free division of your UX already.
+Another way to determine if you need to break things up: If you're making a card-based interface, then you've got pre-made division of your UX already.
 
 If you have a group of controls for, say, a table or chart, that itself can usually be captured into its own component.  State can then be managed by either just emitting a whole new object, or by `.sync`ing a bunch of separate properties.  If `.sync`ing a bunch of separate properties, I recommend grouping them into an object anyway, since that keeps them together in the `data()` definition, and can make it easier to split things into sub-views later if necessary.
 
@@ -151,7 +179,7 @@ And if you follow the Service Controllers recommendation above, you don't need t
 
 #### Using Vuex for Service State
 
-Services should each have their own namespaced Vuex module, and include things like Requests, Forms, Notifications, and other such cross-cutting concerns.
+Global Services should each have their own namespaced Vuex module, and include things like Requests, Forms, Notifications, and other such cross-cutting concerns.
 
 Not all cross-cutting Services require state, but those that do should have a Vuex module as that backing state.  Some Services may not require any of their own state, but may instead be compositions of stateful services.
 
@@ -163,7 +191,7 @@ Remember that the low level tools do not need to be friendly to use, they need t
 
 Application General State can be thought of as a special case service that is specific to your application.  As noted, it stores things like info on the currently logged in user (or, more likely, just an ID so you can retrieve the data via the proper API Request.), that sort of thing.  For many apps, it should be fairly minimal.
 
-Especially if you treat API-requested data generally through some requests module.
+It will be especially if you treat API-requested data generally through some requests module, in which case it may simply be references to that.  It then becomes a composite Service, that is a Service composed of other Services.
 
 
 ### Vue Router
@@ -199,6 +227,12 @@ Why am I so dogmatic about the above?
 - Not following those rules means navigation is inconsistent: sometimes you need only push a new route, other times you must both set state and push a new route at the same time.
 - Attaching anything that is not just params to a route is not supported by the Router API, and this is intentional.  It might work today, but it might not work tomorrow.
 - And so on.
+
+#### What If I Don't Want To Refetch Data I Already Have?
+
+Then make sure your Requests Service supports the option to skip making a request if that request has been successfully received before.
+
+This keeps coupling between Views loose, while still ensuring a given component has all the remote data it needs.
 
 #### Tabbed Views
 

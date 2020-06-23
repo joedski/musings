@@ -48,6 +48,7 @@ Ideally, you want to avoid Spaghetti in your code.  Spaghetti is best made with 
     - If you need a modified version, track the user edits as separate state then create a computed prop showing the old data transformed by the user edits.
         - If the nature of the edits means it's easier to just directly mutate an object, then deep-clone the original datum.
     - Only mutate data directly if profiling shows it's necessary for efficiency, otherwise you're wasting dev time by creating code prone to Spaghetti.
+        - Having maybe-2 data shapes for one endpoint is not bad, having maybe-2 data shapes for 50 endpoints is terrible.
 
 Hopefully some of this looks familiar.  They are extensions or extrapolations of many general principles of clean coding with a dash of _actual_ RESTfulness.
 
@@ -57,17 +58,17 @@ Hopefully some of this looks familiar.  They are extensions or extrapolations of
 
 If this makes things start to feel like a bunch of disconnected pages that could be static HTML... That's intentional.
 
-And, if this makes it sound something like a Spring Boot application, just with Route Views instead of Controllers, then... Well, I like to think there's a reason for that.  (Technically the Route Views' _Controllers_ are what combine all the Services together to the specific use cases, sooo not actually so different even in that respect.)
+And, if this makes it sound something like a Spring Boot application, just with Route Views instead of Controllers, then... Well, I like to think there's a reason for that.  (Technically the Route Views' _Controllers_ are what combine all the Services together to the specific use cases which are then throws into the render template, sooo not actually so different even in that respect.)
 
 
 ### Use TypeScript
 
 I favor the use of TypeScript over plain JavaScript in any large project, and especially in any project that is already compiling sources, for 1 simple reason: the cost of adding types to your project is far outweighed by the benefits to re/entering the project at a later time.
 
-Types in TypeScript (or any typed language) are what I myself call "functional documentation", which is "documentation that has an effect on the program or compilation thereof".  Sure, "compilation" means "mostly just stripping out types", but the compiler does type checking and that's great.
+Types in TypeScript (or any typed language) are what I myself call "functional documentation", which I define as "documentation that has an effect on the program or compilation thereof".  Sure, "compilation" means "mostly just stripping out types", but the compiler does type checking and that's great.
 
 - Types are in the code instead of in comments.
-- Not updating types almost always produces errors somewhere.
+- Not updating types almost always produces errors somewhere if those updates had a material effect.
 - If you codegen types/interfaces, you can almost always find places you need to update by just following the type errors.
 - Save yourself from tired-brain errors.
 
@@ -126,6 +127,19 @@ This is especially the case if you have repeated units of interaction on your pa
 Another way to determine if you need to break things up: If you're making a card-based interface, then you've got pre-made division of your UX already.
 
 If you have a group of controls for, say, a table or chart, that itself can usually be captured into its own component.  State can then be managed by either just emitting a whole new object, or by `.sync`ing a bunch of separate properties.  If `.sync`ing a bunch of separate properties, I recommend grouping them into an object anyway, since that keeps them together in the `data()` definition, and can make it easier to split things into sub-views later if necessary.
+
+
+### Minimize Own-State in Vue Components
+
+Basically, keep `data()` as small as possible.
+
+- Don't store data received from the server.  Rather, reference data via a generalize Requests module. (described later)
+- Don't duplicate data from the parent unless it's absolutely necessary to implement a certain interaction.
+    - Then that becomes isolation of that internal state in a (sometimes shared) separate component so that the parent doesn't have to deal with it, and can instead deal with coordination of multiple components.
+
+The more state a component must manage itself, the more that can go wrong.  Manual state management is tedious and error prone, and frequently not even necessary.  By removing as much manual state management as possible, we're left with only the bare minimum of state that we must manage to support whatever logic we're trying to implement.
+
+Everything else should be computed props, as much as possible.
 
 
 ### Stateful Child Components
@@ -279,11 +293,23 @@ The reason these live on the Route Definitions and not in the Breadcrumb Compone
 - Therefore Breadcrumb Item Definitions are also Configuration.
 - Components are not Configuration, they are a generalization over all possible parameters to a given Route.  (Though some routes have no parameters, and some parameters produce "not found" results, but that's all part of else-case handling.)
 
-How do you write a Breadcrumb Item Definition separate from any component context?  Dependency injection.
+The way Breadcrumb Item Definitions would actually be added to a given Route Definition is via a function attached to that Route's metadata.  This function accepts a context (Store, Route, maybe other things?) and returns a list of Breadcrumb Item Definitions for the Breadcrumb component to render.
+
+So, something like this:
 
 ```js
-const someItem = ({ $store, $route }) => { /* ... return something. */ };
+const someRoute = {
+  name: RouteName.SOME_ROUTE,
+  // ... other stuff.
+  meta: {
+    breadcrumb({ $store, $route }) {
+      // ... return array of breadcrumb item definitions.
+    },
+  },
+};
 ```
+
+This composes really nicely with a Requests Module I describe later.
 
 
 ### API Requests
@@ -295,6 +321,14 @@ Fun fact: every request in Axios can specify its own Adapter, which means every 
 Fun fact: this makes every request instantly stubbable for testing.
 
 My current (as of 2020-05-01) favorite method of dealing with API requests is a light wrapper around Axios (which itself is already a wrapper) that exposes request data via [AsyncData](../General/AsyncData/README.md) objects.
+
+#### Requesting Data: Every View Should Act As If It Is The Only View
+
+As noted prior, every View should be written as if it is the only View.  How this applies to API Requests is thus: Every View must declare the data it needs to request from the API, and must never assume some other view will make that request for it.
+
+This once again goes to reducing tight couplings through out the application, thus making maintenance and refactoring easier.
+
+If naively followed, this would lead to multiple redundant requests, which of course we want to avoid since that would lead to very obvious user lag and server load.  To avoid these issues then, we want to implement a base Request Service that among other things handles duplicate requests.
 
 #### The Requests Module
 

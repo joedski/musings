@@ -331,3 +331,49 @@ Yes!
 echo "${l_foo:$(( ${#l_foo} - 2 )):${#l_foo}}"
 echo "${l_foo#${foo%??}}"
 ```
+
+
+
+## Getting the Source Dir or Path of a Script
+
+This would be nice to have, especially if you want script-relative imports rather than CWD-relative imports.  Bleh.
+
+Unfortunately, as per all the discussions in the answers to [this SO question on the topic](https://stackoverflow.com/questions/4774054/reliable-way-for-a-bash-script-to-get-the-full-path-to-itself), there doesn't seem to be a wholly reliable way to do this when accounting for every single possibility.  Symlinks particularly seem to muck things up.
+
+Still, the most reliable Mac+Linux ways seem to be:
+
+```bash
+# The output redirection is to handle unnecessary output for cases
+# where `cd` has been aliased to `cd "$@"; ls` or something.
+SCRIPTPATH="$( cd -- "$(dirname -- "$0")" >/dev/null 2>&1 ; pwd -P )"
+
+# This gets around any aliases.
+SCRIPTPATH="$( builtin cd -- "$(dirname -- "$0")"; pwd -P )"
+
+# A maybe-less-unreliable one.  Works with sourced files.
+# Bash specific, of course.
+SCRIPTPATH="$(
+    cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd
+)/$(
+    basename -- "${BASH_SOURCE[0]}"
+)"
+```
+
+> Aside: [Some light reading about `$BASH_SOURCE` (or `${BASH_SOURCE[0]}`) vs `$0`](https://stackoverflow.com/a/35006505).
+
+Here's [a script that supports even symlinks](https://stackoverflow.com/a/246128):
+
+```bash
+SOURCE="${BASH_SOURCE[0]}"
+# NOTE: if you cd to a different directory before running this snippet, the result may be incorrect!
+# resolve $SOURCE until the file is no longer a symlink
+while [ -h "$SOURCE" ]; do
+  DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+```
+
+It seems like you should be able to wrap that up in a function and just use it a the beginning of your script.  Problem there is you'd have to first source the script because scripts aren't auto

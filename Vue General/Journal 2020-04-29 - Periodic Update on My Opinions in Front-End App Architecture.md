@@ -73,6 +73,48 @@ Types in TypeScript (or any typed language) are what I myself call "functional d
 - Save yourself from tired-brain errors.
 
 
+### Program In a More Reactive Style, Less a Procedural Style
+
+> TK: This section needs some general thought put into it.  It's just sorta "do this" "how" "eh" right now.  Maybe start with how I approach requests and go from there?  The whole loading spinner thing might be a good place to start too.
+
+And build the tools to enable it if you can't yet.  Shut all that manual state management away in modules so you don't have to spread it all over your codebase.
+
+This is probably a bigger shift than many others if you're not used to it, but it's one of the reasons Vue is setup the way it is: to make a more reactive style of programming possible.
+
+> TK: Get examples!
+
+There's a lot of things you can read about this, but the short summary is:
+
+- Event happens.
+- State update occurs.
+- Derived data recomputes.
+- Template recomputes.
+- Changes synced to DOM.
+
+On and on.
+
+> Quick sketch of difference... Maybe something that's not just a strawmanned advert for AsyncData?  Granted, it is based on my frustration with what I usually see in frontend apps (and what I wrote for some apps...)
+
+Imperative:
+
+- When component is created, make these requests.
+- Place the data from these requests at some location in state, specific to that request.
+- If any request errored, place the errors here.  Maybe collect them, or maybe just have the first or last one win.
+
+Reactive:
+
+- Component declares these requests as part of its definition.
+    - The request declarations are written such that, internally, they automatically dispatch the request at some appropriate time, after component creation but before mounting to the DOM.
+- Computed props derive some value from the request data, managed by the underlying request service.
+    - Computed props thus automatically react to any state changes for that request.
+    - All request data are handled uniformly, with no request having a specifically defined place in state.
+    - When using `AsyncData` to wrap requested data, the `AsyncData` value itself will be in the `AsyncData.Data` case, and may be mapped over to create the derivation of the data specific to this view.
+    - Safe extraction via `.getDataOr()` means you also have an explicitly stated else-value if you don't have any actual data from the server yet.
+- Errors are also per-request, and can be handled in much the same way as the data.
+    - When using `AsyncData` to wrap requested data, the `AsyncData` value itself will be in the `AsyncData.Error` case, and may be mapped over to create the error message appropriate to this view.
+    - Safe extraction via `.getErrorOr()` means you also have an explicitly stated else-value if you don't have any actual error from the server.
+
+
 
 ## How I Use Various Libraries And Other Things
 
@@ -361,6 +403,7 @@ A few other things:
     - This means you can _always_ render something based on it.
 - No bikeshedding on default values: anything using the data picks the default value appropriate to its own use case.
 - Vue Reactivity friendly.
+- The common "show loading spinner" state becomes a computed value.
 
 
 ### Global Event Bus

@@ -372,6 +372,115 @@ This once again goes to reducing tight couplings through out the application, th
 
 If naively followed, this would lead to multiple redundant requests, which of course we want to avoid since that would lead to very obvious user lag and server load.  To avoid these issues then, we want to implement a base Request Service that among other things handles duplicate requests.
 
+#### Requesting Data and Vuex: The Request and Data Should Have a Clearly Defined Relationship
+
+Most manual requested data management does something like this:
+
+```js
+export default {
+    data() {
+        return {
+            fooRequestData: null,
+            fooRequestError: null,
+            fooRequestIsLoading: false,
+        };
+    },
+
+    methods: {
+        dispatchFooRequest() {
+            this.fooRequestIsLoading = true;
+
+            return fetch('/api/foo')
+            .then(response => {
+                if (! response.ok) {
+                    throw RequestError.fromResponse(response);
+                }
+
+                return response.json().then(data => {
+                    this.fooRequestData = data;
+                });
+            })
+            .catch(reason => {
+                this.fooRequestError = reason;
+            })
+            .finally(() => {
+                this.fooRequestIsLoading = false;
+            });
+        },
+    },
+
+    beforeMount() {
+        this.dispatchFooRequest();
+    },
+}
+```
+
+Though tedious, repetitious, and error prone due to not using the AsyncData pattern, this at least maintains a relationship between the request itself and the data, mostly because it's defined right there in the component.
+
+What happens with the basic-most Vuex usage though, is most frequently that the component now looks like this:
+
+```js
+export default {
+    computed: {
+        fooRequestState() {
+            return this.$store.state.someModule.fooRequestState;
+        }
+    },
+
+    methods: {
+        dispatchFooRequest() {
+            return this.$store.dispatch('someModule/fooRequest');
+        },
+    },
+
+    beforeMount() {
+        this.dispatchFooRequest();
+    },
+}
+```
+
+Naming wise, this might still look related, but code wise we have no idea, there's no real defined relation in there.  On top of that, this still has the problem of duplicating request code for every single request you have to make to a remote service.
+
+The proper way to deduplicate things is to step back and notice that the only things that really vary between requests are the parameters of the call: HTTP Method, Path, etc.  If we key off of each request itself, we can genericize our requests module across all requests, then just create "request options factory" functions.  Now, we once again have a clearly defined in-code relationship between the dispatched request and the data:
+
+```js
+import getFoo from '@/requests/api/getFoo';
+
+export default {
+    computed: {
+        fooRequest() {
+            return getFoo();
+        },
+        fooRequestData() {
+            return this.$store.getters['requests/requestState'](this.fooRequest);
+        },
+    },
+
+    methods: {
+        dispatchFooRequest() {
+            return this.$store.dispatch('requests/request', this.fooRequest);
+        },
+    },
+
+    beforeMount() {
+        this.dispatchFooRequest();
+    },
+}
+```
+
+Wrapping this in a Service, you basically get the Requests Module as I implement it.
+
+Why is this better?
+
+Before, if you needed to refactor anything to do with a particular request, whether it be moving it out of a component or changing the request logic itself, you had 3-4 places to check:
+
+- The state tree
+- Maybe a getter, if you made the mistake of defining one for each slice of your state tree
+- Maybe the mutation, if you need to change the state tree structure
+- The action
+
+Moving to the described setup, you instead have all the Vuex stuff the same for _every_ request, and the only thing that actually varies is the set of request options itself.  This deduplicates code and makes refactors significantly less difficult.
+
 #### The Requests Module
 
 My preferred requests module is very simple at its core, and does only a few things:
@@ -397,11 +506,13 @@ A few other things:
 
 #### Why AsyncData (Short Version)
 
+You can read [a more long winded, meandering, and possibly not-helpful spiel](../General/AsyncData/README.md) if you like, but in short:
+
 - Request state (NotAsked, Waiting, Error, Data) is up front and obligated.  You can't ignore it, and this is good.
     - Normally, you must deal with request state separate from the requested data, which is error prone because humans are forgetful.  By putting it front and center, it is explicit.  Wonderfully and horribly explicit.
 - Request state is synchronous, meaning you _always_ have a defined value, even if that value is "NotAsked".
     - This means you can _always_ render something based on it.
-- No bikeshedding on default values: anything using the data picks the default value appropriate to its own use case.
+- No bikeshedding on default values: anything using the data picks the default value appropriate to its own use case, because requested data can only be access safely via `.getDataOr(elseValue)`.
 - Vue Reactivity friendly.
 - The common "show loading spinner" state becomes a computed value.
 

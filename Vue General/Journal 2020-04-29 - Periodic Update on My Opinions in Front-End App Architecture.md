@@ -11,6 +11,10 @@ Another major goal is to maintain loose coupling between all Views on different 
 
 If this kinda starts to make Vue look like Angular with a slightly different skin, then, well, now you know why Angular was the way it was.
 
+Another thought: A lot of this is geared towards making items maintainable by reducing the amount of information you have to hold in your head while working on any given unit.  By breaking everything into small, well tested and therefore well understood tools that are then composed together, we build things that we can understand just in terms of shorthand intentions instead of having to always memorize everything.
+
+Of course, that's relative to your current understanding of any given basic part, so...
+
 
 
 ## Some Words About Words
@@ -129,6 +133,22 @@ Reactive:
     - Views: Non-Shared View Components are specific to a single Route.
         - These almost always depend on global state and should be primarily about integrating various service calls together to implement some interaction.
         - They should contain very little code that itself needs unit testing.  Any unit testable code specific to them can (and perhaps should) be put into another Service, even if that Service is specific to a given View.
+
+#### Organization of Options in Vue Components
+
+As a small note, I write components' options in this order:
+
+- Name
+- Mixins, if you do that
+- Components
+- Props
+- Data
+- Computed
+- Watch
+- Methods
+- Lifecycle Hooks
+
+The order is kinda from "what it is" at the top to "what it does" at the bottom.  Hooks are at the very bottom so you can always find them easily, since they're automatic behaviors that occur and are usually used to execute fetches and stuff.
 
 #### Non-Shared View Components Should Not Know About Views On Other Routes
 

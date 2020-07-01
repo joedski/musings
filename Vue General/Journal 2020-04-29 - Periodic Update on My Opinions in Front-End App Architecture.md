@@ -15,6 +15,8 @@ Another thought: A lot of this is geared towards making items maintainable by re
 
 Of course, that's relative to your current understanding of any given basic part, so...
 
+> I think I need to break these into separate documents.  Probably a 3rd draft item, so I can also go through and make sure to not repeat myself over and over again...
+
 
 
 ## Some Words About Words
@@ -40,6 +42,7 @@ Ideally, you want to avoid Spaghetti in your code.  Spaghetti is best made with 
 - In general, keep integrations/installations of services/plugins/whatevers as close to the entry point as possible.
     - If you're concerned about bundle size, prefer implementing a (mostly) transparent lazy loading methodology rather than spreading imports all over the codebase.
 - In general, keep import hierarchies as shallow as possible.
+    - Integration points (top-level and route page controllers) should be where the most imports appear.
 - In general, the View components that render the Routes are where specific combinations of State, Services, etc, are tied together.
     - That is, those View components are where the identifying information in the Route is combined with the data access of the Services/Stores to get the specific data to show to the user.
 - In general, state specific to a View should live at the View components, and should never be accessed by other Views because that's Spaghetti.
@@ -304,6 +307,8 @@ Why am I so dogmatic about the above?
 - Attaching anything that is not just params to a route is not supported by the Router API, and this is intentional.  It might work today, but it might not work tomorrow.
 - And so on.
 
+> Inane rambling: The point of the route being the only thing by which navigation between pages occurs, and of having page components always be written as if they are the only page in the app, is to reduce the amount of testing we need to do.  If you have a tight coupling between pages, because a page requires not only a route transition but also some global non-route state transition, it means you must now test navigation between every single page and every other page in the app.  By writing each page as separably as possible, that no longer becomes as much of a concern.
+
 #### What If I Don't Want To Refetch Data I Already Have?
 
 Then make sure your Requests Service supports the option to skip making a request if that request has been successfully received before.
@@ -364,6 +369,8 @@ const someRoute = {
   name: RouteName.SOME_ROUTE,
   // ... other stuff.
   meta: {
+    // NOTE: The fact you can toss a component in as the parameter
+    // is entirely coincidental.
     breadcrumb({ $store, $route }) {
       // ... return array of breadcrumb item definitions.
     },
@@ -459,7 +466,12 @@ export default {
 }
 ```
 
-Naming wise, this might still look related, but code wise we have no idea, there's no real defined relation in there.  On top of that, this still has the problem of duplicating request code for every single request you have to make to a remote service.
+Naming wise, this might still look related, but code wise we have no idea, there's no real defined relation in there.  Specifically:
+
+- We have a property access path, `$store.state.someModule.fooRequestState`
+- We have an action string, `'someModule/fooRequest'`.
+
+Now, we could sorta get around that by defining a getter with the same name, `'someModule/fooRequest'`, and that would create a defined relation ship.  However, this still runs into another big problem: duplicating request code for every single request you have to make to a remote service.
 
 The proper way to deduplicate things is to step back and notice that the only things that really vary between requests are the parameters of the call: HTTP Method, Path, etc.  If we key off of each request itself, we can genericize our requests module across all requests, then just create "request options factory" functions.  Now, we once again have a clearly defined in-code relationship between the dispatched request and the data:
 
@@ -494,12 +506,12 @@ Why is this better?
 
 Before, if you needed to refactor anything to do with a particular request, whether it be moving it out of a component or changing the request logic itself, you had 3-4 places to check:
 
-- The state tree
+- The state/data tree
 - Maybe a getter, if you made the mistake of defining one for each slice of your state tree
-- Maybe the mutation, if you need to change the state tree structure
+- Maybe the mutation/setter-method, if you need to change the state tree structure
 - The action
 
-Moving to the described setup, you instead have all the Vuex stuff the same for _every_ request, and the only thing that actually varies is the set of request options itself.  This deduplicates code and makes refactors significantly less difficult.
+Moving to the described setup, you instead have all the Vuex stuff the same for _every_ request, and the only thing that actually varies is the set of request options itself.  This deduplicates code and makes refactors significantly less difficult, all while also giving you 1 place to add support for new features.
 
 #### The Requests Module
 
@@ -530,7 +542,7 @@ You can read [a more long winded, meandering, and possibly not-helpful spiel](..
 
 - Request state (NotAsked, Waiting, Error, Data) is up front and obligated.  You can't ignore it, and this is good.
     - Normally, you must deal with request state separate from the requested data, which is error prone because humans are forgetful.  By putting it front and center, it is explicit.  Wonderfully and horribly explicit.
-- Request state is synchronous, meaning you _always_ have a defined value, even if that value is "NotAsked".
+- While the Request itself is asynchronous, Request _state_ is synchronous, meaning you _always_ have a defined value, even if that value is "NotAsked".
     - This means you can _always_ render something based on it.
 - No bikeshedding on default values: anything using the data picks the default value appropriate to its own use case, because requested data can only be access safely via `.getDataOr(elseValue)`.
 - Vue Reactivity friendly.

@@ -26,7 +26,7 @@ You could then structure a modal like this:
 
 I guess this just follows the general unboxing principle of things like passing a promise in or the like.
 
-You could even have extra props on the state value if you wanted, if you wanted customizable modal appearance.  It'd just become:
+You could even have extra props on the state value if you wanted, say if you wanted customizable modal appearance.  It'd just become:
 
 ```typescript
 type ShowableState<T> =

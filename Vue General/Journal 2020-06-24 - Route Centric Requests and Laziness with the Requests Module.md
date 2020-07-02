@@ -97,3 +97,45 @@ Given the Predicate solution for the Should-Request thing, maybe this could rece
 - Default: If current AsyncData is Waiting, Skip; Otherwise Execute.
 - Lazy: If current AsyncData is Waiting or Data, Skip; Otherwise Execute.
 - Forced: Always Execute.
+
+
+
+## Option Names?
+
+The hard part.
+
+- Should-Request Predicate
+    - `shouldRequest`
+    - `shouldDispatch`
+    - ... others?
+- Lazy/Default/Forced
+    - `shouldExecuteFromData`
+    - `shouldExecuteForData`
+    - `shouldExecuteByData`
+    - `shouldExecuteByState`
+    - `shouldExecute`
+    - ... I dunno.
+
+
+
+## More General?
+
+Suppose we store the Previous Request in the Request State?  Then, both of the above can be combined into a single predicate:
+
+```
+shouldExecute :: (nextRequest, previousState) => boolean
+```
+
+Then to do the above behaviors, we just do:
+
+```js
+$store.dispatch('requests/request', {
+    key: 'getFoo',
+    shouldExecute: allPredicates([
+        ShouldExecute.isPathDifferent,
+        ShouldExecute.lazy,
+    ]),
+});
+```
+
+The only problem I can see is that we lose default behavior if we only say `isPathDifferent`, because it becomes effectively paired with `force` unless we include special behavior to check if any of `lazy`, `force`, or `isNotWaiting` or whatever.

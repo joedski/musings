@@ -28,6 +28,10 @@ Also learning about what RESTfulness actually means.
     3. A post on [why Drupal went with HAL+JSON rather than JSON-LD][ss-7-3]
 8. I'm still trying to figure out what the hell I'm supposed to do with `content-type`.
     1. [This post][ss-8-1] actually gives a somewhat practical explanation, along with the suggestion that "using what \[they]’ve called standard media types give a client developer a leg-up".  Things like [JSON-API][ss--json-api] or [JSON+HAL][ss-7-1].
+    2. I've since learned that what you do with defining your Media Type (the `content-type`) is you write the documentation describing the default handling model of your Media Type.
+        - This documentation is used by humans to understand the given content and either navigate it themselves or create automatons using that knowledge.
+        - The main point is that the documentation is the only piece of external knowledge you need to process the messages.
+        - Importantly of course, you should be describing a hypetext media type of some sort, or describing your specific extensions to an existing media type.  (Maybe you have specific behavior described using standard HTML or XML, or you're using JSON+HAL with your own link rel names, etc.)
 9. Random blog post [on choosing a hypermedia format][ss-9]
 10. [Tools to make HATEOAS Compliance Easier][ss-10]
 11. Reddit discussion on [JSON-LD vs JSON-HAL][ss-11]

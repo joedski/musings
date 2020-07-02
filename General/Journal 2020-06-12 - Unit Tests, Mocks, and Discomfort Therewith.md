@@ -30,3 +30,33 @@ Of course, there's a caveat that's mentioned right in that post, which is that t
 Regarding whether or not that's even allowed due to needing to hide implementation details from others, well, I don't see it that way.  In fact, to me the point of the unit test is that it tests a specific unit in isolation, such that it's immaterial to anything else if that unit exists or has tests.  The fact then that some other thing uses that unit of functionality or any other unit of functionality is thus immaterial to writing that given unit of functionality in a testable manner, i.e. it being publicly available.
 
 Which I think also is why I have an issue with too many private methods.  Private methods are for decomposing the implementation of the publicly exposed interface, but when those get too big your public interface can become unwieldy to test.  This is made even worse when you have a multitude of private methods to handle the logic needed of the public interface but part of that is also integration of multiple other dependencies.  It means that the given unit is probably too big and has not been sufficiently decomposed.
+
+Here's [an interesting answer presenting two different perspectives](https://softwareengineering.stackexchange.com/a/412182) that is really worth a read through, I think.
+
+1. Their company's perspective, which is that you don't test units, but rather test _layers_: The Data Access Layer, or the Business Logic Lyer, while mocking any other layers in the application.
+    - The DAL in their case is mocked by mocking the data in an in-memory or temporary data store, not stubbing individual methods, which I'd actually prefer since it's mostly the knowledge of specific method calls I dislike.
+2. Their own perspective, that you can't avoid mocking (because you need integration tests since those check that n separate units work together _in a given environment_), but that you should still have unit-testable code that should be testable without mocking.
+
+Very good stuff, I think I need to read more different perspectives like those.
+
+One team member remarked that they did not think we should test private methods, and that's a fair concern: I currently use `private` to indicate "internal implementation detail", and such details shouldn't be known, but ... Hm.  Where am I actually coming into friction with the current methodology?
+
+- Mocking method calls already deals with internal implementation details (you have to know not just what other units are being referenced, but what parts of those units are being referenced), so the fact that we need that much detail means we're not really avoiding dealing with internal implementation details.
+- It's really hard to incrementally have confidence in edits if the actual backing business logic itself isn't being unit tested.  That is, either the unit tests are not granular enough to see where the failure occurred, or the code is itself not structured well enough to test so granularly.
+- To reiterate from above, most of a Service seems to be an integration of I/O (anything outside of self) and Business Logic (the actual interesting stuff).
+    - What I want to test is just the Business Logic, because the I/O supposedly is already tested, either by library authors or by the compiler/tooling checking we're using the interface correctly. (Though that also depends on making our interface/contract rigorous enough...  Wondering if we should have more inner/specific classes for input arguments just to be more descriptive.)
+
+Maybe that just means I should have two separate sets of _public_ methods:
+
+1. The Business Logic: this implements the actual rules described in the User Story or any specification documents.
+    - Business Logic is either Pure or Mutation Only.  In either case, the only side effects permitted are logging.
+2. The Integration: this ties together any I/O with Business Logic to implement some desired behavior in the app.
+
+That could be interesting.  Sometimes what I want in another service is not to make a bunch of extra calls to something, but rather to reuse the Business Logic with its own I/O.  Though, I wonder then if a given Service should be restricted to 1 of 2 kinds:
+
+1. Entity Service: Implements I/O and Business Logic related to one and only one Entity Class.
+2. Composite Service: Implements I/O and Business Logic related to two or more Entity Classes.
+
+This strict separation would result in a proliferation of small Services, though I think I'd prefer that over the current mess of Services.  Granted, that's just because the current Services are mish-mashes of different concerns, so any separation might be better than the current thing.
+
+I'm also not sure how practical that separation actually is, given that usually the business logic around a certain entity involves at least one other entity class.  Hm.

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Testing Slots with Multiple Declared Elements</title>
+</head>
+<body>
+  <template id="x-test-slot-component">
+    <section>
+      <slot name="content">
+        Content...
+      </slot>
+    </section>
+  </template>
+
+  <script>
+    customElements.define('test-slot-component', class extends HTMLElement {
+      constructor() {
+        super();
+
+        const template = document.getElementById('x-test-slot-component');
+        const templateContent = template.content;
+
+        const shadowRoot = this.attachShadow({ mode: 'open' })
+          .appendChild(templateContent.cloneNode(true));
+      }
+    });
+  </script>
+
+  <test-slot-component>
+    <p slot="content">This is a paragraph.</p>
+    <ul slot="content">
+      <li>A list</li>
+      <li>In the content</li>
+      <li>Probably</li>
+    </ul>
+    <p slot="content">And another paragraph.</p>
+  </test-slot-component>
+</body>
+</html>

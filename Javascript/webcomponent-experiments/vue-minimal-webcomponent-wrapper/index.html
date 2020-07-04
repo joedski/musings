@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Testing a Minimal Vue Wrapper for WebComponents</title>
+  <script src="https://unpkg.com/lodash@4.17.5"></script>
+  <script src="https://unpkg.com/vue@2.6.11"></script>
+  <script src="./wrapWebComponent.js"></script>
+  <script src="./ticking-paragraph.js"></script>
+  <!-- <link rel="import" href="./ticking-paragraph.html"> -->
+</head>
+<body>
+  <template id="x-ticking-paragraph">
+    <style>
+      p, li {
+        color: #42b983;
+      }
+    </style>
+    <slot name="title">
+      <h1>Title!</h1>
+    </slot>
+    <ul id="renderTarget">
+    </ul>
+  </template>
+
+  <div id="app"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

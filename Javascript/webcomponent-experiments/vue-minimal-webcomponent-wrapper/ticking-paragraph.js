@@ -1,3 +1,4 @@
+// Well, it's actually a list, now, not a paragraph...
 customElements.define('x-ticking-paragraph', class XTickingParagraph extends HTMLElement {
   static get observedAttributes() { return ['contents'] }
 

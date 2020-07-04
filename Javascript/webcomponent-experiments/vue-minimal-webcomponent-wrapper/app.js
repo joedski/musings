@@ -8,9 +8,7 @@ const app = new Vue({
   el: '#app',
 
   components: {
-    // NOTE: The wrapper cannot have the same name
-    // as the custom element itself.
-    CeTickingParagraph: XTickingParagraph,
+    XTickingParagraph,
   },
 
   data() {
@@ -30,7 +28,7 @@ const app = new Vue({
   },
 
   render(h) {
-    return h('CeTickingParagraph', {
+    return h('x-ticking-paragraph', {
       ref: 'customElement',
       props: {
         contents: this.contents,

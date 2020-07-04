@@ -67,6 +67,20 @@ const { wrapWebComponent, wrapRegisteredWebComponent } = (() => {
       ;
   }
 
+  /**
+   * Creates a Vue component with Props, forwarding Attrs
+   * and Slots with no Scope.
+   *
+   * Limitations:
+   * - Custom Elements do not support a notion of Slot Scope,
+   *   so your slots can only be unparametrized.
+   * - Props must be defined on your Custom Element's prototype
+   *   and have a corresponding attribute name in the Custom
+   *   Element's `observedAttributes`.
+   * @param  {string} elementName Name of the custom element as it's registered.
+   * @param  {Function} constructor Constructor for your Custom Element.
+   * @return {VueOptions} A wrapper Vue component definition.
+   */
   function wrapWebComponent(elementName, constructor) {
     const componentName = pascalCase(elementName);
 
@@ -78,6 +92,11 @@ const { wrapWebComponent, wrapRegisteredWebComponent } = (() => {
     const vueComponent = {
       // NOTE: Uncommenting this creates an infinite recursion
       // if it's the same name as the custom element's registered name.
+      // This is because setting the `name` effectively adds this definition
+      // itself to its own `components` option.
+      // That's why you need to define the name for self-recursive components,
+      // and why you should not set it here, at least not to the same name
+      // as the custom element.
       // name: componentName,
 
       // TODO: Types?
@@ -93,7 +112,7 @@ const { wrapWebComponent, wrapRegisteredWebComponent } = (() => {
             // during reactivity registration time.
             attrs: { ...this.$attrs },
             domProps: { ...this.$props },
-            nativeOn: this.$listeners,
+            on: this.$listeners,
             ref: 'wrappedElement',
           },
           renderSlots(this.$scopedSlots)
@@ -119,4 +138,3 @@ const { wrapWebComponent, wrapRegisteredWebComponent } = (() => {
     wrapRegisteredWebComponent,
   }
 })();
-

@@ -31,6 +31,7 @@ const { wrapWebComponent, wrapRegisteredWebComponent } = (() => {
   function renderSlots(scopedSlots) {
     return Object.entries(scopedSlots).reduce(
       (acc, [slotName, render]) => {
+        // TODO: Check if we can just use Array#flat()
         return acc.concat(normalizeSlotContent(render()).map(vnode => {
           // Raw text content should go into the default slot.
           if (slotName === 'default') return vnode;
@@ -50,7 +51,7 @@ const { wrapWebComponent, wrapRegisteredWebComponent } = (() => {
                 slot: slotName,
               },
             },
-          })
+          });
         }));
       },
       []
@@ -105,6 +106,8 @@ const { wrapWebComponent, wrapRegisteredWebComponent } = (() => {
       render(h) {
         return h(
           elementName,
+          // Reference:
+          // - The data object: https://vuejs.org/v2/guide/render-function.html#The-Data-Object-In-Depth
           {
             // I've found I need to spread these to actually
             // setup reactive subscriptions.

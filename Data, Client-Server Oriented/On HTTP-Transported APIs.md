@@ -72,5 +72,23 @@ Also learning about what RESTfulness actually means.
             3. One could imagine some of this same machinery could be leveraged with Swagger documents.
     4. Consider: While a standard such as JSON-LD may be vaguely-potentially useful in the long term, [it can also mean a lot of work up front at a time when you might not fully know what you're trying to do][ss-11-3].  That is, it can bog you down and prevent you from actually doing the Useful Thing.
         1. To that point, it could be more useful to blat out the project first, get it into a useful state, then create a separate output modality, likely by specifying a different content type.
-2. HATEOAS
-    1. Byep.
+    5. Thus: If you are writing a RESTful API, in the manner Fielding originally conceived of when describing the REST architecture, then you're going be spending time describing your Media Type, so that anyone approaching it can use your description to implement their default handling mode for that Media Type.
+        1. This documentation should describe 1 of 2 things:
+            1. An extension to or profile of an existing hypertext media type, such as XML or HTML.
+            2. A new hypertext media type ideosyncratic to your API.
+        2. The important things here:
+            1. That your media type is a hypertext type.
+            2. That you either use standard Link Relation types, or _define_ and use Link Relation types ideosyncratic to your API.
+            3. That this documentation and an API entry point are all that any client should need to get started navigating your API.
+2. HATEOAS: Hypertext as the Engine of Application State encapsulates the idea that the server should maintain no per-client data about the state of the client application which is not included in the hypertext messages that the client and server exchange.
+    1. Consider: The typical web site experience for any given person using a web browser, whether they are accessing a mere static pile of pages, a forum, or a wiki.  These are all HATEOAS compliant, or can be at least, because all client state transitions that the server knows about are fully encoded in the various HTTP requests that the client sends.
+        1. The user can bookmark various locations with the expectation that those locations will not change (or that redirects will be implemented should they change).
+            1. However, the user should be able to go to the index of the site and still find their way to any place in the side that is relevant to their interests.
+        2. Every state change in the application is accomplished via links, mostly that the user clicks on.
+            1. Also note: style information and extra code-on-demand links are also part of the page, though these do not represent state changes themselves.
+        3. There are client application state changes that cause a change in global application state.  Usually they are wrapped in Forms but are not always so.
+            1. The important thing to note is that this is why Fielding refers to Forms as something that can also be included, and why they should be a part of any Media Type description that allows the client to make updates to global application state.
+            2. When I say "client application state" and "global application state", it is to distinguish the state of the client application (mostly what page they're on) from the state of the application as a whole, as it lives on the server. (state that can affect (potentially) every client)
+    2. Consider: a JWT is meant to be a 'stateless' manner by which a session can be tracked.  This is enabled by the payload being signed and therefore theoretically difficult to tamper with or forge.
+        1. This means the Client can always send the JWT as part of its request payload (in a Header) and that any Server can verify the signature and expiration time of the token to determine if they should treat this request as coming from a logged in user or not. (Well, as coming from an authorized client, be it a browser or an automaton, but anyway)
+        2. This therefore means that the server does not need a central store of sessions (excepting of course if you want forcibly expired/invalidated tokens...) to determine the user's current logged-in-ness.

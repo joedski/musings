@@ -383,6 +383,13 @@ This composes really nicely with a Requests Module I describe later.
 
 ### API Requests
 
+> Thinking about it, this could probably be summarized as a few points:
+>
+> 1. Separate description from execution: Requests should be dealt with in terms of request options, and fed into a single request interface.
+> 2. Parametric but uniform execution of requests: Requests must be dealt with only in terms of the request descriptions, and all behavior must be driven by those request descriptions.  Any variance between requests must be encoded as variance in the options of those request descriptions.
+> 3. Executor implementation should tie into state/reactivity system of whatever you're using.  Since it's global in Vue apps, a Vuex module makes sense for them.
+> 4. Compose request status over the data, not parallel to it: There is no data (nor error for that matter) until the request has either succeeded or failed.  Before that point, it does not make sense to talk about data or error.  Therefore, enforce this by wrapping the request result within the request status itself, and only allowing access via safe accessors that require a default/else value to also be specified.  AsyncData/RemoteData is just the simplest way I've found to do this.
+
 Axios is a pretty good place to start when dealing with API requests.
 
 Fun fact: every request in Axios can specify its own Adapter, which means every request in Axios can actually hit a different async service, which means you can use Axios as an interface for any request/response based communication system, so long as you're fine phrasing everything in terms of HTTP requests/responses.

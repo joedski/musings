@@ -16,3 +16,5 @@ The idea is simple in theory:
 - The request binding must know how to map the data to an array of records.
     - This is so the request binding itself can expose its own data prop as an array concatenated from all the pages' data.
 - The request binding uses the request key to determine when it needs to invalidate cache and start over.
+    - This is so you can also automatically switch requests, but assumes that different requests have different data types since they frequently do.
+    - This can be overridden of course by simply giving all requests the same key + page.

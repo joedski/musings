@@ -10,9 +10,23 @@ Frustrating.
     - Notable in that it clearly enumerates tradeoffs made for the architectural style, such that depending on your use case you may not actually want to use REST.
         - One explicitly noted one: Since REST messages are meant to be self-describing, they'll natually be larger (usually) than a message system that relies on implicit knowledge.
     - That is to say (and Fielding himself says so) if you want RPC, use RPC, just please stop calling it REST.
+3. Some various comments about REST from Fielding, what it is and what it isn't.
+    1. [Comment about how the media type's default processing model is important, about self descriptive messages reducing the need to discover an API's interface, and why resource modeling is important][fielding-comment-hypertextual-and-media-types].
+    2. [Fielding's comment about how he wasn't able to give the topic of Media Type Design enough due in his whitepaper because he ran out of time.][fielding-comment-longtermism].
+        - Also this gem: "REST is software design on the scale of decades: every detail is intended to promote software longevity and independent evolution. Many of the constraints are directly opposed to short-term efficiency."
+    3. ["REST is intended for long-lived network-based applications that span multiple organizations. If you don’t see a need for the constraints, then don’t use them. That’s fine with me as long as you don’t call the result a REST API. I have no problem with systems that are true to their own architectural style."][fielding-comment-call-it-what-it-is]
+        - Also remarks about how REST doesn't eliminate a priori knowledge, just concentrates it, which is ... suspiciously familiar.  Hm.
+        - Also also: "\[The REST architecture] has value because it is far easier to standardize representation and relation types than it is to standardize objects and object-specific interfaces."
+    4. Why does the API need control over the pathing?  ["Because implementations change, but cool URIs don’t"][fielding-comment-http-methods-and-post-response-and-why-api-controls-paths]
+        - Also remarks about HTTP operations being generic, and each given resource deciding what they actually mean; and how a POST to one resource may result in a 201 with a new representation, while another may be a 204 with a Location header field that contains the URI of the newly created resource.
 
 [dzone-5-tells]: https://dzone.com/articles/5-easy-to-spot-tells-that-your-rest-api-is-not-res
 [fielding-chap-5-rest]: https://www.ics.uci.edu/~fielding/pubs/dissertation/rest_arch_style.htm
+[fielding-comment-hypertextual-and-media-types]: https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven#comment-730
+[fielding-comment-longtermism]: https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven#comment-724
+[fielding-comment-call-it-what-it-is]: https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven#comment-742
+[fielding-comment-http-methods-and-post-response-and-why-api-controls-paths]: https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven#comment-732
+
 
 Going by [that DZone article][dzone-5-tells], it's basically including the actual entity type along with the transport format, instead of just the transport format.  The comparison they give is:
 
@@ -63,3 +77,13 @@ That seems more reasonable, then, since otherwise the client could not know what
 It also makes sense in the context of other formats like images: the client knows they're a JPEG, GIF, PNG, or whatever, so the client can load the appropriate handler for each one, but it doesn't actually care what's inside them.  (Something like an image recognition AI thingy might care, but the client asking the server for that image doesn't.)
 
 Could you get away with things like `application/vnd.acme.list(product)+json`?  Or should you instead use a `type` field to dynamically parametrize entity handling?
+
+
+
+## After Digesting Comments and Examples
+
+- Concentrate necessary implicit knowledge into one place: You define your media types for your API so that any client that wants to process those media types only has to look at a single document to learn how to do that.
+    - Along with that should be a notion of Forms, when your client must send a request with a body.  By describing a notion of Forms in your Media Type, you tell the client how to understand the API when the API tells the client what data can be sent.
+- REST Messages as the Engine of Application State: To be RESTful, your media type must be a hypertext media type, using links that have defined relations.  It is these links that describe valid state transitions in the application.
+- The Client already knows how to do HTTP, and that is not part of describing a media type.  HTTP is taken as a given, if your API is served over HTTP.
+    - Rather, your Media Type documentation can say things like "to dereference a Link, make an HTTP request to the given path using the specified method or GET if no method is specified...".

@@ -243,4 +243,4 @@ Looking at [the lengthier description and attendent discussion](https://github.c
 
 ## Is There A Better Way To Break It Down?
 
-I'm not sure it's doable given the weird type dependency order I have.  I suppose one question is, is it possible to at least do `(predicate) -> (value) -> Maybe<value>`?  Because if so it should be possible to then do `Maybe<value> -> mappedValue | null` since that's just `map (fn) |> getOr (null)`.
+I'm not sure it's doable given the weird type dependency order I have.  I suppose one question is, is it possible to at least do `((maybeValue) -> value) -> (value) -> Maybe<value>`?  Because if so it should be possible to then do `Maybe<value> -> mappedValue | null` since that's just `(map fn) |> (getOr null)`.  Then again, what is the `Maybe<value>` but a hard coded choice for `TRet` above?  No, I don't think that actually solves anything.

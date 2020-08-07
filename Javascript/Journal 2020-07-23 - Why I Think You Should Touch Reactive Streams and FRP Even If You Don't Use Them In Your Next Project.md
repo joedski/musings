@@ -22,8 +22,11 @@ The issue I think I have with typical programming paradigms vs more reactive par
 In a reactive system though, you'd instead phrase things like this:
 
 1. We have stream of click events from the button.
-2. Every stream is mapped to a request.
-3. Every request state update is mapped to a data update, which itself has an initial value.
+2. Every click is mapped to a request.
+3. Every request state update is mapped to a data update, which itself has an initial value:
+    1. Each request is mapped to AsyncData.Waiting
+    2. Each resolution is mapped to AsyncData.Data (or AsyncData.Error for Errors)
+    3. The initial value is AsyncData.NotAsked
 4. The view is redrawn any time any datum stream updates.
 
 While largely the same in intent (all the items are the same index in each respective list), there's a big difference: Where before the datum was stored as state somewhere else, with the reactive system the datum is itself _derived from the request state changes_, which is in turn derived from the clicks.

@@ -308,6 +308,8 @@ Why am I so dogmatic about the above?
 - And so on.
 
 > Inane rambling: The point of the route being the only thing by which navigation between pages occurs, and of having page components always be written as if they are the only page in the app, is to reduce the amount of testing we need to do.  If you have a tight coupling between pages, because a page requires not only a route transition but also some global non-route state transition, it means you must now test navigation between every single page and every other page in the app.  By writing each page as separably as possible, that no longer becomes as much of a concern.
+>
+> Another point is to encourage a pattern of dealing with each page on its own first and sprinkling on request optimizations in a transparent and robust manner afterwards.  Implementation first, optimization later.  Making a request lazy (not fetch data because it's already fetched) is an optimization, and one that should be avoided at first.  It should also be implemented explicitly if at all, rather than hiding any logic away in a store, or breaking it across multiple component options. (Did I mention I disprefer the Vue Component Options object?)
 
 #### What If I Don't Want To Refetch Data I Already Have?
 
@@ -385,7 +387,7 @@ This composes really nicely with a Requests Module I describe later.
 
 > Thinking about it, this could probably be summarized as a few points:
 >
-> 1. Separate description from execution: Requests should be dealt with in terms of request options, and fed into a single request interface.
+> 1. Separate description from execution: Requests should be dealt with in terms of request options, and fed into a single request interface.  This prevents duplicate implementation of execution that is common in UI apps.
 > 2. Parametric but uniform execution of requests: Requests must be dealt with only in terms of the request descriptions, and all behavior must be driven by those request descriptions.  Any variance between requests must be encoded as variance in the options of those request descriptions.
 > 3. Executor implementation should tie into state/reactivity system of whatever you're using.  Since it's global in Vue apps, a Vuex module makes sense for them.
 > 4. Compose request status over the data, not parallel to it: There is no data (nor error for that matter) until the request has either succeeded or failed.  Before that point, it does not make sense to talk about data or error.  Therefore, enforce this by wrapping the request result within the request status itself, and only allowing access via safe accessors that require a default/else value to also be specified.  AsyncData/RemoteData is just the simplest way I've found to do this.

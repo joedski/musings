@@ -105,3 +105,9 @@ That probably works as a first good whack, but isn't very efficient under multip
 Without a Watch, we can't really preemptively update any cache, but we _can_ still touch the original value thus creating the data dependency in Vue itself.
 
 Basically what we do then is just like before, but instead of getting the value and directly using it, we get the value then compare it to a cached copy.  If they're the same reference, we can use the old Set, and if not we empty the Set and start over.
+
+
+
+## Third Whack: Take A Page Out Of Vue's Book
+
+And wish for Proxy support.  In Vue 3, we could just use a Proxy and be done with it.  In Vue 2 however this is done by just iterating over all array values and creating getters/setters for each one using `defineProperty`.  Annoying, but there you go.

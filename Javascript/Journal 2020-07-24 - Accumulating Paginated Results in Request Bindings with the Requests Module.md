@@ -18,3 +18,27 @@ The idea is simple in theory:
 - The request binding uses the request key to determine when it needs to invalidate cache and start over.
     - This is so you can also automatically switch requests, but assumes that different requests have different data types since they frequently do.
     - This can be overridden of course by simply giving all requests the same key + page.
+
+I'm leaning towards adding an option to extract the page param after the fact, if only because it's easiest to add on to the existing behavior and keeps things most similar to a pipeline of `Stream<Event> -> Stream<Request> -> Stream<Data>`, it just adds another separate map on `Stream<Request>` to go to `Stream<PageNumber>`.
+
+
+
+## Aside: Extend Request Binding or Make Separate Controller?
+
+It's worth asking if we even need to modify/extend RequestBinding for this, if we couldn't just somehow compose the functionality together some other way... Hm.  Analysis requried on the parts required to implement, because I'm not entirely sure the RequestBinding itself needs to be extended.
+
+That said, given that streams wise RequestBinding is a pair consisting of the Sink "Dispatch Request" and the Source "Request Data" along with some ancilliary bits like RefreshableData (derived from Source "Request Data"), anything that adds behavior around the two will need to derive from/to 1 or both of those streams.
+
+The proposed Accumulating Paginated behavior requires deriving from the "Request Config" stream that feeds into the Sink "Dispatch Request", and then also deriving separately from Source "Request Data".
+
+
+
+## What Data Flows are Needed?  Using the "Page Number From Request" Modality
+
+Putting aside how the data will be presented, we'll assume that the "Accumulated Data" is separate from the original "Request Data".  That might be easier to conceptualize anyway.
+
+Since I want to go with the "Page Number From Request" modality, I'm going to need what request each data came from.  Thus, to start with, we want to maintain a tight correlation between Data and Config, and the only way to really do that is to have Data _with_ the Config.  One data structure already has that combination, and that's the `AxiosResponse`, so we'll use Source "Request Response" instead of just Source "Request Data".
+
+So, `AsyncData<AxiosResponse> -> AsyncData<{ page, data }>`, which is to say `AsyncData.map (AxiosResponse -> { page, data })`.
+
+We then feed that to `Stream.scan RefreshableData.reduction AsyncData.NotAsked` and just `Stream.map (.lastData)` and feed that into `Stream.scan thingThatSticksPagesTogether` then `Stream.map Array.flatten`.

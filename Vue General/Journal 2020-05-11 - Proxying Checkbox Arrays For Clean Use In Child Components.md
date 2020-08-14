@@ -111,3 +111,336 @@ Basically what we do then is just like before, but instead of getting the value 
 ## Third Whack: Take A Page Out Of Vue's Book
 
 And wish for Proxy support.  In Vue 3, we could just use a Proxy and be done with it.  In Vue 2 however this is done by just iterating over all array values and creating getters/setters for each one using `defineProperty`.  Annoying, but there you go.
+
+
+### The Watching Way
+
+The simplest and probably least-rather-annoying way is to just do a semi-computed value via a watch.  That is, watch the input prop, update an internal state prop to a new map of the input, and deep-watch changes on the input prop.
+
+The naive way is to just wholly replace the state value each time with a new mapped array of the input.  Obviously, replacing the whole state value is going to twig the deep-watch on that state value, so we just need to skip any changes where the next array is a new object in memory from the previous array.
+
+Another way is to truncate the state value then assign to each value (requireing the use of `this.$set()` because we're setting new properties), however that complicates filtering of updates due to prop change.
+
+Ultimately, though, this is avoiding the real desire, which is just mapping form-value changes to emitted updates while preserving array-item behavior in the template.
+
+
+### The (Pseudo) Proxying Way
+
+Lots of `Object.defineProperty()` calls with both `get` and `set`.  Yep.
+
+
+
+## Fourth Whack: Just Augment the Input Records
+
+In the Template, we're concerned with the items being rendered in a table.  In the Controller, we're concerned with Records and a Set of Selected Records.
+
+We can just create a derived view of the Records which have a reactive field that itself is the update indirection.
+
+That is,
+
+```js
+export default {
+  computed: {
+    itemListWithReactiveSelection() {
+      return this.itemList.map(
+        item => this.selectableItemFromItem(item)
+      );
+    },
+  },
+
+  methods: {
+    selectableItemFromItem(item) {
+      const $this = this;
+
+      return Object.assign(Object.create(item), {
+        get isSelected() {
+          return $this.isItemSelected(item);
+        },
+        set isSelected(next) {
+          $this.selectItem(item, next);
+        }
+      });
+    },
+
+    isItemSelected(item) {
+      return this.selectedItemIdSet.includes(item.id);
+    },
+
+    selectItem(item) {
+      const itemIdsSetWithUpdate = this.selectedItemIdSet.filter(
+        id => id !== item.id
+      );
+
+      if (itemIdsSetWithUpdate.length === this.selectedItemIdSet.length) {
+        itemIdsSetWithUpdate.push(item.id);
+      }
+
+      this.$emit('update:selectedItemIdSet', itemIdsSetWithUpdate);
+    },
+  },
+};
+```
+
+Then in the template we just use `v-model="row.item.isSelected"` or `value.sync`.
+
+That's a lot to repeat every time we want to do this, and the update part is especially annoying.
+
+```js
+class SelectableItemListController {
+  constructor($context, getItemList, options = {}) {
+    this.$context = $context;
+
+    assert(typeof options.getItemList === 'function');
+    assert(typeof options.getSelectedItemSet === 'function');
+    assert(typeof options.selectedItemFromItem === 'function');
+    assert(typeof options.onUpdateSelectedItemSet === 'function');
+
+    this.options = {
+      ...SelectableItemListController.defaultOptions,
+      ...options,
+    };
+  }
+
+  get itemList() {
+    return this.sourceItemList.map(
+      item => this.selectableItemFromItem(item)
+    )
+  }
+
+  get sourceItemList() {
+    return this.getItemList.call(this.$context, this.$context);
+  }
+
+  get sourceSelectedItemList() {
+    return this.getSelectedItemSet.call(this.$context, this.$context);
+  }
+
+  selectableItemFromItem(item) {
+    // Can't specify getters/setters as arrow functions.
+    const $this = this;
+
+    return Object.assign(Object.create(item), {
+      get isSelected() {
+        // This could be sped up by pre-calclulating a Set().
+        return $this.isItemSelected(item);
+      },
+      set isSelected(next) {
+        $this.updateItemSelection(item, next);
+      }
+    });
+  }
+
+  isItemSelected(item) {
+    const selectedItemRepresentation = this.options.selectedItemFromItem(item);
+
+    return tihs.sourceSelectedItemList.includes(selectedItemRepresentation);
+  }
+
+  updateItemSelection(item, next) {
+    const selectedItemRepresentation = this.options.selectedItemFromItem(item);
+
+    const itemIdsSetWithUpdate = this.sourceSelectedItemList.filter(
+      currentlySelectedItem =>
+        currentlySelectedItem !== selectedItemRepresentation
+    );
+
+    if (itemIdsSetWithUpdate.length === this.sourceSelectedItemList.length) {
+      itemIdsSetWithUpdate.push(selectedItemRepresentation);
+    }
+
+    this.options.onUpdateSelectedItemSet(itemIdsSetWithUpdate);
+  }
+}
+```
+
+```js
+export default {
+  computed: {
+    selectableItemList() {
+      return new SelectableItemListController(this, {
+        getItemList: () => this.itemList,
+        getSelectedItemSet: () => this.selectedItemIdSet,
+        selectedItemFromItem: (item) => item.id,
+        onUpdateSelectedItemSet: nextList => {
+          this.$emit('update:selectedItemIdSet', nextList);
+        },
+      });
+    },
+  },
+};
+```
+
+
+
+## Fifth Whack: What Was I Doing Again?
+
+What I originally wanted to do was to be able to use `<input type="checkbox" :value="item.id" v-model="arrayOfSelectedValues" />` without regard to whether `arrayOfSelectedValues` is a prop or not.  Of course, in this case, it would be a controller's own-state.
+
+Let's start from the basics, then.
+
+What would we normally do to implement that, naively?
+
+Probably something like this:
+
+```html
+<template>
+  <ul>
+    <li
+      v-for="item in itemList"
+    >
+      <input
+        type="checkbox"
+        :value="item.id"
+        v-model="state.selectedItemIdList"
+      /> {{ item.name }}
+    </li>
+  </ul>
+</template>
+```
+
+```js
+export default {
+  props: {
+    itemList: { type: Array },
+    selectedItemIdList: { type: Array },
+  },
+
+  data() {
+    return {
+      state: {
+        selectedItemIdList: [],
+      },
+    };
+  },
+
+  watch: {
+    selectedItemIdList(next) {
+      // If we're just receiving the same value as from our parent,
+      // don't bother doing anything?
+      // That might run afoul of "don't mutate parent data".  Hm...
+      if (next === this.state.selectedItemIdList) return;
+      this.state.selectedItemIdList = next.concat();
+    },
+
+    'state.selectedItemIdList': {
+      deep: true,
+      handler(next, prev) {
+        // Filter out updates from prop change.
+        if (next !== prev) return;
+        this.$emit('update:selectedItemIdList', next);
+      },
+    },
+  },
+}
+```
+
+Gross, because it uses own-state and mutates values within that state, but then is discarded because.  A bit suboptimal with large selections, as well, due to that concat.
+
+
+
+## Alternatively, Don't Play With Arrays, Only Play With Changes
+
+The most obvious option is this: don't even bother with arrays and only emit updates.
+
+Naively that looks something like this:
+
+```html
+<template>
+  <ul>
+    <li
+      v-for="item in itemList"
+    >
+      <input
+        type="checkbox"
+        :checked="isItemChecked(item)"
+        @input="updateIsItemChecked(item)"
+      /> {{ item.name }}
+    </li>
+  </ul>
+</template>
+```
+
+```js
+export default {
+  props: {
+    itemList: { type: Array },
+    selectedItemIdList: { type: Array },
+  },
+
+  methods: {
+    isItemChecked(item) {
+      return selectedItemIdList.includes(item.id);
+    },
+
+    updateIsItemChecked(item) {
+      this.$emit(`update:isItemChecked`, item);
+    },
+  },
+}
+```
+
+This is lovely because it is stateless, and stateless is joyful.
+
+The indirection is annoying though, and not being able to `v-model` is doubly so because it means having to memorize more things.  Uugh, memorizing things.  Disgusting.
+
+
+### Value and Boolean Model Indinection?
+
+```html
+<template>
+  <ul>
+    <li
+      v-for="item in itemList"
+    >
+      <input
+        type="checkbox"
+        :value="item.id"
+        v-model="getModel(item).isChecked"
+      /> {{ item.name }}
+    </li>
+  </ul>
+</template>
+```
+
+```js
+export default {
+  props: {
+    itemList: { type: Array },
+    selectedItemIdList: { type: Array },
+  },
+
+  computed: {
+    itemModelPrototype() {
+      const $this = this;
+      const $itemModel = {
+        item: null,
+
+        get isChecked() {
+          return $this.isItemChecked($itemModel.item);
+        }
+        set isChecked() {
+          return $this.updateIsItemChecked(item);
+        }
+      }
+
+      return $itemModel;
+    },
+  },
+
+  methods: {
+    getModel(item) {
+      return Object.assign(Object.create(this.itemModelPrototype), {
+        item,
+      });
+    },
+
+    isItemChecked(item) {
+      return selectedItemIdList.includes(item.id);
+    },
+
+    updateIsItemChecked(item) {
+      this.$emit(`update:isItemChecked`, item);
+    },
+  },
+}
+```

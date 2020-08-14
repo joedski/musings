@@ -4,6 +4,8 @@ Journal 2020-08-06 - Request Validation in Spring Boot Applications
 1. [A good and quick overview from Baeldung](https://www.baeldung.com/spring-boot-bean-validation), though qutie laden with obnoxious ads.
 2. [Another good quick overview, basically the same but with Gradle dependency notation and some other usage scenarios](https://reflectoring.io/bean-validation-with-spring-boot/).  There's only so many ways to specify a dependency on `spring-boot-starter-validation`.
     1. This however also includes validation on route handler inputs besides the request body, that is Path and Query Params.
+3. [SO Answer pointing to Class Validation for validating field combinations](https://stackoverflow.com/questions/2781771/how-can-i-validate-two-or-more-fields-in-combination).
+    1. [Hibernate documentation on Class-level constraints](https://docs.jboss.org/hibernate/stable/validator/reference/en-US/html_single/#section-class-level-constraints).
 
 
 

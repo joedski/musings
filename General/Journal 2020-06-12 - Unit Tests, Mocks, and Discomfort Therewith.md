@@ -60,3 +60,91 @@ That could be interesting.  Sometimes what I want in another service is not to m
 This strict separation would result in a proliferation of small Services, though I think I'd prefer that over the current mess of Services.  Granted, that's just because the current Services are mish-mashes of different concerns, so any separation might be better than the current thing.
 
 I'm also not sure how practical that separation actually is, given that usually the business logic around a certain entity involves at least one other entity class.  Hm.
+
+
+
+## Unit Test Coverage
+
+I think the only issue is: if I separate I/O from Business Logic, I'll have a bunch of methods whose implementation is just I/O and, since I don't always have control over the Code Coverage settings of the project, that'll result in a bunch of code that lacks any Code Coverage because I don't want to mock everything.
+
+However.  If some of the methods are just binding of I/O to Business Logic Calls, then maybe the I/O Bindings can themselves be moved elsewhere?
+
+And, do we really want to avoid mocking other Services?  I suppose that depends on what you mean by Unit Tests, given that Unit Testing in a more strict sense as noted above, or if you just mean testing generally.
+
+As another question of course, just where would that I/O be moved?  ... Annotations?
+
+
+### I/O Injection Via Annotations
+
+If we have I/O specified as a parameter, we can inject it.  Perhaps each I/O operation is specified as a separate param?  Or maybe we have a single Operation I/O Class? (An instance-inner class to be sure)
+
+Something like:
+
+```java
+public class FooService {
+  @Accessors
+  public class ChangeFooOwnershipIo {
+    protected Function<String, User> getUserById;
+    protected Function<String, Foo> getFooById;
+    protected Consumer<Foo> saveFoo;
+  }
+
+  public changeFooOwnership(
+    String fooId,
+    String nextFooOwnerId,
+    ChangeFooOwnershipIo io
+  ) {
+    Foo foo = io.getFooById(fooId);
+    User prevFooOwner = io.getUserById(foo.ownerId);
+    User nextFooOwner = io.getUserById(nextFooOwnerId);
+    // ... stuff.
+    io.saveFoo(foo);
+    return foo;
+  }
+}
+```
+
+Something like that.  How to specify the normal implementation though?  Static method like `ChangeFooOwnershipIo.getImplementation()`?  Have a controller specify it?  Overloads?
+
+Overloads would be simple enough, if mildly redundant.  Hm.
+
+```java
+public class FooService {
+  @Accessors
+  public class ChangeFooOwnershipIo {
+    protected Function<String, User> getUserById;
+    protected Function<String, Foo> getFooById;
+    protected Consumer<Foo> saveFoo;
+  }
+
+  public changeFooOwnership(
+    String fooId,
+    String nextFooOwnerId
+  ) {
+    return changeFooOwnership(
+      fooId,
+      nextFooOwnerId,
+      new ChangeFooOwnershipIo() {
+        protected getUserById = userId -> userRepository.findById(userId);
+        protected getFooById = fooId -> fooRepository.findById(fooId);
+        protected saveFoo = foo -> fooRepository.save(foo);
+      }
+    )
+  }
+
+  public changeFooOwnership(
+    String fooId,
+    String nextFooOwnerId,
+    ChangeFooOwnershipIo io
+  ) {
+    Foo foo = io.getFooById(fooId);
+    User prevFooOwner = io.getUserById(foo.ownerId);
+    User nextFooOwner = io.getUserById(nextFooOwnerId);
+    // ... stuff.
+    io.saveFoo(foo);
+    return foo;
+  }
+}
+```
+
+Though in that case, maybe just use methods.  Hm.  I'm also not entirely sure if that's valid sytax but anyway.

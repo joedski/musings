@@ -42,3 +42,12 @@ Since I want to go with the "Page Number From Request" modality, I'm going to ne
 So, `AsyncData<AxiosResponse> -> AsyncData<{ page, data }>`, which is to say `AsyncData.map (AxiosResponse -> { page, data })`.
 
 We then feed that to `Stream.scan RefreshableData.reduction AsyncData.NotAsked` and just `Stream.map (.lastData)` and feed that into `Stream.scan thingThatSticksPagesTogether` then `Stream.map Array.flatten`.
+
+
+### Start From Existing Work
+
+So before we get ahead of ourselves, the behavior I'm thinking about is already implemented in an existing project, albeit in a non-encapsulated, non-abstracted form.
+
+The behavior goes something like this:
+
+> TK: Dissect existing behavior!

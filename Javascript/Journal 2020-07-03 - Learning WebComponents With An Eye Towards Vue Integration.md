@@ -19,6 +19,14 @@ Eh.  Whatever.  Learn first.
 
 
 
+## Some Links
+
+1. A nice overview of slots in Custom Elements with examples: https://javascript.info/slots-composition
+2. MDN Articles on Web Components: https://developer.mozilla.org/en-US/docs/Web/Web_Components
+    1. Some Web Component examples I'm pretty sure are linked somewhere in those pages: https://github.com/mdn/web-components-examples
+
+
+
 ## Use With Vue
 
 There's plenty of ways to wrap up Vue components for use as WebComponents, ([`vue-web-component-wrapper`](https://github.com/vuejs/vue-web-component-wrapper), etc) but that's the opposite of what I want.
@@ -180,4 +188,28 @@ My first thought was just adding another static getter to the class, a la `stati
 
 Alternatively, you could also just include a map of attributes to properties if you didn't want to bother with automatic case conversion as is popular in Vue, but I kind of like the symmetry between attributes and properties.  I suppose in some ways it also reflects the common way things are done in existing HTML elements, so there's that too.
 
+I've implemented [a quick and dirty proof of concept using the first method](./webcomponent-experiments/vue-minimal-webcomponent-wrapper) and it seems to work well enough.  Events don't even need `nativeOn`, they Just Work, it's just props that need special consideration, using `domProps`.
 
+Other tricky bits:
+
+- Had to actually access each attr and prop by spreading them in order to register subscriptions.  I speculate that this is required because Vue does not record new subscriptions when actually rendering down to the DOM, only when the render function itself is called.
+- The component itself could not have the same `name` as the custom element is registered with, that is to say it couldn't have the custom element name on the `name` option or you'll get an infinite recursion.  However, you can still use that name when adding the wrapper-component to the `components` option.
+    - This does mean you cannot register that name globally using `Vue.component()`, or else you'll just create an infinite recursion during render.  You would have to register it with a different name in Vue if you wanted to do that.
+
+Also not sure what (if anything) to do with Prop types.  That'd probably be extra info added via Reflect that stores... I dunno, JSON Schema.  That's the most general thing I can think of.
+
+
+
+## Scoped Slots, Basically?
+
+As noted, I saw no notion of directly supplying props to slots, since slots are just a way to slap elements from the light DOM into the shadow DOM, but I think it could be sorta emulated at least at an attribute or prop level.
+
+The way this could be done in an opinionated manner (probably depends on the exact component) is:
+
+- Give the slot element a `slotchange` listener.
+- On `slotchange`, check `event.target.assignedNodes`.
+- Assign props or attributes to those nodes.
+
+The only issue there of course is that you then need a special adapter go back from HTML land to Vue (or other framework) land to ensure proper reactivity updates.  So, yanno, like a normal Custom Element that uses Vue as the render system, just that you have to make sure you're using the same Vue import.
+
+Probably the only real issue is that you have to account for the elements first being created and mounted without any of the injected props.  Not a major thing, but definitely something you have to keep in mind.

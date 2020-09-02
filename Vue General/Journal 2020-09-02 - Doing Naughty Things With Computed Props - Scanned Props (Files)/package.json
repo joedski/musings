@@ -1,0 +1,20 @@
+{
+  "name": "naughty-things-with-computed-props",
+  "version": "0.0.0",
+  "description": "Journal 2020-09-02 - Doing Naughty Things With Computed Props - Scanned Props",
+  "main": "00-ungeneralized.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "vue",
+    "naughty",
+    "dont-do-this"
+  ],
+  "author": "Joe Sikorski <joedski@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "lodash": "4.17.20",
+    "vue": "2.6.12"
+  }
+}

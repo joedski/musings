@@ -11,3 +11,6 @@ __examples__/
 # ---------------
 
 Talks/2019-10-03 - How To Write Vue Mixins/dist/
+
+# Ignore Mac Digital Guardian cruft
+**/.*.cls

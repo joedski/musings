@@ -74,7 +74,7 @@ And, do we really want to avoid mocking other Services?  I suppose that depends 
 As another question of course, just where would that I/O be moved?  ... Annotations?
 
 
-### I/O Injection Via Annotations
+### I/O Injection Via Overloads and Nested Interfaces or Classes
 
 If we have I/O specified as a parameter, we can inject it.  Perhaps each I/O operation is specified as a separate param?  Or maybe we have a single Operation I/O Class? (An instance-inner class to be sure)
 
@@ -148,3 +148,124 @@ public class FooService {
 ```
 
 Though in that case, maybe just use methods.  Hm.  I'm also not entirely sure if that's valid sytax but anyway.
+
+EDIT: Actually, that's definitely wrong, they should read `getGetFooById()(foo.ownerId)`, etc.  Methods would definitely be the way to go, so Interface or Abstract Class.
+
+```java
+public class FooService {
+  // Apparently while Inner Classes are a thing, Interfaces can
+  // only ever be Nested (Public Static), and never Inner.
+  // I suppose I could use an abstract inner class if I really needed
+  // access to the current class's type parameters, but our services
+  // don't use generics like that.
+  interface ChangeFooOwnershipIo {
+    User getUserById(String userId);
+    Foo getFooById(String fooId);
+    void saveFoo(Foo);
+  }
+
+  public changeFooOwnership(
+    String fooId,
+    String nextFooOwnerId
+  ) {
+    return changeFooOwnership(
+      fooId,
+      nextFooOwnerId,
+      new ChangeFooOwnershipIo() {
+        getUserById(userId) {
+          return userRepository.findById(userId);
+        }
+        getFooById(fooId) {
+          return fooRepository.findById(fooId);
+        }
+        saveFoo(foo) {
+          fooRepository.save(foo);
+        }
+      }
+    )
+  }
+
+  public changeFooOwnership(
+    String fooId,
+    String nextFooOwnerId,
+    ChangeFooOwnershipIo io
+  ) {
+    Foo foo = io.getFooById(fooId);
+    User prevFooOwner = io.getUserById(foo.ownerId);
+    User nextFooOwner = io.getUserById(nextFooOwnerId);
+    // ... stuff.
+    io.saveFoo(foo);
+    return foo;
+  }
+}
+```
+
+And besides making the interface to `#changeFooOwnership` smaller, I'm not sure what that actually nets us that just putting everything into function parameters doesn't.
+
+```java
+public class FooService {
+  public changeFooOwnership(
+    String fooId,
+    String nextFooOwnerId
+  ) {
+    return changeFooOwnership(
+      fooId,
+      nextFooOwnerId,
+      userId -> userRepository.findById(userId),
+      fooId -> fooRepository.findById(fooId),
+      foo -> fooRepository.save(foo)
+    );
+
+    // Alternatively this, assuming the types are unambiguous enough.
+
+    return changeFooOwnership(
+      fooId,
+      nextFooOwnerId,
+      userRepository::findById,
+      fooRepository::findById,
+      fooRepository::save
+    );
+  }
+
+  public changeFooOwnership(
+    String fooId,
+    String nextFooOwnerId,
+    Function<String, User> getUserById,
+    Function<String, Foo> getFooById,
+    Consumer<Foo> saveFoo
+  ) {
+    Foo foo = io.getFooById(fooId);
+    User prevFooOwner = io.getUserById(foo.ownerId);
+    User nextFooOwner = io.getUserById(nextFooOwnerId);
+    // ... stuff.
+    io.saveFoo(foo);
+    return foo;
+  }
+}
+```
+
+Okay, actually, the nested interface form does net us something: it tells us what each function is.  I actually kinda don't like the function parameter form because it doesn't!  Technically, I suppose there's also the consideration that with the lambdas it's three anonymous classes instead of 1 nested interface and 1 anonymous class because lambdas; and due to that, 3 instantiations vs 1.  True, this (probably) isn't a tight loop but still.
+
+In either case, that's still more instantiations than dependency injection.
+
+
+
+## How Is Code Intended To Be Unit Tested in Spring Boot Applications Anyway?
+
+Searching for how to write unit testable spring boot code...
+
+1. [Quora question on the topic](https://www.quora.com/How-does-the-Spring-Framework-help-when-writing-a-testable-code)
+    1. One answer seems to indicate that you create mock instances of all the injected services and define the behaviors of each method on those mocks.
+        1. I'm not sure how that's different from what we currently do, other than maybe moving the main mocking ... mmmprocess to a general setup part?  Otherwise I don't understand what this actually gains us.
+2. [Some random article on writing unit testable code](https://www.codepedia.org/toptal/unit-tests-how-to-write-testable-code-and-why-it-matters/) which basically lays out in more detail what item 1 said: Use DI to provide mocks that fit the interface.
+    1. [Original source](https://www.toptal.com/qa/how-to-write-testable-code-and-why-it-matters)
+    2. Many of our services require injection of so many other services I'm not sure that's useful to know, though.  That may indicate that such services are actually too broad, and require too much knowledge of the rest of the application, or that there are at least too many such services.
+
+So from those two at least, I get the feeling that what I'm seeing in our codebases is:
+
+1. Many services have too many dependencies.
+2. Many services have too much going on to effectively mock at a higher level.  Too many methods, not tightly focused enough, basically.
+
+These factors cross to make mocking a difficult and unpleasant experience, and make the tests quite inscrutible.  Perhaps the issue then is not with mocking itself in this case, since it's basically inevitable when dealing with dependency injection, but with the way our services are being built.  Which wouldn't surprise me.
+
+Many of the services are quite large, somewhat so in the public method part and very much so in the private member side.  Particularly in one project, which dealt with a hierarchy with different entities at each level, none of that was abstracted around despite most of the methods sharing quite a lot code.  It would've been trivial to create a few generic methods and just parametrize behaviors using lambdas or even just anonymous instances.

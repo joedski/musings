@@ -36,3 +36,9 @@ type ShowableState<T> =
 ```
 
 or something like that.
+
+There's a number of really nice things we get from this:
+
+- Instead of tying any modal own-state to a created or activated hook, you just tie it to changes in the `ShowableState<T>` prop with a `watch`.
+- Need to support Transitions?  Just create a lagged prop of some sort which retains the last `ShowableState<T>.Shown` value for rendering purposes.
+- These two uses are orthogonal and compose nicely.

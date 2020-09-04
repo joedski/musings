@@ -695,6 +695,8 @@ const list1Value: TypeDescribedByList1 = ['foo', 'asdf', 'a string'];
 
 #### List-Arrays: Oops, Circular Reference
 
+> NOTE: This is fixed in newer versions of TS.  Inline object interfaces now lazify properties, thus breaking the circular reference.  Yay!
+
 Oh, were it that simple.  While other things are happy enough reusing `TypeDescribedBy` on subsections, this one seems to have run afoul of something, as I now receive the error `Type alias 'TypeDescribedBy' circularly references itself.` which is mighty disappointing indeed.
 
 This is especially perplexing as it seemed to handle the mapped-type used in the Properties/Required cases.

@@ -135,3 +135,59 @@ That is, generally, either `el => el is T` or `config => el => el is T`.  Otherw
 One thing that's annoying is to validate that some random value is (assignable to) an object-type.  You have to check that every single property on it is of some specific type.
 
 By building higher-order predicates like the Array-of-Type one shown above, this can be made somewhat less annoying.
+
+
+
+## More Recent News
+
+Couple of things I noticed since I last played with this:
+
+- `Array.prototype.every()` has an overload for type predicates!  I don't know how long that's been there but noice.
+- Still no automatic type predicate inferrence from functions whose return values are just type predicates.  Bah.
+
+Anyway, that means we can literally use built in methods for array stuff:
+
+```typescript
+interface Foo {
+    name: string;
+    value: string;
+}
+
+// boo, I still need to specify return type.
+function isFoo(value: unknown): value is Foo {
+    return isObject(value) && hasProperties(value, {
+        name: isString,
+        description: isString,
+    });
+}
+
+// yay!
+if (Array.isArray(value) && value.every(isFoo)) { ... }
+```
+
+These are done with the following:
+
+```typescript
+function isString(value: unknown): value is string {
+    return typeof value === 'string';
+}
+
+type PredicatesFromProperties<TProps> = {
+    [K in keyof TProps]: (value: unknown) => value is TProps[K];
+};
+
+function hasProperties<
+    TValue extends object,
+    TProps extends Record<string | symbol | number, any>
+>(
+    // Partial<> is used here because we shouldn't allow existing properties
+    // unless they match the predicates.
+    value: TValue & Partial<TProps>,
+    propertyPredicates: PredicatesFromProperties<TProps>
+): value is TValue & TProps {
+    const properties = Object.entries(propertyPredicates);
+    return properties.every(
+        ([property, predicate]) => predicate(value[property])
+    );
+}
+```

@@ -454,3 +454,386 @@ function latchingProp(getValue, predicate) {
 ```
 
 Not that different, but different enough.
+
+
+
+## Naughty Naughty: Computed Props And Watches Treat Object Values As Always Different
+
+Here's where we run afoul of an edge case while playing outside of the defined behavior of Vue Computed Props: Computed Props seem to treat Object (non-Primitive) return values as always changing, which given that Vue deals with a mutation based reactivity system is a pretty reasonable assumption.
+
+This results in bad behavior for us, though: because Object return values are always treated as changing, and therefore Vue treats the Computed Prop Value as changing for the purpose of depnedency tracking, any Watches on a Computed Prop will also be twigged.
+
+Here's [an example close to one use case](./Journal%202020-09-02%20-%20Doing%20Naughty%20Things%20With%20Computed%20Props%20-%20Scanned%20Props%20%28Files%29/06-spurious-object-updates.js):
+
+```js
+const INITIAL_STATE = { value: { name: 'Nothing!' } };
+
+const FooComp = Vue.extend({
+  // ...
+
+  data() {
+    return {
+      stateMap: {},
+    };
+  },
+
+  computed: {
+    fooStateValue() {
+      const { foo } = this.stateMap;
+      // INITIAL_STATE is a constant, so it should
+      // always equal itself by identity.
+      if (foo == null) return INITIAL_STATE.value;
+      return foo.value;
+    },
+    lastFiveFoos: scannedProp(
+      function lastFiveFoos(acc = []) {
+        const next = [this.fooStateValue, ...acc];
+        return next.slice(0, 5);
+      }
+    ),
+  },
+
+  watch: {
+    fooStateValue: {
+      immediate: true,
+      handler(next) {
+        this.onValueChange('fooStateValue', next);
+      },
+    },
+    lastFiveFoos: {
+      immediate: true,
+      handler(next) {
+        this.onValueChange('lastFiveFoos', next);
+      }
+    },
+  },
+
+  // ...
+});
+```
+
+The issue arises here when changes are made directly to `this.stateMap`, by definining new properties or deleting existing ones:
+
+```js
+// Note: Not 'foo'!
+Vue.set(root.stateMap, 'bar', { name: 'Bar!' });
+```
+
+We might expect naively that `lastFiveFoos` is only updated once and so only contains 1 value, but in truth we see a new value every time `Vue.set()` is used:
+
+```
+------------
+after mount:
+  root.fooStateValue = {"name":"Nothing!"}
+  root.lastFiveFoos = [{"name":"Nothing!"}]
+------------
+after set(stateMap, bar, Bar!):
+  root.fooStateValue = {"name":"Nothing!"}
+  root.lastFiveFoos = [{"name":"Nothing!"},{"name":"Nothing!"}]
+------------
+after set(stateMap, baz, Baz?):
+  root.fooStateValue = {"name":"Nothing!"}
+  root.lastFiveFoos = [{"name":"Nothing!"},{"name":"Nothing!"},{"name":"Nothing!"}]
+```
+
+This makes sense, as `stateMap` itself is accessed, and is also itself mutated.  Vue has no knowledge beforehand that we're actually interested in only `stateMap.foo`, because `.foo` isn't defined yet.
+
+When combined with the above mentioned edge case of objects seeming to be treated as always changing due to Vue being mutation-centric, all this results in the above behavior.
+
+> As an aside, [even using a pre-defined initial state doesn't help](./Journal%202020-09-02%20-%20Doing%20Naughty%20Things%20With%20Computed%20Props%20-%20Scanned%20Props%20%28Files%29/07-predefined-initial-state.js).
+
+The way we could get around this is to use a simple `if (next === prev) return acc` type deal, but that won't really help if used in a computed prop: it'd have to be added to every single computer function.
+
+The only real way to handle such changes is by doing such a check in a `watch` and using that condition to update observable state.
+
+Component wise, this would look something like:
+
+```js
+const INITIAL_VALUE = { value: 'Initial' };
+
+const FooComp = Vue.extend({
+  // ...
+
+  data() {
+    return {
+      stateMap: {},
+      fooLastChanged: INITIAL_VALUE,
+    };
+  },
+
+  computed: {
+    foo() {
+      const { foo } = this.stateMap;
+      if (foo == null) return INITIAL_VALUE;
+      return foo;
+    },
+  },
+
+  watch: {
+    foo: {
+      immediate: true,
+      handler(next, prev) {
+        this.onValueChange('foo', next);
+        // NOTE: this can be generalized by using a changed-predicate.
+        if (next !== prev) {
+          this.fooLastChanged = next;
+        }
+      },
+    },
+    fooLastChanged: {
+      immediate: true,
+      handler(next) {
+        this.onValueChange('fooLastChanged', next);
+      }
+    }
+  },
+});
+```
+
+Looking at the changes, we can see that `fooLastChanged` no longer updates every single time `foo` does:
+
+```
+all foo changes: [
+  // First time, a change from "foo" results in...
+  {
+    "name": "foo",
+    "value": {
+      "value": "Initial"
+    }
+  },
+  // ... a change from "fooLastChanged".
+  {
+    "name": "fooLastChanged",
+    "value": {
+      "value": "Initial"
+    }
+  },
+  // A second time, even though "foo" changes due to
+  // "Vue.set(root.stateMap, 'bar', { value: 'Bar!' })"...
+  {
+    "name": "foo",
+    "value": {
+      "value": "Initial"
+    }
+  },
+  // There's no corresponding change from "fooLastChanged".
+  // Now if we change "foo" to something actually different
+  // with "Vue.set(root.stateMap, 'foo', { value: 'second foo!' })"...
+  {
+    "name": "foo",
+    "value": {
+      "value": "second foo!"
+    }
+  },
+  // ... We again get the expected change.
+  {
+    "name": "fooLastChanged",
+    "value": {
+      "value": "second foo!"
+    }
+  },
+  // But a change elsewhere, though resulting in an apparent
+  // change in "foo"...
+  {
+    "name": "foo",
+    "value": {
+      "value": "second foo!"
+    }
+  }
+  // ... does not result in another watch-call from "fooLastChanged".
+]
+```
+
+Could we use that to implement our computed prop?  Hm.
+
+
+
+## A Thought: Watch And Observable
+
+So, we already have access to the component instance and key off of it, and in the computed prop context we assume reactivity is already a given, so we should be able to just `$watch`.
+
+This requires going a step below `scan` though, to deal with the state itself.
+
+Hm.
+
+We've got a few things going on.
+
+- Computed Props are synchronous, they must always return a value now, not later.
+- Watches are asynchronous, they are callbacks that are called when ever a Change is detected by Vue.
+    - Specifically, when ever a change (by subscription) is detected, Vue _enqueues_ a handler callback to be handled _next tick_.
+        - I usually call this "later", since we cannot deterministically rely on specific timing and order outside of that which we specifically define and coordinate.
+- This means we must always get a value at least the first time, though subsequent times we can entirely ignore the getter as the Watch is handling that.
+- Internal State wise, this means:
+    - First, check Internal State: is it still initial?
+        - If yes:
+            - Use value getter to set Internal State.
+            - Set (non-immediate) watch on value getter:
+                - On change, use is-distinct predicate:
+                    - If predicate passes: update Internal State.
+                    - Otherwise: do nothing.
+            - Return that value.
+        - Otherwise:
+            - Return value in state.
+
+Maybe something like this, then?
+
+```js
+const keepDistinctByCache = new WeakMap2D();
+
+function keepDistinctBy(
+  getValue,
+  isDistinct
+) {
+  return function keepDistinctByProp() {
+    const state = keepDistinctByCache.get(this, keepDistinctByProp);
+
+    if (state == null) {
+      const initialValue = getValue.call(this);
+      const initialState = Vue.observable({
+        // Value is wrapped in a function to prevent unexpected reactification.
+        value: () => initialValue,
+      });
+
+      keepDistinctByCache.set(this, keepDistinctByProp, initialState);
+
+      this.$watch(getValue, (next, prev) => {
+        if (isDistinct(next, prev)) {
+          const state = keepDistinctByCache.get(this, keepDistinctByProp);
+          state.value = () => next;
+        }
+      });
+
+      return initialState.value();
+    }
+
+    return state.value();
+  };
+}
+```
+
+What's expected to happen here based on what we know?
+
+1. Source Value has an initial value.
+2. Denpendent of Computed Prop is evaluated, Computed Prop is accessed.
+3. Computed Prop is evaluated first time, goes through `state == null` branch.
+    1. Source Value is gotten.
+        1. Reactivity Dependencies Registered: Source Value.
+    2. Initial state is created with Source Value as initial value.
+    3. Watch on Source Value is created.
+    4. Initial value is returned from Initial State.
+        1. Reactivity Dependencies Registered: State value.
+    5. Computed Prop is now initially computed and has following Reactivity Dependencies:
+        1. Source Value.
+        2. State Value.
+4. Dependencies of Computed Prop finish evaluation.
+5. Source value changes.
+    1. Computed Value Recomputation is enqueued.
+    2. Watch on Source Value is enqueued.
+6. The following happen in a random order:
+    - Computed Prop Value Recomputation:
+        1. State Value is returned.
+            1. Reactivity Dependencies Registered: State value.
+            2. Dependent updates enqueued.
+    - Watch on Source Value 
+        1. State Value is updated.
+            1. Computed Value Recomputation is enqueued.
+    - Updates to dependents of Computed Prop evaluated.
+    - Computed Prop Value Recomputation (if watch handling occurred after first recomputation):
+        1. State Value is returned.
+            1. Reactivity Dependencies Registered: State value.
+            2. Dependent updates enqueued.
+    - Updates to dependents of Computed Prop evaluated.
+
+Note that the exact queue of items is different depending on whether the watch is handled first or if the computed prop recomputation is handled first.  While it does eventually settle out, the effects are still not what we'd like, as it's undetermined from current information whether or not we'd get multiple updates or not from the first change to Source Value.
+
+In either case, we still have an undesirable subscription to the Source Value from the Computed Prop itself rather than from the Watch, which results in at least 1 recomputation that is immediately updated due to a change from Source Value rather than only from the internal State Value.
+
+Indeed, doing a [practical test with Vue 2.6](./Journal%202020-09-02%20-%20Doing%20Naughty%20Things%20With%20Computed%20Props%20-%20Scanned%20Props%20%28Files%29/09-watch-with-observable.js), we get just that: 
+
+```
+all foo changes: [
+  // This is expected.
+  "() => initAndMount()",
+  {
+    "name": "foo",
+    "value": {
+      "value": "Initial"
+    }
+  },
+  {
+    "name": "fooDistinct",
+    "value": {
+      "value": "Initial"
+    }
+  },
+  {
+    "name": "derivedFromfoo",
+    "value": {
+      "stringified": "{\"value\":\"Initial\"}"
+    }
+  },
+  // Here, however, we would expect that "fooDistinct" at least
+  // is not affected, but we can see here that it is.
+  "() => Vue.set(root.stateMap, 'bar', { value: 'Bar!' })",
+  {
+    "name": "foo",
+    "value": {
+      "value": "Initial"
+    }
+  },
+  {
+    "name": "fooDistinct",
+    "value": {
+      "value": "Initial"
+    }
+  },
+  {
+    "name": "derivedFromfoo",
+    "value": {
+      "stringified": "{\"value\":\"Initial\"}"
+    }
+  },
+  // After that second update however, things operate as we expect.
+  "() => Vue.set(root.stateMap, 'zap', { value: 'Zap Zap Zap!' })",
+  {
+    "name": "foo",
+    "value": {
+      "value": "Initial"
+    }
+  },
+  // Updates to "foo" operate as expected.
+  "() => Vue.set(root.stateMap, 'foo', { value: 'second foo!' })",
+  {
+    "name": "foo",
+    "value": {
+      "value": "second foo!"
+    }
+  },
+  {
+    "name": "fooDistinct",
+    "value": {
+      "value": "second foo!"
+    }
+  },
+  {
+    "name": "derivedFromfoo",
+    "value": {
+      "stringified": "{\"value\":\"second foo!\"}"
+    }
+  },
+  // As do non-updates, of course.
+  "() => Vue.set(root.stateMap, 'bazinga', { value: 'Bazinga!' })",
+  {
+    "name": "foo",
+    "value": {
+      "value": "second foo!"
+    }
+  }
+]
+```
+
+
+
+## Another Tack: Direct Mutation In Computed Prop?
+
+What if we got even naughtier and, instead of or in addition to registering a Watch, we had a computed prop on the observable and had that directly mutate some state...?  Hm.

@@ -16,6 +16,9 @@ function scannedProp(iteratee) {
   }
 }
 
+const INITIAL_STATE_KEY = Symbol('INITIAL_STATE');
+const INITIAL_STATE = { value: { name: 'Nothing!' } };
+
 const FooComp = Vue.extend({
   props: {
     onValueChange: { type: Function, default: () => () => {} },
@@ -23,49 +26,47 @@ const FooComp = Vue.extend({
 
   data() {
     return {
-      // nulls are naughty too, but whatever.
-      foo: 'First',
+      stateMap: {
+        [INITIAL_STATE_KEY]: INITIAL_STATE,
+      },
     };
   },
 
   computed: {
-    fooFooLower: scannedProp(
-      function fooFooLower(acc = [null, null]) {
-        return [this.foo.toLowerCase(), acc[0]];
-      }
-    ),
-    fooFooUpper: scannedProp(
-      function fooFooUpper(acc = [null, null]) {
-        return [this.foo.toUpperCase(), acc[0]];
+    fooStateValue() {
+      const { foo, [INITIAL_STATE_KEY]: initialState } = this.stateMap;
+      // INITIAL_STATE is a constant, so it should
+      // always equal itself by identity.
+      if (foo == null) return initialState.value;
+      return foo.value;
+    },
+    lastFiveFoos: scannedProp(
+      function lastFiveFoos(acc = []) {
+        const next = [this.fooStateValue, ...acc];
+        return next.slice(0, 5);
       }
     ),
   },
 
   watch: {
-    foo: {
+    fooStateValue: {
       immediate: true,
       handler(next) {
-        this.onValueChange('foo', next);
+        this.onValueChange('fooStateValue', next);
       },
     },
-    fooFooLower: {
+    lastFiveFoos: {
       immediate: true,
       handler(next) {
-        this.onValueChange('fooFooLower', next);
-      },
-    },
-    fooFooUpper: {
-      immediate: true,
-      handler(next) {
-        this.onValueChange('fooFooUpper', next);
-      },
+        this.onValueChange('lastFiveFoos', next);
+      }
     },
   },
 
   render(h) {
     return h('div', [
-      h('div', JSON.stringify(this.fooFooLower[0])),
-      h('div', JSON.stringify(this.fooFooLower[1])),
+      h('div', JSON.stringify(this.fooStateValue[0])),
+      h('div', JSON.stringify(this.lastFiveFoos[0])),
     ]);
   },
 });
@@ -73,9 +74,8 @@ const FooComp = Vue.extend({
 async function task() {
   function logFooProps(label) {
     console.log(`after ${label}:
-  root.foo = ${JSON.stringify(root.foo)}
-  root.fooFooLower = ${JSON.stringify(root.fooFooLower)}
-  root.fooFooUpper = ${JSON.stringify(root.fooFooUpper)}`);
+  root.fooStateValue = ${JSON.stringify(root.fooStateValue)}
+  root.lastFiveFoos = ${JSON.stringify(root.lastFiveFoos)}`);
   }
 
   const fooChanges = [];
@@ -94,32 +94,26 @@ async function task() {
   console.log('------------');
   logFooProps('mount');
 
-  root.foo = 'Second';
+  // root.foo = 'Second';
+  Vue.set(root.stateMap, 'bar', { name: 'Bar!' });
 
   await Vue.nextTick();
   console.log('------------');
-  logFooProps('foo=Second');
+  logFooProps('set(stateMap, bar, Bar!)');
 
-  root.foo = 'Third';
+  // root.foo = 'Third';
+  Vue.set(root.stateMap, 'baz', { name: 'Baz?' });
 
   await Vue.nextTick();
   console.log('------------');
-  logFooProps('foo=Third');
+  logFooProps('set(stateMap, baz, Baz?)');
 
   console.log('------------');
 
-  console.log('all fooChanges:', JSON.stringify(fooChanges, null, 2));
+  console.log('all foo changes:', JSON.stringify(fooChanges, null, 2));
 }
 
 task()
-.then(() => {
-  console.log(`
-==================
-    SECOND RUN
-==================
-`);
-})
-.then(() => task())
 .then(
   () => {
     process.exit(0);

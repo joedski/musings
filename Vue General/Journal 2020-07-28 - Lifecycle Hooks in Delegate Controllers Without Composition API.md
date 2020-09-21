@@ -1,6 +1,19 @@
 Journal 2020-07-28 - Lifecycle Hooks in Delegate Controllers Without Composition API
 ========
 
+## Update: Apparently There Are Undocumented Events?
+
+1. https://stackoverflow.com/questions/55683763/vue-life-cycle-hooks-as-events-hookbeforedestroy
+2. https://vuejs.org/v2/guide/components-edge-cases.html#Programmatic-Event-Listeners
+
+Apparently each hook actually emits a `hook:...` event, though the only one attested to in the Vue docks is `hook:beforeDestroy`.
+
+Although that one is attested to, it still seems to be largely undocumented.  This is basically what I wanted, though.  That means I can use that and delegate controllers will only be very annoying instead of extremely annoying.
+
+
+
+## Back To The Old Content
+
 The big thing to me about the Composition API is that you can create reusable logic that still makes use of the component lifecycle hooks without having to pass an actual component instance aronud, or anything like that.  It's just automatic!
 
 But at the moment, it's not released (though it's in 1.x beta 6 as of writing!)

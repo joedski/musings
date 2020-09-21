@@ -837,3 +837,8 @@ all foo changes: [
 ## Another Tack: Direct Mutation In Computed Prop?
 
 What if we got even naughtier and, instead of or in addition to registering a Watch, we had a computed prop on the observable and had that directly mutate some state...?  Hm.
+
+The problem is of course always that initial double-update, because in order to compute a computed prop, we need to call the value getter, which registers dependencies.  Since we then register a watch, we don't actually need that first registration for the computed prop itself.  The question then is, could we somehow opt out of that and instead only register a dependency on the internal state value?
+
+- A watch won't work because it's asynchronous, which would put us back to our prior implementation.
+- ... I dunno.

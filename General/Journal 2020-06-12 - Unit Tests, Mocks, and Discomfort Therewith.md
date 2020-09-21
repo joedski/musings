@@ -246,7 +246,7 @@ public class FooService {
 
 Okay, actually, the nested interface form does net us something: it tells us what each function is.  I actually kinda don't like the function parameter form because it doesn't!  Technically, I suppose there's also the consideration that with the lambdas it's three anonymous classes instead of 1 nested interface and 1 anonymous class because lambdas; and due to that, 3 instantiations vs 1.  True, this (probably) isn't a tight loop but still.
 
-In either case, that's still more instantiations than dependency injection.
+In either case, that's still more instantiations than dependency injection, though it allows for "mock-less" mocking.
 
 
 
@@ -264,8 +264,10 @@ Searching for how to write unit testable spring boot code...
 So from those two at least, I get the feeling that what I'm seeing in our codebases is:
 
 1. Many services have too many dependencies.
-2. Many services have too much going on to effectively mock at a higher level.  Too many methods, not tightly focused enough, basically.
+2. Many services (and repositories?) have too much going on to effectively mock at a higher level.  Too many methods, not tightly focused enough, basically.
 
 These factors cross to make mocking a difficult and unpleasant experience, and make the tests quite inscrutible.  Perhaps the issue then is not with mocking itself in this case, since it's basically inevitable when dealing with dependency injection, but with the way our services are being built.  Which wouldn't surprise me.
+
+> Of course, mocking the entire data layer (or rather the entities within it) and just testing the entire services layer would also work, but that doesn't seem to be standard practice where I am.  Maybe that should be a suggestion.  I'd volunteer to spearhead it if I actually had more experience with it.
 
 Many of the services are quite large, somewhat so in the public method part and very much so in the private member side.  Particularly in one project, which dealt with a hierarchy with different entities at each level, none of that was abstracted around despite most of the methods sharing quite a lot code.  It would've been trivial to create a few generic methods and just parametrize behaviors using lambdas or even just anonymous instances.

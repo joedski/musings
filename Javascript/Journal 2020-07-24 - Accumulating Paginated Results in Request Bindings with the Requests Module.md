@@ -50,4 +50,162 @@ So before we get ahead of ourselves, the behavior I'm thinking about is already 
 
 The behavior goes something like this:
 
-> TK: Dissect existing behavior!
+- On next response:
+    - If page is 0, replace cached data with response data.
+    - Otherwise, append response data.
+
+This logic is repeated across the three different list requests (list, text search, advanced search).  Simple, and certainly fits the current use case.  Not much to do.
+
+I don't strictly see anything wrong, but something about it still bothers me and I'm not sure if it's because there actually is something wrong or if it's just NIH Syndrome striking again.
+
+I think it's that rather than "convention" type resets, I prefer explicitly signalled resets.
+
+Or, no, maybe it's because there's nothing in there to prevent mixing response the lists, rather the only way the lists are kept separate is because the component dispatching these actions is careful to always reset to page 0 when ever the search type changes.  I hate when components have to be careful like that, as it's error prone in the face of modifications.
+
+> On that note, while our project has requests for "all", "text search" and "advanced filter search", only "text search" and "advanced filter search" are explicitly called out.  I think I should have an "all" or "unfiltered" case, just to make that explicit.
+
+
+### How To Abstract?  What's The Core Interaction?
+
+So, what we want here is less "load page n" and more of just "load next page".
+
+In that sense then, maybe what we want is an adjunct controller that uses a Request Binding and does ... something.  `#resetThenDispatchFirstPage()` and `#dispatchNextPage()`?  maybe we pass in the search into there?
+
+The original reset things by going to page 0, but I don't want to track that state in my components because that's just something every Accumulating Paginated Thingy has to do.
+
+So, the above two methods should work then:
+
+- Every time the search changes, we map that to `#resetThenDispatchGetFirstPage(this.currentSearch)`
+- Every time we need more data (usually because we reach the rendered last page), we map that event to `#dispatchGetNextPage(this.currentSearch)`.
+
+That should be everything we need, then.
+
+- The component using AccumulatingPaginatedThinger knows when to call each method.
+- The AccumulatingPaginatedThinger itself knows what page it's on, and calls the request binding.
+
+
+
+## Accumulating Paginated Request API
+
+How do we do this, then?  Wrap a RequestBinding?  Or only use it internally?
+
+
+### Wrap a RequestBinding
+
+This is more explicit, but also noisier.  The indentation and noise alone may be too much.
+
+```js
+export default {
+  computed: {
+    appSearchRequest() {
+      return new AccumulatingPaginatedRequest(this,
+        getPagination => new RequestBinding(this, () => {
+          const pagination = getPagination();
+
+          if (this.appSearch.search.type === 'filter') {
+            return getAppsByFilterSearch({
+              body: this.appSearch.search.search,
+              page: pagination.page,
+              pageSize: pagination.pageSize,
+            });
+          }
+
+          return getAllApps({
+            page: pagination.page,
+            pageSize: pagination.pageSize,
+          });
+        })
+      );
+    },
+  },
+};
+```
+
+Oof, the pyramid is making me a bit dizzy.  This is one certainly one reason in favor of compose/pipe/decorators: less indentation.
+
+
+### Internal RequestBinding, Pass Request Creator Only
+
+In that sense, this is probably better?  Certainly we don't have to worry about other use cases yet, and one tenet of mine is to build specific first, generalize later.
+
+```js
+export default {
+  computed: {
+    appSearchRequest() {
+      return new AccumulatingPaginatedRequest(
+        this,
+        pagination => {
+          if (this.appSearch.search.type === 'filter') {
+            return getAppsByFilterSearch({
+              body: this.appSearch.search.search,
+              page: pagination.page,
+              pageSize: pagination.pageSize,
+            });
+          }
+
+          return getAllApps({
+            page: pagination.page,
+            pageSize: pagination.pageSize,
+          });
+        }
+      );
+    },
+  },
+};
+```
+
+That seems pretty good, actually.  It's not really any less indented, but at least it's less noisy.
+
+If we need the ability to specify the first page or page size, we can add options.
+
+```js
+export default {
+  computed: {
+    appSearchRequest() {
+      return new AccumulatingPaginatedRequest(
+        this,
+        pagination => {
+          // ...
+        },
+        {
+          firstPage: 1,
+          pageSize: 200,
+        }
+      );
+    },
+  },
+};
+```
+
+
+### Prop Shorthand?
+
+```js
+export default {
+  computed: {
+    appSearchRequest: AccumulatingPaginatedRequest.prop(
+      function getRequest(pagination) {
+        // ...
+      },
+      {
+        firstPage: 1,
+        pageSize: 200,
+      }
+    ),
+  },
+};
+```
+
+Tricky, requires a plain function because we need to be able to change `this`.
+
+
+
+## Persistence Across Refreshes
+
+One thing we'd like to do is persist these across refreshes.  To do that, we need some sort of state external to the component.
+
+This means either something like local storage or Vuex.  Either that, or we need some way to delegate such storage.  Maybe we have a generic KV Store interface one instance is a LocalStorage or SessionStorage backed KV Store while another is a Vuex KV Store.  Hm.
+
+And then we come back to the question of Route-based storage, giving us a Session+Route-Based KV Store.  Hmmm.
+
+Or Vuex+Route for that matter.  Hmmmmmm.

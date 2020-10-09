@@ -271,3 +271,11 @@ These factors cross to make mocking a difficult and unpleasant experience, and m
 > Of course, mocking the entire data layer (or rather the entities within it) and just testing the entire services layer would also work, but that doesn't seem to be standard practice where I am.  Maybe that should be a suggestion.  I'd volunteer to spearhead it if I actually had more experience with it.
 
 Many of the services are quite large, somewhat so in the public method part and very much so in the private member side.  Particularly in one project, which dealt with a hierarchy with different entities at each level, none of that was abstracted around despite most of the methods sharing quite a lot code.  It would've been trivial to create a few generic methods and just parametrize behaviors using lambdas or even just anonymous instances.
+
+
+
+## It Isn't That, But It Also Is: Better Architecture Should Make Things Clearer
+
+Part of the issue I think is that in some of the apps I'm working on, business logic is just sort of slapped into certain services if it touches one or another aspect of that business logic, say logic governing how a change to one entity must occur based on some other entity, without regard to that other entity's domain.
+
+Rather, such logic is its own domain and should be treated as such, not put in one or the other entity's own domain.

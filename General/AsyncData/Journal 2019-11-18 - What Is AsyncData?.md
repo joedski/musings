@@ -68,3 +68,7 @@ This, like the Promise, is a very low level and basic tool, but one which is tri
 - For another, by sticking strictly to only the state that a Promise can be in, it's far fewer cases-over-time that need to be considered, which is far easier to model mentally.
     - Remember that a Promise really only has 3 states: not-settled, resolved, and rejected.
     - However, because AsyncData must be _always_ defined, we need to include another state for not-yet-created, which is `AsyncData.NotAsked`.
+
+> Aside: By interacting with AsyncData only through the factories and operators (methods), it doesn't actually matter how you encode the state internally!  The operators and factories constitute the public interface.  By programming strictly against that interface you can use any implementation you want!
+>
+> This is of course the [D in SOLID: Program against Abstractions (Interfaces, in this case), not Concretions](https://en.wikipedia.org/wiki/Dependency_inversion_principle).

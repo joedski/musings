@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Test History Router, UIDs, KV Store</title>
+
+  <script src="https://unpkg.com/vue@2.6.11/dist/vue.js"></script>
+  <script src="https://unpkg.com/vue-router@2.3.0/dist/vue-router.js"></script>
+  <!-- router docs: https://github.com/vuejs/vue-router/tree/v2.3.0/docs/en -->
+</head>
+<body>
+  <div id="app">Loading...</div>
+  <script>
+    const routes = [
+      {
+        name: 'home',
+        path: '/',
+        component: {
+          computed: {
+            routeUid() {
+              if (this.$route.meta && this.$route.meta.uid) {
+                return this.$route.meta.uid;
+              }
+
+              return '(No uid!)';
+            },
+            pageRoute() {
+              return {
+                name: 'page',
+                params: {
+                  foo: 1234,
+                },
+              };
+            },
+          },
+          render(h) {
+            return h('div', { attrs: { class: 'home-page' } }, [
+              h('h1', 'Home'),
+              h('div', [`Route UID: `, this.routeUid]),
+              h('router-link', {
+                props: {
+                  to: this.pageRoute,
+                }
+              }, ['Go to page foo 1234!']),
+            ]);
+          },
+        },
+      },
+      {
+        name: 'page',
+        path: '/page/:foo',
+        component: {
+          computed: {
+            routeUid() {
+              if (this.$route.meta && this.$route.meta.uid) {
+                return this.$route.meta.uid;
+              }
+
+              return '(No uid!)';
+            },
+            foo() {
+              return this.$route.params.foo;
+            },
+            nextFoo() {
+              return String(Number(this.foo) + 1);
+            }
+          },
+          render(h) {
+            return h('div', { attrs: { class: 'page-page' } }, [
+              h('h1', `Page ${this.foo}`),
+              h('div', [`Route UID: `, this.routeUid]),
+              h('div', [
+                h('a', {
+                  attrs: { href: '#back' },
+                  on: {
+                    click: (event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      this.$router.back();
+                    },
+                  },
+                }, ['Back']),
+              ]),
+              h('div', [
+                h('router-link', {
+                  props: {
+                    to: { name: 'page', params: { foo: this.nextFoo } },
+                  }
+                }, [`Go to page foo ${this.nextFoo}!`]),
+              ]),
+              h('div', [
+                h('router-link', {
+                  props: {
+                    to: { name: 'home' },
+                  }
+                }, ['Go to home!']),
+              ]),
+            ]);
+          },
+        },
+      }
+    ];
+
+    const router = new VueRouter({
+      mode: 'history',
+      hashbang: false,
+      routes,
+    });
+
+    function nextUid() {
+      if (nextUid.state == undefined) {
+        nextUid.state = 0;
+      }
+
+      const uid = `route-${nextUid.state}`;
+      ++nextUid.state;
+
+      return uid;
+    }
+
+    const routesSeen = new Set();
+
+    // Event when using $router.back(), this will always log
+    // "router.beforeEach: We have not seen this route yet...", so this
+    // is basically just a very slow memory leak.  Alrighty then.
+    router.beforeEach((to, from, next) => {
+      if (routesSeen.has(to)) {
+        console.log('router.beforeEach: We have seen this route!');
+      }
+      else {
+        console.log('router.beforeEach: We have not seen this route yet...');
+        routesSeen.add(to);
+      }
+
+      next();
+    });
+
+    Vue.use(VueRouter);
+
+    const root = new Vue({
+      router,
+      render(h) {
+        return h('div', { attrs: { id: 'app' } }, [
+          h('router-view'),
+        ]);
+      },
+    });
+
+    root.$mount('#app');
+  </script>
+</body>
+</html>

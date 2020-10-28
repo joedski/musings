@@ -40,3 +40,36 @@ First thoughts:
 - Format
     - I'unno.  Probably a YAML or JSON file with everything nice and normalized and ordered alphabetically so that the order of things is stable.
     - Efficiency could be sped up by caching settings in an SQLite DB, but that's a tech concern.  I'll probably just use all in-memory stuff to start because that's easier.
+
+
+
+## Other Feature Ideas
+
+
+### Directory-Implied Tags
+
+A folder hierarchy is really about "primary topics", but of course many documents span more than one primary topic, and many have sub topics within those primary topics which are generally unremarked upon.
+
+So, for some broad categorization purposes I should have some way to add default tags per-folder for any new files or as-of-yet untagged files.
+
+An obvious example: things within a folder named "Javascript" should probably have the tag `javascript`.
+
+
+
+## Operation Outline
+
+Alright, so how about some concrete use cases?
+
+1. Pre-population of File Tags based on Current Context
+    - Part of this is about what folder it's in.  Because folders can have their own tags, files should also receive those.
+2. Migration Op: Apply tags to existing files which currently lack them
+    - Part of this is from Op 1
+    - And also in part adding a "tags-need-review" tag to indicate I need to manually review it for any additional tags.
+3. Rename Tag: Basically "rename symbol"
+    - Update the name of the tag in the central list and then update all files which have that tag to have the new tag.
+4. Autosuggestion: Get Tags Partial-Matching Text Fragment
+    - So that I can have auto-suggest while typing!
+5. List Files with Tag(s)
+    - One obvious reason to have this feature, yanno
+6. List Tags Commonly Associated with Given Tag
+    - Slightly less obvious, but can help with searchability and mental mapping

@@ -13,3 +13,7 @@ collections:
   talks:
     order: date
     output: false
+
+  calculations:
+    order: title
+    output: false

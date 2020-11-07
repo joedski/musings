@@ -19,25 +19,26 @@ function updateTextInputFromText(inputId, value) {
 }
 
 function update() {
-  // let inputVOut = () => 3.4; // V
+  // Vout :: V
   const inputVOut = () => getFloatFromTextInput('calc-r2__input-vout');
-  // let inputIAdj = () => 50e-6; // A
+  // Iadj :: A
   const inputIAdj = () => getFloatFromTextInput('calc-r2__input-iadj');
-  // let inputR1 = () => 240; // Ω
+  // R1 :: Ω
   const inputR1 = () => getFloatFromTextInput('calc-r2__input-r1');
 
-  // const constVRef = () => 1.25; // V
-  const constVRef = () => getFloatFromTextInput('calc-r2__const-vref'); // V
+  // Vref :: V
+  const constVRef = () => getFloatFromTextInput('calc-r2__const-vref');
 
-  // Iref = Vref / R1 = 1.25V / R1
-  const derivIRef = () => constVRef() / inputR1(); // V/Ω => A
-  // R2 = (Vout - Vref) / (Iref + Iadj)
+  // Iref :: A = Vref / R1 = 1.25V / R1
+  const derivIRef = () => constVRef() / inputR1();
+  // R2 :: Ω = (Vout - Vref) / (Iref + Iadj)
   const derivR2 = () => (inputVOut() - constVRef()) / (derivIRef() + inputIAdj());
 
   // Verification: Vout = Vref (1 + R2 / R1) + Iadj R2
   const checkVOut = () => constVRef() * (1 + derivR2() / inputR1()) + inputIAdj() * derivR2();
 
-  const derivVInRecommended = () => inputVOut() + 3; // V
+  // Vin Recommended :: V
+  const derivVInRecommended = () => inputVOut() + 3;
 
   updateTextInputFromText('calc-r2__deriv-iref', derivIRef().toExponential(2));
   updateTextInputFromText('calc-r2__deriv-r2', derivR2().toFixed(0));

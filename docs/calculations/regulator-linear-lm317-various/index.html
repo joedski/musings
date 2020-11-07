@@ -8,95 +8,142 @@
   <style>
     body, html {
       font-family: sans-serif;
+      color: #1e3740;
+    }
+
+    body {
+      background: rgb(223, 230, 232);
+    }
+
+    .calculation {
+      background: white;
+      border: 1px solid rgba(0, 48, 64, 0.25);
+      border-radius: 4px;
+      padding: 1em 1em;
+    }
+
+    .calculation-title {
+      margin: 0;
+      font-weight: normal;
+      /*opacity: 0.67;*/
+    }
+
+    .calculation-section {
+      margin-top: 1em;
+      border-top: 1px solid rgba(0, 48, 64, 0.25);
+    }
+
+    .form-field + .form-field {
+      margin-top: 0.67em;
+    }
+
+    .form-field-input-grouping {
+      white-space: nowrap;
     }
 
     .form-field-note {
+      margin-top: 0;
+      margin-bottom: 0;
       font-size: 0.67rem;
       opacity: 0.75;
     }
   </style>
 </head>
 <body>
-  <article id="calc-r2">
-    <h1>R<sub>2</sub> from R<sub>1</sub> and V<sub>OUT</sub></h1>
-    <section>
-      <h2>Inputs</h2>
+  <h1>LM317 - Various Calculations</h1>
+
+  <article id="calc-r2" class="calculation">
+    <h2 class="calculation-title">R<sub>2</sub> from R<sub>1</sub> and V<sub>OUT</sub></h2>
+
+    <section class="calculation-section">
+      <h3>Inputs</h3>
 
       <div class="form-field">
         <label for="calc-r2__input-vout">V<sub>OUT</sub></label>
-        <input type="text" id="calc-r2__input-vout" name="input-vout" value="5">V
+        <span class="form-field-input-grouping"><input type="text" id="calc-r2__input-vout" name="input-vout" value="5">V</span>
       </div>
 
       <div class="form-field">
         <label for="calc-r2__input-iadj">I<sub>ADJ</sub></label>
-        <input type="text" id="calc-r2__input-iadj" name="input-iadj" value="50e-6">A
+        <span class="form-field-input-grouping"><input type="text" id="calc-r2__input-iadj" name="input-iadj" value="50e-6">A</span>
       </div>
 
       <div class="form-field">
         <label for="calc-r2__input-r1">R<sub>1</sub></label>
-        <input type="text" id="calc-r2__input-r1" name="input-r1" value="240">Ω
-        <div class="form-field-note">
-          Note: Because R<sub>1</sub> + R<sub>2</sub> sets up a voltage divider, picking a larger R<sub>1</sub> for the same V<sub>OUT</sub> will result in a larger R<sub>2</sub>.
-        </div>
-        <div class="form-field-note">
-          Then, because I<sub>ADJ</sub> flows through R<sub>2</sub> and can vary by up to 5µA under certain conditions, a larger R<sub>2</sub> can appreciably affect the real value of V<sub>OUT</sub>!
-        </div>
-        <div class="form-field-note">
-          Further, the LM317 requires at minimum 3mA loading, preferably 10mA or more, to maintain regulation.  If R<sub>1</sub> + R<sub>2</sub> passes less than 3mA, the load receiving V<sub>OUT</sub> must make up the difference in its current draw or V<sub>OUT</sub> may rise!
-        </div>
+        <span class="form-field-input-grouping"><input type="text" id="calc-r2__input-r1" name="input-r1" value="240">Ω</span>
+        <ul class="form-field-note">
+          <li>
+            Note: Because R<sub>1</sub> + R<sub>2</sub> sets up a voltage divider, picking a larger R<sub>1</sub> for the same V<sub>OUT</sub> will result in a larger R<sub>2</sub>.
+          </li>
+          <li>
+            Then, because I<sub>ADJ</sub> flows through R<sub>2</sub> and can vary by up to 5µA under certain conditions, a larger R<sub>2</sub> can appreciably affect the real value of V<sub>OUT</sub>!
+          </li>
+          <li>
+            Further, the LM317 requires at minimum 3mA loading, preferably 10mA or more, to maintain regulation.  If R<sub>1</sub> + R<sub>2</sub> passes less than 3mA, the load receiving V<sub>OUT</sub> must make up the difference in its current draw or V<sub>OUT</sub> may rise!
+          </li>
+        </ul>
       </div>
     </section>
-    <section>
-      <h2>Constants and Pre-Defined</h2>
+
+    <section class="calculation-section">
+      <h3>Constants and Pre-Defined</h3>
 
       <div class="form-field">
         <label for="calc-r2__const-vref">V<sub>REF</sub></label>
-        <input id="calc-r2__const-vref" type="text" name="const-vref" value="1.25" readonly>V
+        <span class="form-field-input-grouping"><input id="calc-r2__const-vref" type="text" name="const-vref" value="1.25" readonly>V</span>
       </div>
     </section>
-    <section>
-      <h2>Derivations</h2>
+
+    <section class="calculation-section">
+      <h3>Derivations</h3>
 
       <div class="form-field">
         <label for="calc-r2__deriv-iref">I<sub>REF</sub></label>
-        <input type="text" id="calc-r2__deriv-iref" name="deriv-iref" value="..." readonly>A
-        <div class="form-field-note">
-          I<sub>REF</sub> = V<sub>REF</sub> / R<sub>1</sub>
-        </div>
-        <div class="form-field-note">
-          Note: Minimum load to maintain regulation is 3mA, recommended load is 10mA.
-          If I<sub>REF</sub> is less than 3mA, ensure your load always draws 3mA at minimum
-          or V<sub>OUT</sub> may rise above the desired value!
-        </div>
+        <span class="form-field-input-grouping"><input type="text" id="calc-r2__deriv-iref" name="deriv-iref" value="..." readonly>A</span>
+        <ul class="form-field-note">
+          <li>I<sub>REF</sub> = V<sub>REF</sub> / R<sub>1</sub></li>
+          <li>
+            Note: Minimum load to maintain regulation is 3mA, recommended load is 10mA.
+            If I<sub>REF</sub> is less than 3mA, ensure your load always draws 3mA at minimum
+            or V<sub>OUT</sub> may rise above the desired value!
+          </li>
+        </ul>
       </div>
 
       <div class="form-field">
         <label for="calc-r2__deriv-r2">R<sub>2</sub></label>
-        <input type="text" id="calc-r2__deriv-r2" name="deriv-r2" value="..." readonly>Ω
-        <div class="form-field-note">
-          R<sub>2</sub> = (V<sub>OUT</sub> - V<sub>REF</sub>) / (I<sub>REF</sub> + I<sub>ADJ</sub>)
-        </div>
+        <span class="form-field-input-grouping"><input type="text" id="calc-r2__deriv-r2" name="deriv-r2" value="..." readonly>Ω</span>
+        <ul class="form-field-note">
+          <li>
+            R<sub>2</sub> = (V<sub>OUT</sub> - V<sub>REF</sub>) / (I<sub>REF</sub> + I<sub>ADJ</sub>)
+          </li>
+        </ul>
       </div>
 
       <div class="form-field">
         <label for="calc-r2__check-vout">V<sub>OUT</sub> Check</label>
-        <input type="text" id="calc-r2__check-vout" name="check-vout" value="..." readonly>V
-        <div class="form-field-note">
-          V<sub>OUT</sub> = V<sub>REF</sub> (1 + R<sub>2</sub> / R<sub>1</sub>) + I<sub>ADJ</sub> R<sub>2</sub>
-        </div>
-        <div class="form-field-note">
-          Note: due to the [I<sub>ADJ</sub> R<sub>2</sub>] term and the fact that I<sub>ADJ</sub> can vary by up to 5µA, a larger R<sub>2</sub> (> 1kΩ) can result in noticeable V<sub>OUT</sub> fluctuations!
-        </div>
+        <span class="form-field-input-grouping"><input type="text" id="calc-r2__check-vout" name="check-vout" value="..." readonly>V</span>
+        <ul class="form-field-note">
+          <li>
+            V<sub>OUT</sub> = V<sub>REF</sub> (1 + R<sub>2</sub> / R<sub>1</sub>) + I<sub>ADJ</sub> R<sub>2</sub>
+          </li>
+          <li>
+            Note: due to the [I<sub>ADJ</sub> R<sub>2</sub>] term and the fact that I<sub>ADJ</sub> can vary by up to 5µA, a larger R<sub>2</sub> (> 1kΩ) can result in noticeable V<sub>OUT</sub> fluctuations!
+          </li>
+        </ul>
       </div>
 
       <div class="form-field">
         <label for="calc-r2__deriv-vin-recommended">Min V<sub>IN</sub> (Recommended)</label>
-        <input type="text" id="calc-r2__deriv-vin-recommended" name="deriv-vin-recommended" value="..." readonly>Ω
-        <div class="form-field-note">
-          V<sub>IN</sub> = V<sub>OUT</sub> + 3V<sub>DO</sub>
-        </div>
+        <span class="form-field-input-grouping"><input type="text" id="calc-r2__deriv-vin-recommended" name="deriv-vin-recommended" value="..." readonly>Ω</span>
+        <ul class="form-field-note">
+          <li>
+            V<sub>IN</sub> = V<sub>OUT</sub> + 3V<sub>DO</sub>
+          </li>
+        </ul>
       </div>
     </section>
+
     <script type="module" src="./resistors-from-vout.js"></script>
   </article>
 </body>

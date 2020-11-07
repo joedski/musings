@@ -1,0 +1,19 @@
+---
+title: Calculations
+description: Various random calculations I want to keep handy.
+layout: default
+---
+<article>
+  <section>
+    <p>Various random calculations I want to keep handy.  Mostly random hobby electronics things.</p>
+  </section>
+  <section>
+    <ul>
+      {% for calc in site.calculations %}
+      <li><a href="./{{ calc.subdir }}">
+        {{ calc.title }}
+      </a></li>
+      {% endfor %}
+    </ul>
+  </section>
+</article>

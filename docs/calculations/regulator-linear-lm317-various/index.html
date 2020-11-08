@@ -66,6 +66,11 @@
       <div class="form-field">
         <label for="calc-r2__input-iadj">I<sub>ADJ</sub></label>
         <span class="form-field-input-grouping"><input type="text" id="calc-r2__input-iadj" name="input-iadj" value="50e-6">A</span>
+        <ul class="form-field-note">
+          <li>
+            Note: 50µA is a typical value, with 100µA being a maximum.  Pick this value based on what you expect, and the LM317 will act accordingly.  50µA should be enough for most cases.
+          </li>
+        </ul>
       </div>
 
       <div class="form-field">
@@ -121,6 +126,11 @@
       </div>
 
       <div class="form-field">
+        <label for="calc-r2__deriv-r2-e12">R<sub>2</sub> (Nearest E12)</label>
+        <span class="form-field-input-grouping"><input type="text" id="calc-r2__deriv-r2-e12" name="deriv-r2-e12" value="..." readonly>Ω</span>
+      </div>
+
+      <div class="form-field">
         <label for="calc-r2__check-vout">V<sub>OUT</sub> Check</label>
         <span class="form-field-input-grouping"><input type="text" id="calc-r2__check-vout" name="check-vout" value="..." readonly>V</span>
         <ul class="form-field-note">
@@ -131,6 +141,11 @@
             Note: due to the [I<sub>ADJ</sub> R<sub>2</sub>] term and the fact that I<sub>ADJ</sub> can vary by up to 5µA, a larger R<sub>2</sub> (> 1kΩ) can result in noticeable V<sub>OUT</sub> fluctuations!
           </li>
         </ul>
+      </div>
+
+      <div class="form-field">
+        <label for="calc-r2__check-vout-e12">V<sub>OUT</sub> Check (With R2 as Nearest E12)</label>
+        <span class="form-field-input-grouping"><input type="text" id="calc-r2__check-vout-e12" name="check-vout-e12" value="..." readonly>V</span>
       </div>
 
       <div class="form-field">

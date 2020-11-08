@@ -22,6 +22,15 @@ function updateTextInputFromText(inputId, value) {
   inputEl.value = value;
 }
 
+/**
+ * Calculates the Vout of an LM317 given the supplied parameters.
+ * This uses the usual formula given in the data sheet.
+ * @param  {number} vRef Reference voltage drop in volts, usually 1.25V.
+ * @param  {number} r1   Value of R1 in ohms.
+ * @param  {number} r2   Value of R2 in ohms.
+ * @param  {number} iAdj Current sourced from ADJUST pin in amps.
+ * @return {number}      Nominal output voltage in volts.
+ */
 function checkLm317Vout(vRef, r1, r2, iAdj) {
   // Verification: Vout = Vref (1 + R2 / R1) + Iadj R2
   return vRef * (1 + r2 / r1) + iAdj * r2;

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Very Simplistic Reactivity System - Try 2: Slightly Better Maybe?</title>
+</head>
+<body>
+  <div><label for="input-value">Input:</label> <input type="text" id="input-value" value="3.14"></div>
+  <div>
+    <div>
+      <input type="radio" id="input-multiply-by-2" name="input-multiply-by" value="2" checked>
+      <label for="input-multiply-by-2">Multiply by 2</label>
+    </div>
+    <div>
+      <input type="radio" id="input-multiply-by-3" name="input-multiply-by" value="3">
+      <label for="input-multiply-by-3">Multiply by 3</label>
+    </div>
+  </div>
+  <div><label for="deriv-doubled">Doubled:</label> <input type="text" id="deriv-doubled" readonly value="..."></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

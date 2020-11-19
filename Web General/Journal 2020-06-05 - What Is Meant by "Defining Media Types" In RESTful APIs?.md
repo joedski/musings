@@ -1,11 +1,24 @@
 Journal 2020-06-05 - What Is Meant by "Defining Media Types" In RESTful APIs?
 ========
 
+Here is a good quote I only just found on 2020-11-19:
+
+> "A truly RESTful API looks like hypertext. ... Think of it in terms of the Web. How many Web browsers are aware of the distinction between an online-banking resource and a Wiki resource?  None of them.  They don’t need to be aware of the resource types. What they need to be aware of is the potential state transitions — the links and forms — and what semantics/actions are implied by traversing those links."
+>
+> —[Roy Fielding][fielding-comment-restful-api-looks-like-hypertext]
+
+That's probably the most succinct description.  From there, all the work on describing the media type and how clients interact with it makes much more sense.
+
+
+
+## Initial Research
+
 I've been trying to learn better just what's involved in making a RESTful API, because the idea of creating an API where semantic actions can have different links associated with them as the API evolves is a neat one, but one thing I've not really been able to figure out until now is just what is meant by "defining media types".  This is always said to be necessary as part of defining a truly restful API, but it's just sort of stated then ... that's it.  Not even examples.
 
 Frustrating.
 
 1. [This DZone Article "5 Easy to Spot Tells That Your API Isn't RESTful"][dzone-5-tells] gives an actual example... sorta.
+    - It's also, so far as I can tell, incorrect.
 2. [Fielding's Dissertation on REST, Chapter 5: The REST Architecture and Its Tradeoffs][fielding-chap-5-rest]
     - Notable in that it clearly enumerates tradeoffs made for the architectural style, such that depending on your use case you may not actually want to use REST.
         - One explicitly noted one: Since REST messages are meant to be self-describing, they'll natually be larger (usually) than a message system that relies on implicit knowledge.
@@ -20,13 +33,9 @@ Frustrating.
     4. Why does the API need control over the pathing?  ["Because implementations change, but cool URIs don’t"][fielding-comment-http-methods-and-post-response-and-why-api-controls-paths]
         - Also remarks about HTTP operations being generic, and each given resource deciding what they actually mean; and how a POST to one resource may result in a 201 with a new representation, while another may be a 204 with a Location header field that contains the URI of the newly created resource.
 
-[dzone-5-tells]: https://dzone.com/articles/5-easy-to-spot-tells-that-your-rest-api-is-not-res
-[fielding-chap-5-rest]: https://www.ics.uci.edu/~fielding/pubs/dissertation/rest_arch_style.htm
-[fielding-comment-hypertextual-and-media-types]: https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven#comment-730
-[fielding-comment-longtermism]: https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven#comment-724
-[fielding-comment-call-it-what-it-is]: https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven#comment-742
-[fielding-comment-http-methods-and-post-response-and-why-api-controls-paths]: https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven#comment-732
-
+> UPDATE 2020-11-19: After reading through Roy's comments again, the REST architecture style description, and letting it marinate for a bit, I've decided that the [DZone article][dzone-5-tells] is not being RESTful as you end up peppering the client with a bajillion media types.  That might be fine if you have a bunch of different media types that are general across a great many applications out there in the world, but not if it's your own API.
+>
+> Instead, if you want typed information, you include as part of your hypertext specification the notion of a data type schema that you can link to and use that.  Your specification doesn't care about specific data types, though, rather it cares about the generalization over all responses, that is to say the uniform interface through which the information is transmitted.
 
 Going by [that DZone article][dzone-5-tells], it's basically including the actual entity type along with the transport format, instead of just the transport format.  The comparison they give is:
 
@@ -87,3 +96,16 @@ Could you get away with things like `application/vnd.acme.list(product)+json`?  
 - REST Messages as the Engine of Application State: To be RESTful, your media type must be a hypertext media type, using links that have defined relations.  It is these links that describe valid state transitions in the application.
 - The Client already knows how to do HTTP, and that is not part of describing a media type.  HTTP is taken as a given, if your API is served over HTTP.
     - Rather, your Media Type documentation can say things like "to dereference a Link, make an HTTP request to the given path using the specified method or GET if no method is specified...".
+
+
+[gh-v3-mediatypes]: https://developer.github.com/v3/media/
+[dzone-that-aint-rest]: https://dzone.com/articles/5-easy-to-spot-tells-that-your-rest-api-is-not-res
+[fielding-dissertation]: https://www.ics.uci.edu/~fielding/pubs/dissertation/top.htm
+[fielding-dissertation-ch5]: https://www.ics.uci.edu/~fielding/pubs/dissertation/rest_arch_style.htm
+[fielding-dissertation-ch5-sec-5-2-1]: https://www.ics.uci.edu/~fielding/pubs/dissertation/rest_arch_style.htm#sec_5_2_1
+[fielding-comment-restful-api-looks-like-hypertext]: https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven#comment-720
+[fielding-comment-longtermism]: https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven#comment-724
+[fielding-comment-hypertextual-and-media-types]: https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven#comment-730
+[fielding-comment-call-it-what-it-is]: https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven#comment-742
+[fielding-comment-http-methods-and-post-response-and-why-api-controls-paths]: https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven#comment-732
+[dodds-rest-client-example-spam-e]: https://blog.ldodds.com/2008/10/23/explaing-rest-and-hypertext-spam-e-the-spam-cleaning-robot/

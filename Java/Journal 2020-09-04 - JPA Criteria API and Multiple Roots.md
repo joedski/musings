@@ -9,6 +9,21 @@ And, granted, you can still do arbitrary joins with [JPQL](https://en.wikipedia.
 
 
 
+## Summary
+
+I don't know that I'll ever actually finish this out, but I will at least include the summary:
+
+- You can't do direct joins between JPA entities that don't have direct relations.
+    - If your entities that you want to join on don't have direct relations, then consider if you need to refactor the associations in your model.  If you can, anyway...
+- Instead, you just have to have multiple roots in your criteria query.
+- Multiple roots causes Hibernate to generate Cross Joins in certain environments (certainly Oracle) because without an actual constraint it assumes all possible combinations are required.
+- The join condition must then be applied in the normal conditions of the query, the `where` clause, effectively.
+- DB implementations are usually smart enough to see `... FROM A CROSS JOIN B WHERE A.B_ID = B.ID ...` and treat it the same as `... FROM A JOIN B ON A.B_ID = B.ID ...`.
+
+This all makes sense because if you don't have an explicit relationship between things, how does whatever JPA implementation you're using know what properties to contsrain the join on?  The constraint must be specified explicitly in such cases.
+
+
+
 ## Caveat
 
 I make no statement about any of this being the correct way to do things, only that this is the existing setup of a project I joined late, and that my findings are based on that.  Also, still learning things here.

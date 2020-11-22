@@ -47,6 +47,30 @@
       font-size: 0.67rem;
       opacity: 0.75;
     }
+
+    .image-set {
+      margin: 1em 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    .image-set > * {
+      margin: 0 0.5em;
+    }
+
+    .image-set__image-link {
+      border: 2px solid blue;
+      border-radius: 0.5em;
+      padding: 0.5em;
+    }
+
+    .image-set__image-link:visited {
+      border-color: purple;
+    }
+
+    .image-set__image {
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -54,6 +78,23 @@
 
   <article id="calc-r2" class="calculation">
     <h2 class="calculation-title">R<sub>2</sub> from R<sub>1</sub> and V<sub>OUT</sub></h2>
+
+    <section class="calculation-section">
+      <div class="image-set">
+        <a class="image-set__image-link" href="./diagram-lm317-typical-usage.png">
+          <img
+            class="image-set__image"
+            style="height: 250px;"
+            src="./diagram-lm317-typical-usage.png"
+            alt="LM317, Typical Usage"
+          >
+          <ul class="form-field-note">
+            <li>C<sub>1</sub> is not necessary if the LM317 is close to the power source.</li>
+            <li>C<sub>2</sub> is not necessary if the load is fairly static, such as always-on and non-PWMed LEDs.</li>
+          </ul>
+        </a>
+      </div>
+    </section>
 
     <section class="calculation-section">
       <h3>Inputs</h3>

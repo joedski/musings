@@ -5,9 +5,11 @@ Here is a good quote I only just found on 2020-11-19:
 
 > "A truly RESTful API looks like hypertext. ... Think of it in terms of the Web. How many Web browsers are aware of the distinction between an online-banking resource and a Wiki resource?  None of them.  They don’t need to be aware of the resource types. What they need to be aware of is the potential state transitions — the links and forms — and what semantics/actions are implied by traversing those links."
 >
-> —[Roy Fielding][fielding-comment-restful-api-looks-like-hypertext]
+> —[Roy Fielding (2008)][fielding-comment-restful-api-looks-like-hypertext]
 
 That's probably the most succinct description.  From there, all the work on describing the media type and how clients interact with it makes much more sense.
+
+Another good summary of what REST ain't is this more recent post by TwoBitHistory: [Roy Fielding's Misappropriated REST Dissertation (2020-06-28)][0b10-history-misappropriated-rest-dissertation]
 
 
 
@@ -109,3 +111,4 @@ Could you get away with things like `application/vnd.acme.list(product)+json`?  
 [fielding-comment-call-it-what-it-is]: https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven#comment-742
 [fielding-comment-http-methods-and-post-response-and-why-api-controls-paths]: https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven#comment-732
 [dodds-rest-client-example-spam-e]: https://blog.ldodds.com/2008/10/23/explaing-rest-and-hypertext-spam-e-the-spam-cleaning-robot/
+[0b10-history-misappropriated-rest-dissertation]: https://twobithistory.org/2020/06/28/rest.html

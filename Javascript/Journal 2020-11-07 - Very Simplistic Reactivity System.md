@@ -309,7 +309,7 @@ Well, the Mithril 2 docs very clearly say that [streams do not cause redraws](ht
 We can do dirty nasty side effects in `Stream#map()`, like updating DOM elements.
 
 
-### A First Sketch with Mithril
+### A First Sketch with Mithril 2 Streams
 
 Here's a first sketch.  We kept the "update things on element event" aspect, because otherwise we wouldn't really know when to push new values.  It doesn't really matter that the "new" value is actually the same as the old value, it prompts an update anyway.
 
@@ -404,4 +404,102 @@ const derivMultiplied = Stream.lift(
 derivMultiplied.map(withElement('#deriv-doubled', elem => value => {
   elem.value = value;
 }));
+```
+
+
+
+## What If We Want Complete Rendering?
+
+Just going further down the exploration rabbit hole, we could just entirely take over rendering rather than drafting the content in the HTML first.
+
+In such cases we could just whip out all of Mithril, but I want to go smaller.  I want to go micro... HTML.
+
+I mean... [µhtml](https://github.com/WebReflection/uhtml).
+
+This is what you get when you take HyperHTML (which I still think is the best name ever) and boil it down to just the barest necessary to implement the conceit.
+
+
+### The Simple Test App In µhtml
+
+It's not hard to use, though may look odd compared to other more typical things.
+
+Again, I'll do up the simple multiplier example, just to keep things consistent.  Just remember that `html` (and `svg`) creates content, and `render()` plunks them somewhere.
+
+It's very literal (in multiple ways!) and concise: every event that causes an update simply calls the update function again with the new state, and the app is bootstrapped by making an initial update with an initial state.  Simple!  Not bad for 1.8kb!
+
+I went with a Redux style immutable state here, but honestly this simple example could've just directly mutated the data, since each event is causing a redraw.
+
+```js
+import { render, html, svg } from 'https://unpkg.com/uhtml?module';
+
+function initState() {
+  return {
+    inputValue: 3.14,
+    multiplier: 2,
+  };
+}
+
+function MultiplyOption({ state, id, value, onchange }) {
+  return html`
+    <div>
+      <input
+        type="radio"
+        id=${id}
+        .checked=${state.multiplier === value}
+        onchange=${() => onchange(value)}
+      >
+      <label for=${id}>Multiply by ${value}</label>
+    </div>
+  `;
+}
+
+function App(rootSel) {
+  const root = document.querySelector(rootSel);
+
+  return function update(state) {
+    return render(root, html`
+      <div>
+        <label for="input-value">Input:</label>
+        <input
+          id="input-value"
+          type="text"
+          value=${state.inputValue}
+          onkeyup=${event => update({
+            ...state,
+            inputValue: parseFloat(event.target.value),
+          })}
+        >
+      </div>
+      <div>
+        ${MultiplyOption({
+          state,
+          id: 'input-multiply-by-2',
+          value: 2,
+          onchange: multiplier => update({ ...state, multiplier })
+        })}
+        ${MultiplyOption({
+          state,
+          id: 'input-multiply-by-3',
+          value: 3,
+          onchange: multiplier => update({ ...state, multiplier })
+        })}
+      </div>
+      <div>
+        <label for="deriv-result">Result:</label>
+        <input
+          id="deriv-result"
+          type="text"
+          readonly
+          value=${state.inputValue * state.multiplier}
+        >
+      </div>
+    `);
+  };
+}
+
+// we could also use body.
+const app = App('#app');
+
+// Kick things off.
+const appElem = app(initState());
 ```

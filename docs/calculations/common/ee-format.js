@@ -76,14 +76,52 @@ function exponentFromUnitText(unitText) {
   return 0;
 }
 
-export function nearestSeriesValueFromValue(value, series) {
+export function exponentAndSignificandFromValue(value) {
   const exponent = exponentFromValue(value);
   // Now on range of 1.00... to 9.99...
   // ... probably.
   const significand = value / (10 ** exponent);
 
+  return { exponent, significand }
+}
+
+export function nextHigherSeriesValueFromValue(value, series) {
+  const { exponent, significand } = exponentAndSignificandFromValue(value, series);
+  const seriesValue = nextHigherSeriesValueFromSignificand(significand, series);
+  return seriesValue * 10 ** exponent;
+}
+
+export function nextLowerSeriesValueFromValue(value, series) {
+  const { exponent, significand } = exponentAndSignificandFromValue(value, series);
+  const seriesValue = nextLowerSeriesValueFromSignificand(significand, series);
+  return seriesValue * 10 ** exponent;
+}
+
+export function nextLowerAndHigherSeriesSignificandsFromValue(value, series) {
+  const { exponent, significand } = exponentAndSignificandFromValue(value, series);
+
   const nextLower = nextLowerSeriesValueFromSignificand(significand, series);
   const nextHigher = nextHigherSeriesValueFromSignificand(significand, series);
+
+  return { nextLower, nextHigher, significand, exponent };
+}
+
+export function nextLowerAndHigherSeriesValuesFromValue(value, series) {
+  const { exponent, significand } = exponentAndSignificandFromValue(value, series);
+
+  const nextLower = nextLowerSeriesValueFromSignificand(significand, series);
+  const nextHigher = nextHigherSeriesValueFromSignificand(significand, series);
+
+  return {
+    nextLower: nextLower * 10 ** exponent,
+    nextHigher: nextHigher * 10 ** exponent,
+    significand,
+    exponent
+  };
+}
+
+export function nearestSeriesValueFromValue(value, series) {
+  const { nextLower, nextHigher, significand, exponent } = nextLowerAndHigherSeriesSignificandsFromValue(value, series);
 
   const closest = rationallyCloserValue(significand, nextLower, nextHigher);
 

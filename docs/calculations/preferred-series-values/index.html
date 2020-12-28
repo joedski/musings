@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preferred Series Utils</title>
+
+  <style>
+    body,
+    html {
+      font-family: sans-serif;
+      color: #1e3740;
+    }
+
+    body {
+      background: rgb(223, 230, 232);
+    }
+
+    .calculation {
+      background: white;
+      border: 1px solid rgba(0, 48, 64, 0.25);
+      border-radius: 4px;
+      padding: 1em 1em;
+    }
+
+    .calculation-title {
+      margin: 0;
+      font-weight: normal;
+      /*opacity: 0.67;*/
+    }
+
+    .calculation-section {
+      margin-top: 1em;
+      border-top: 1px solid rgba(0, 48, 64, 0.25);
+    }
+
+    .form-field+.form-field {
+      margin-top: 0.67em;
+    }
+
+    .form-field-input-grouping {
+      white-space: nowrap;
+    }
+
+    .form-field-note {
+      margin-top: 0;
+      margin-bottom: 0;
+      font-size: 0.67rem;
+      opacity: 0.75;
+    }
+
+    .image-set {
+      margin: 1em 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    .image-set>* {
+      margin: 0 0.5em;
+    }
+
+    .image-set__image-link {
+      border: 2px solid blue;
+      border-radius: 0.5em;
+      padding: 0.5em;
+    }
+
+    .image-set__image-link:visited {
+      border-color: purple;
+    }
+
+    .image-set__image {
+      display: block;
+    }
+  </style>
+
+  <!-- Adds window.m.stream -->
+  <script src="https://unpkg.com/mithril@2.0.4/stream/stream.js"></script>
+
+</head>
+<body>
+
+  <h1>Preferred Series Utils</h1>
+
+  <article id="e12-values" class="calculation">
+    <h2 class="calculation-title">
+      E12 Values
+    </h2>
+
+    <section class="calculation-section">
+      <h3>Input</h3>
+
+      <div class="form-field">
+        <label for="e12-values__input-value">Raw Value</label>
+        <span class="form-field-input-grouping"><input type="text" id="e12-values__input-value" name="input-value" value="1"></span>
+      </div>
+    </section>
+
+    <div class="calculation-section">
+      <h3>Nearest Series Values</h3>
+
+      <div class="form-field">
+        <label for="e12-values__deriv-lower">Nearest Lower</label>
+        <span class="form-field-input-grouping"><input type="text" id="e12-values__deriv-lower" name="input-value" readonly></span>
+      </div>
+
+      <div class="form-field">
+        <label for="e12-values__deriv-higher">Nearest Higher</label>
+        <span class="form-field-input-grouping"><input type="text" id="e12-values__deriv-higher" name="input-value" readonly></span>
+      </div>
+    </div>
+  </article>
+
+  <script type="module" src="./resistors-e12.js"></script>
+
+</body>
+</html>

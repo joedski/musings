@@ -152,6 +152,40 @@ It follows that one could see `getValue()` being implemented just as `getAllValu
 
 In either case, these could be implemented as just simple maps of some sort of `getElement()` and `getAllElements()` methods, since there could be cases where you actually do want the tags.
 
+#### Taking a Single Value?
+
+Supposing I have an unambiguous order defined by a comparator, it should be possible to only scan the collection once to get the "first" value, or the "last" value for that matter.
+
+I think.
+
+How can I test this?  Just doing up a bunch of cases, I guess.
+
+Just doing this should be sufficient:
+
+```js
+function takeFirst(list, comparator) {
+  return list.reduce((current, next) => {
+    if (comparator(current, next) >= 0) {
+      return current;
+    }
+
+    return next;
+  });
+}
+```
+
+Logically, it seems like that should work:
+
+- Starting at the beginning, you just check the first element against the second element:
+    - If the first element comes before the second element, keep the first element.
+    - If the first element comes after the second element, keep the second instead.
+    - Otherwise, default to keeping the first element.
+- Then, we compare to the kept element to the third element, kept element to the fourth element, etc, etc.
+
+Basically, that should give us the first element of the sorted list.
+
+[A bit of light empirical testing](./Journal%202020-12-25%20-%20Calculations%20Across%20Multiple%20Values.files/test-take-first.js) seems to bear this out.  Seems like it'd be easy then to extend that to n elements... But I don't need n-element taking, yet.ta
+
 
 ### Using Multivalue-Unaware Functions: Mapping
 
@@ -330,11 +364,11 @@ One specific case I can think of is that of keeping just the extrema and the exa
 Not sure we actually need to `filter()` here, though?  We'd probably just do this:
 
 ```typescript
-const valuesWeCareAbout = Multivalue.ofElements(
+const valuesWeCareAbout = Multivalue.ofElements([
   allValues.getElement(withLastTag(TAG_EXACT_VALUE)),
   allValues.getElement(withGreatestValue),
   allValues.getElement(withLeastValue)
-);
+]);
 ```
 
 Maybe something like:
@@ -355,4 +389,34 @@ const valuesWeCareAbout = allValues.keepByAndTag({
 });
 ```
 
-Hm!
+Hm!  The tagged version is useful just because it encodes the intent right there.
+
+On the other hand, do I really need to do that in one call if I'm just displaying things?  No, but the case here isn't really display, rather it's general paring down of possibly a great number of values (or even just fewer values) to a specific size, which may itself be for reasons of display, or any other purpose.
+
+
+
+## A Second Thought
+
+This works pretty well, and the actual code is quite tidy, but could we do this a bit tidier?  Am I trying to answer too much with the current structure?
+
+Does this provide benefits over, say, plain functions that operate on a `Record<string, T>` structure?  Do we actually care about more than 1 tag at a time?
+
+Originally, I thought about using many tags to do a sort of history tracking, but if I really wanted to do that then I should just track the originating values and what function they were combined with to produce the new one.  What I really need is just this:
+
+- I want to fan out an exact value to that exact value along side the nearest higher and lower E12 (or any other series) values.
+
+This is accomplishable using just `{ exact, higher, lower }`, or more generally `Record<string, T>`.  Most of the operations are the same but we now no longer can arbitrarily cartesian-product values like we can with `Multivalue.flatMap`.
+
+I mean, technically we can, it's just not a flat map any more, but a plain map that yields `Record<string, Record<string, T>>`, or put more simply `Mv<Mv<T>>`, which is kind of what we were trying to avoid by using flat map.
+
+The primary reason for wanting _that_ is basically wanting to be able to choose extrema, or values closest to a given value that aren't the given value, or which were produced using the next-higher or next-lower preferred value, so on and so forth.  Allowing that choice without presupposing it beforehand, basically.
+
+> Of course, since this isn't Haskel, all the computations are eagerly done, but I'm working with such small numbers of values that putting in a laziness layer via functions would eat up any performance gains from not actually performing those computations.
+>
+> Maybe.  I haven't tested that, so it's really pure fart.
+
+Obviously, one could just actually figure out which values will lead to which extrema and encode that manually, but that's more work.  Bah!  While it seems like it'd be fragile, it wouldn't really change per-calculation, so it's not like there's any time lost for it.  If the calculation changes, then I'll have to redo that work anyway.  Mainly, implementing this Multivalue flat map thing just lets me not do the work by making the browser do all of it, even the work that eventually gets culled.
+
+Though, at the scales I'm operating at, I'm really wasting more time worrying about this when I could spend that time actually implementing the things I want to implement.  Which is mostly dumb things like 555 PWM timing calculations (which are just slightly preparametrized RC time constant calculations).
+
+I suppose another question is "Why bother using other libraries for making the UIs reactive" so eh.

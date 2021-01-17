@@ -503,3 +503,9 @@ const app = App('#app');
 // Kick things off.
 const appElem = app(initState());
 ```
+
+
+
+## Give It Another Go?
+
+Just a rehash of [the same thing as before](./Journal%202020-11-07%20-%20Very%20Simplistic%20Reactivity%20System%20%28Files%29/try-02-better-maybe), but [a little better organized this time](./Journal%202020-11-07%20-%20Very%20Simplistic%20Reactivity%20System%20%28Files%29/try-03-another-whack), I think.  However, it grew because `Effect` became a whole class.  There might be a bit of extra indirection that's going on, though.  I'll take a look at it another day, I suppose.

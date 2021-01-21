@@ -1,6 +1,8 @@
 Journal 2020-10-27 - Having Multiple Constants With the Same Value - Constants Are Like Enums
 ========
 
+> TL;DR: Doors and Sockets might both have an Open and a Close state, but Doors don't (usually) have a Pending state. (Both may also have a Blocked state, though.)  Groups may also be Open and Closed but those are entirely different meanings of those same words.
+
 I strongly believe that absolute deduplication of magic values to 1 single constant is not itself useful where that constant is used in different semantic domains.
 
 How to illustrate what I mean...

@@ -209,3 +209,168 @@ This means either something like local storage or Vuex.  Either that, or we need
 And then we come back to the question of Route-based storage, giving us a Session+Route-Based KV Store.  Hmmm.
 
 Or Vuex+Route for that matter.  Hmmmmmm.
+
+Maybe if you specify a pagination namespace, it'll sync pagination to the route query params?  Hm!  This would be both explicit and user friendly!  And bookmark friendly!
+
+
+
+## Another Thought: Composition Over Complexion
+
+The above suffers from a major issue which is that the `RequestBinding` is squirreled away within the `AccumulatedWhatsit`, which means we can't choose a prefab.
+
+What if we passed in the `RequestBinding` itself as an argument?
+
+```js
+export default {
+  computed: {
+    // Is common form:
+
+    appSearchRequest () {
+      return new AccumulatingPaginatedRequest(
+        this,
+        AutoQueryRequestBinding,
+        pagination => () => {
+          return getAppsByFilterSearch(...stuff);
+        },
+        {
+          firstPage: 1,
+          pageSize: 100,
+        }
+      );
+    },
+
+    // Or in static .prop form:
+
+    appSearchRequest: AccumulatingPaginatedRequest.prop(
+      AutoQueryRequestBinding,
+      pagination => function getRequest() {
+        return getAppsByFilterSearch(...stuff);
+      },
+      {
+        firstPage: 1,
+        pageSize: 100,
+      }
+    ),
+  },
+};
+```
+
+Hm.  3 arguments is a lot, 4 is just terrible.
+
+```js
+export default {
+  computed: {
+    // Is common form:
+
+    appSearchRequest () {
+      return new AccumulatingPaginatedRequest(this, {
+        requestBindingClass: AutoQueryRequestBinding,
+        getPaginatedRequest: pagination => () => {
+          return getAppsByFilterSearch(...stuff);
+        },
+        firstPage: 1,
+        pageSize: 100,
+      });
+    },
+
+    // Or in static .prop form:
+
+    appSearchRequest: AccumulatingPaginatedRequest.prop({
+      requestBindingClass: AutoQueryRequestBinding,
+      getPaginatedRequest: pagination => () => {
+        return getAppsByFilterSearch(...stuff);
+      },
+      firstPage: 1,
+      pageSize: 100,
+    }),
+  },
+};
+```
+
+
+### What about that route query params thing?
+
+```js
+export default {
+  computed: {
+    appSearchRequest () {
+      return new AccumulatingPaginatedRequest(this, {
+        requestBindingClass: AutoQueryRequestBinding,
+        getPaginatedRequest: pagination => () => {
+          return getAppsByFilterSearch(...stuff);
+        },
+        firstPage: 1,
+        pageSize: 100,
+        queryParamNamespace: 'appSearch',
+      });
+    },
+  },
+};
+```
+
+That would then sync things to route query params like `?request.appSearch.page=1`, something like that.  Not actually sure we need more than that.
+
+
+### Initialization/Rehydration with Route Query Params
+
+Any time this has to initialize, basically when the query param page is greater than 1, it would first quickly check over the request for pages 1 and 2.  If there's existing state, it assumes that this is cached and will first rebuild its current state from those before redispatching if appropriate.
+
+
+### Thought: If RequestBinding Can Dispatch With Params, Do We Need to Wrap?
+
+Instead, we could do something like this:
+
+```js
+export default {
+  computed: {
+    appSearchRequest () {
+      return new ManualQueryRequestBinding(
+        this,
+        ({ page, pageSize }) => {
+          return getAppsByFilterSearch(...stuff)
+        }
+      );
+    },
+
+    paginatedAppSearchRequest () {
+      return new AccumulatingPaginatedRequestController(this, {
+        dispatchRequest: pagination => {
+          this.baseAppSearchRequest.dispatchIfNotNull({
+            page: pagination.page,
+            pageSize: pagination.pageSize,
+          });
+        },
+        firstPage: 1,
+        pageSize: 100,
+        queryParamNamespace: 'appSearch',
+      });
+    },
+  },
+};
+```
+
+Dunno if that's better.  Maybe we just pass a reference the whole requestbinding instead?
+
+```js
+export default {
+  computed: {
+    appSearchRequest () {
+      return new ManualQueryRequestBinding(
+        this,
+        ({ page, pageSize }) => {
+          return getAppsByFilterSearch(...stuff)
+        }
+      );
+    },
+
+    paginatedAppSearchRequest () {
+      return new AccumulatingPaginatedRequestController(this, {
+        requestBinding: this.appSearchRequest,
+        firstPage: 1,
+        pageSize: 100,
+        queryParamNamespace: 'appSearch',
+      });
+    },
+  },
+};
+```

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Determination 1: Update Style</title>
+
+  <script type="text/javascript" src="https://unpkg.com/vue@2.5.17/dist/vue.js"></script>
+
+</head>
+<body>
+
+  <div id="app"></div>
+
+  <script>
+    const App = Vue.extend({
+      data() {
+        return {
+          result: 'Waiting...',
+          itemSelectionArray: [],
+        };
+      },
+
+      computed: {
+        itemOptionArray() {
+          return [
+            { label: 'Eggs' },
+            { label: 'Bacon' },
+            { label: 'Spam' },
+          ];
+        },
+      },
+
+      watch: {
+        itemSelectionArray(next, prev) {
+          if (next !== prev) {
+            this.result = 'Array replaced!';
+          }
+          else {
+            this.result = 'Array mutated!';
+          }
+        },
+      },
+
+      template: `
+        <div class="app">
+          <div>{{ result }}</div>
+          <ul>
+            <li
+              v-for="item in itemOptionArray"
+              :key="item.id"
+            >
+              <input
+                type="checkbox"
+                v-model="itemSelectionArray"
+                :value="item"
+              >
+              {{ item.label }}
+            </li>
+          </ul>
+        </div>
+      `,
+    });
+
+    new App({
+      el: document.getElementById('app'),
+    });
+  </script>
+</body>
+</html>

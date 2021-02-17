@@ -1,6 +1,20 @@
 On Creating Maintainable CSS Layout Styles
 =======
 
+> TL;DR-TL;DR:
+> 
+> A button-set that contains buttons (or other things) and controls the spacing between/around those buttons is good.
+> 
+> A bunch of buttons that come with implicit margins is bad.
+
+> TL;DR: For maintainable and predictable layouts:
+> 
+> - Elements should in general have complete control over spacing within themselves.
+>     - In general they _should_ have control over the spacing _outside_ any of their children.
+>     - In general they should _not_ have control over the spacing _within_ any of their children.
+> - Elements should in general _not_ have any control over spacing outside of themselves.
+> - Systems of elements used to implement a specific layout can and should coordinate their spacings to best achieve the specific layout, but when used together should still appear to follow the above rules relative to other elements outside of that system.
+
 Some terminology, because I like big words:
 
 - Parent/Parents: Any element which contains any Child/Children.

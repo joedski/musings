@@ -22,7 +22,7 @@ First of all, just how is the `<input>` interacting with the array?
 - I presume that it's returning a new array each time, with the `value` item either appended to the end or removed from it.
     - I presume so because well behaved components should not mutate props they receive.
 
-If that's the case, then we should be able to trivially verify this:
+If that's the case, then we [should be able to trivially verify this](./Journal%202021-02-01%20-%20Proxying%20Checkbox-Bound%20Arrays%20for%20Parent-Child%20Communication%20for%20Incremental%20Sub-Component%20Extraction.files/determination-1-update-style/index.html)...
 
 ```html
 <template>
@@ -75,6 +75,8 @@ export default Vue.extend({
 });
 ```
 
+The result is indeed that the array is replaced.  That's good to know, as we can just emit that straight back up, with no need for an intermediate `data` prop.
+
 Basically we need to do this:
 
 ```js
@@ -84,24 +86,54 @@ export default Vue.extend({
     itemSelectionArray: { type: Array, required: true },
   },
 
-  data() {
-    return {
-      itemSelectionArrayLocal: [],
-    };
+  computed: {
+    itemSelectionArrayReactive: {
+      get() { return this.itemSelectionArray; },
+      set(next) {
+        if (next !== this.itemSelectionArray) {
+          this.$emit('update:itemSelectionArray', next);
+        }
+      },
+    },
+  },
+});
+```
+
+> Aside: I usually name the computed prop `${propName}Reactive` because it's the "reactive" version of the read-only prop.
+
+This means we get exactly the same sort of proxying we do for any other prop we want to make reactive but also stateless.
+
+That's easy enough to boil down to a utility function, really:
+
+```js
+function syncProp(propName) {
+  const updateEventName = `update:${propName}`;
+
+  return {
+    get() {
+      return this[propName];
+    },
+
+    set(next) {
+      if (next !== this[propName]) {
+        this.$emit(updateEventName, next);
+      }
+    },
+  };
+}
+```
+
+That gives us this:
+
+```js
+export default Vue.extend({
+  props: {
+    itemOptionArray: { type: Array, required: true },
+    itemSelectionArray: { type: Array, required: true },
   },
 
-  watch: {
-    itemSelectionArray(next, prev) {
-      if (next !== prev) {
-        this.itemSelectionArrayLocal = next;
-      }
-    },
-
-    itemSelectionArrayLocal(next, prev) {
-      if (next !== prev) {
-        this.$emit('update:itemSelectionArray', next);
-      }
-    },
+  computed: {
+    itemSelectionArrayReactive: syncProp('itemSelectionArray'),
   },
 });
 ```

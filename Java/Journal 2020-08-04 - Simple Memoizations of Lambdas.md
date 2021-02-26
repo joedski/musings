@@ -56,7 +56,7 @@ public class Memoize {
     return new MemoizedSupplier<>(implementation);
   }
 
-  public static <T> Function<T> memoize(Function<T> implementation) {
+  public static <T, R> Function<T, R> memoize(Function<T, R> implementation) {
     return new MemoizedFunction<>(implementation);
   }
 }

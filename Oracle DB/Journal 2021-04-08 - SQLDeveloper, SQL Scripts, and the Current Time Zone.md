@@ -1,3 +1,8 @@
+---
+tags:
+    - date-time-code
+---
+
 Journal 2021-04-08 - SQLDeveloper, SQL Scripts, and the Current Time Zone
 ========
 

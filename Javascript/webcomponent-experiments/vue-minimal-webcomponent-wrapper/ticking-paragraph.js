@@ -9,11 +9,8 @@ customElements.define('x-ticking-paragraph', class XTickingParagraph extends HTM
     const instance = template.content.cloneNode(true);
     shadowRoot.appendChild(instance);
 
-    this.contents = '';
-
-    setInterval(() => {
-      this.dispatchEvent(new Event('tick'));
-    }, 500);
+    this.initComponentProps();
+    this.initComponentState();
   }
 
   set contents(value) {
@@ -56,7 +53,35 @@ customElements.define('x-ticking-paragraph', class XTickingParagraph extends HTM
     return this._contents;
   }
 
+  connectedCallback() {
+    this.conditionallySyncTicker();
+  }
+
+  disconnectedCallback() {
+    this.conditionallySyncTicker();
+  }
+
   attributeChangedCallback(name, oldValue, newValue) {
     this[name] = newValue;
+  }
+
+  initComponentProps() {
+    this.contents = '';
+  }
+
+  initComponentState() {
+    this._interval = null;
+  }
+
+  conditionallySyncTicker() {
+    if (this.isConnected && this._interval == null) {
+      this._interval = setInterval(() => {
+        this.dispatchEvent(new Event('tick'));
+      }, 500);
+    }
+    else if (! this.isConnected && this._interval != null) {
+      clearInterval(this._interval);
+      this._interval = null;
+    }
   }
 });

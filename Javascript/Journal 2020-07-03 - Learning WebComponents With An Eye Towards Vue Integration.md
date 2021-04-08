@@ -27,7 +27,187 @@ Eh.  Whatever.  Learn first.
 
 
 
+## Creating a Web Component (Updated)
+
+If you were reading through the "Use With Vue" section and feeling confused about how it worked, then seeing that [the actual proof of concept was different](https://github.com/vuejs/vue-web-component-wrapper), well whoops.  I never updated that section with the results of the actual experiment.
+
+At a high level, there's a few things to know about:
+
+1. The [`CustomElementsRegistry`](https://developer.mozilla.org/en-US/docs/Web/API/CustomElementRegistry) singleton [`window.customElements`](https://developer.mozilla.org/en-US/docs/Web/API/Window/customElements).
+2. Actually [using custom elements](https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements), that's pretty important.
+
+
+### Detailed Breakdown of The Experiment: Summary
+
+To prod this directly myself and build intuition, I created an [actual proof of concept](https://github.com/vuejs/vue-web-component-wrapper).  There's actually a couple parts to this experiment, of course:
+
+1. The Custom Element itself (`x-ticking-paragraph`)
+2. The Vue Wrapper (`wrapWebComponent()`)
+
+Let's go through those in order.
+
+
+### Detailed Breakdown of The Experiment: The Custom Element Itself
+
+Here we have a completely useless component that's not even properly named: a Paragraph that emits periodic `tick` events, and which is in fact a List, not a Paragraph.
+
+```js
+// Well, it's actually a list, now, not a paragraph...
+customElements.define('x-ticking-paragraph', class XTickingParagraph extends HTMLElement {
+  // Tell the browser to watch for changes on these attributes in the DOM, and
+  // to call attributeChangedCallback() when they do.
+  // Note that this doesn't apply if the JS itself changes a JS property!
+  // Those are entirely separate from the attributes!
+  static get observedAttributes() { return ['contents'] }
+
+  constructor() {
+    // Obligatory super() call.
+    super();
+
+    // Setup the shadow root of this component,
+    // filling it in with the contents of our template.
+    let shadowRoot = this.attachShadow({mode: 'open'});
+    const template = document.querySelector('#x-ticking-paragraph');
+    const instance = template.content.cloneNode(true);
+    shadowRoot.appendChild(instance);
+
+    // Initialization!
+    this.initComponentProps();
+    this.initComponentState();
+  }
+
+  // Create reactive behavior for the prop `contents`,
+  // so that when it changes we redraw the contents of this component.
+
+  set contents(value) {
+    this._contents = (() => {
+      if (Array.isArray(value)) {
+        return value;
+      }
+
+      // Empty string, false, null, undefined
+      if (! value) return [];
+
+      return [String(value)];
+    })();
+
+    const listItems = document.createDocumentFragment();
+
+    this._contents.forEach(itemText => {
+      const listItem = document.createElement('li');
+      listItem.innerText = itemText;
+      listItems.appendChild(listItem);
+    });
+
+    // // https://stackoverflow.com/a/22966637
+    // const renderTarget = this.shadowRoot.getElementById('renderTarget');
+    // const renderTargetParent = renderTarget.parentElement;
+    // const nextRenderTarget = renderTarget.cloneNode(false);
+    // nextRenderTarget.appendChild(listItems);
+    // renderTargetParent.replaceChild(renderTarget, nextRenderTarget);
+
+    // Can't do that, shadowRoot isn't really an element, or
+    // can't be a parentElement rather.
+    const renderTarget = this.shadowRoot.getElementById('renderTarget');
+    while (renderTarget.firstChild) {
+      renderTarget.removeChild(renderTarget.lastChild);
+    }
+    renderTarget.appendChild(listItems);
+  }
+
+  get contents() {
+    return this._contents;
+  }
+
+  // Some lifecycle callbacks...
+
+  connectedCallback() {
+    this.conditionallySyncTicker();
+  }
+
+  disconnectedCallback() {
+    this.conditionallySyncTicker();
+  }
+
+  attributeChangedCallback(name, oldValue, newValue) {
+    this[name] = newValue;
+  }
+
+  // Initialization.  Using method names instead of positional comments...
+
+  initComponentProps() {
+    this.contents = '';
+  }
+
+  initComponentState() {
+    this._interval = null;
+  }
+
+  conditionallySyncTicker() {
+    // This is done because, as the MDN docs note:
+    //   connectedCallback may be called once your element is no longer connected,
+    //   use Node.isConnected to make sure.
+    if (this.isConnected && this._interval == null) {
+      this._interval = setInterval(() => {
+        this.dispatchEvent(new Event('tick'));
+      }, 500);
+    }
+    else if (! this.isConnected && this._interval != null) {
+      clearInterval(this._interval);
+      this._interval = null;
+    }
+  }
+});
+```
+
+### Detailed Breakdown of The Experiment: The Custom Element's Template and Styles
+
+In this case, these were embedded in the main HTML file.  However, a template could really be anywhere.  Maybe it's loaded from an external HTML file, or embedded as a string within the JS.  Who knows!
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Testing a Minimal Vue Wrapper for WebComponents</title>
+
+  <!-- I'm lazy.  Hopefully unpkg doesn't spontaneously explode any time soon. -->
+  <script src="https://unpkg.com/lodash@4.17.5"></script>
+  <script src="https://unpkg.com/vue@2.6.11"></script>
+
+  <!-- Load general deps. -->
+  <script src="./wrapWebComponent.js"></script>
+
+  <!-- Register web components before using them. -->
+  <script src="./ticking-paragraph.js"></script>
+</head>
+<body>
+  <template id="x-ticking-paragraph">
+    <style>
+      p, li {
+        color: #42b983;
+      }
+    </style>
+    <slot name="title">
+      <h1>Title!</h1>
+    </slot>
+    <ul id="renderTarget">
+    </ul>
+  </template>
+
+  <div id="app"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
+```
+
+
+
+
 ## Use With Vue
+
+> NOTE: This SFC-style web component is not supported anywhere, not even in chrome.  This section is provided for historical reference.
 
 There's plenty of ways to wrap up Vue components for use as WebComponents, ([`vue-web-component-wrapper`](https://github.com/vuejs/vue-web-component-wrapper), etc) but that's the opposite of what I want.
 

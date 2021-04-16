@@ -9,6 +9,8 @@ Journal 2021-04-09 - Running PL SQL Scripts in SQL Developer
 4. Select the same target DB for running it on.
 5. Hit the "Run" button. (Not the "Run Statement" button, the "Run All")
 
+> NOTE: It seems that Script Output also logs any of this, so maybe the only thing you need is `set serveroutput on`?  If so, that's nice, because the "Dbms Output" pane is a pain.
+
 Note that SQL Developer lets you use `:arg_name` parametrizations.
 
 There is a major down side to running a whole PL SQL script or even a single Block, and that is that _you don't get table-results for any queries you run_.  A grave deficiency, but I suppose if you're running a Block then that's not really what you're looking for.  Unless you are, because you wanted some decision logic, which is annoying.  Such are things as they are now.

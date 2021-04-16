@@ -61,12 +61,15 @@ For example:
 
 - Our business logic may be concerned with some Document within a given Tenent.
     - Our projection however may look at the whole request that the business logic is fielding and make 2 calls to some DB: 1 call to get all Tenents involved, and 1 call to get all Documents involved for the given Tenents.
+    - Of course, that could be the other way around too: the list of Tenants may be instead based on the list of Documetns.  In either case however, the Business Logic doesn't have to care, only the projection cares.
 - Our business logic may be concerned with some subset of Documents, categorized by some Tags.
     - Our projection however will instead pre-fetch all Documents and relevant Tags and create a mapping of some sort that has all of the relevant Documents pre-organized for quick querying by Tag.
 
 Note that in each case, the business logic doesn't care how those things are accomplished, only that they are available.  Instead, the Projection or "View Model" is what is concerned about the implementation details.
 
-> To avoid eager calculation at the cost of some possible cruft being sometimes accidentally left in, a pull-based/lazy-call caching scheme can be used.  In Java, this could be accomplished with things like `Map#computeIfAbsent()` or Lombok's `@Getter(lazy = true)`, so that while a whole bunch of queries and computations occur on the first call to a given method, subsquent calls have the data already loaded by the context/projection/"view"-model.
+> To avoid eager calculation at the cost of some possible cruft being sometimes accidentally left in, a pull-based/lazy-call caching scheme can be used.
+>
+> In Java, this could be accomplished with things like `Map#computeIfAbsent()` or Lombok's `@Getter(lazy = true)`, so that while a whole bunch of queries and computations occur on the first call to a given method, subsquent calls have the data already loaded by the context/projection/"view"-model.
 
 
 
@@ -75,3 +78,10 @@ Note that in each case, the business logic doesn't care how those things are acc
 Forget it.  There's too many dependencies to reliably mock things out, and [the farther you are from running things like prod, the more likely you are to miss things in your tests](https://phauer.com/2019/modern-best-practices-testing-java/).  The only thing you should ever mock here is the underlying data. (and external services...)
 
 Unless you use the more liberal definition of "unit testing" to mean "testing this unit with full dependency graph", something usually called an "integration test" by pedants, then knock yourself out.
+
+
+### Okay, But What About Unit Testing?
+
+There's actually a place where you very likely DO want to still unit test: individual helper methods, switch-rules implementations, etc, _within_ the whole Business Logic implementation.  These are places where you're likely to deal with individual little bits of data outside of the larger context, and don't have to worry as much about fetching data.  Rather, you'll be concerned with very simple "if I throw X at it, does it do Y" type rules, etc.
+
+By unit testing each bit, you build confidence that each bit will act as expected when you compose them together into the larger whole.

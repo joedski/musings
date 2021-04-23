@@ -8,6 +8,10 @@ Journal 2021-04-08 - SQLDeveloper, SQL Scripts, and the Current Time Zone
 
 Or, another episode in _Date Time Code Makes Me Livid Then Depressed and Resigned Again_.
 
+> Slight Update: In scripts, we can use the Oracle specific `SYSTIMESTAMP` function to get the current timestamp of the oracle DB itself, rather than the session.  I think I'll just use that going forward.
+>
+> I don't need to worry about this when writing queries for services because services (usually) always run with the system set to UTC as they `beaver` well should, so I can stick with the widely supported `CURRENT_TIMESTAMP`.
+
 > Summary: When writing an SQL script to execute in SQL Developer (or probably anywhere else you connect to an Oracle DB to run a script), then instead of `CURRENT_TIMESTAMP`, you need to use `cast(CURRENT_TIMESTAMP - interval '1' hour As timestamp)`.
 >
 > And maybe take off the `- interval '1' hour` when not in DST, or don't.  I don't actually know.

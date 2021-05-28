@@ -25,7 +25,7 @@ Ideally, we want to be able to write the memoized function like we would any sim
 ```js
 proxyMemoize((arg) => {
   return arg.foo.bar + complexThing(arg.baz, arg.otherThing);
-})
+});
 ```
 
 Or, we could have one that just assumes `this` is the target, or at least assumes `this` is a potential target and automatically proxifies that, too:
@@ -52,7 +52,7 @@ const getTheThing = reselectProxy(function $getTheThing(state, arg) {
   const foo = somePlainSelector(state);
   const bar = someOtherPlainSelector(state, arg);
   return someHeavyCalculation(foo, bar);
-})
+});
 ```
 
 I suppose for a bit more control, you could return a thunk.
@@ -64,7 +64,7 @@ const getTheThing = reselectProxyThunk(function $getTheThing(state, arg) {
   // The actual calculation is only carried out if
   // the values accessed on state or arg change.
   return () => someHeavyCalculation(foo, bar);
-})
+});
 ```
 
 So, if any accessed paths or accessed values change, it calls the thunk and stores that value.  Otherwise it just returns the previous value.

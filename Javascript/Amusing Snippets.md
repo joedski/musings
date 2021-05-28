@@ -141,6 +141,77 @@ console.log(vvvv.vals);
 Now you have the a running contender for Most Obnoxious Interface.
 
 
+### Slight Update: Now With Static Getters!
+
+Things have improved since the first version, with static methods now being supported in every browser.
+
+```js
+class VeryConstructable {
+  // Make things more convenient for later.
+  static get values() {
+    return [];
+  }
+
+  constructor(value) {
+    // We'll be nice and actually extend things all the way down.
+    // Why?  Because it's not dumb enough.
+    const Base = this.constructor;
+
+    // Continue the chain!
+    const prevValues = Base.values;
+
+    // Madness.
+    return class $VeryConstructable extends Base {
+      static get values() {
+        return [...prevValues, value];
+      }
+
+      constructor(nextValue) {
+        return super(nextValue);
+      }
+    };
+  }
+}
+```
+
+
+### But Also Back to Non-Classy JS
+
+Because I can't let well enough alone, here's a version without the `class` keyword.
+
+```js
+const VeryConstructable = (() => {
+  function VeryConstructable(value) {
+    const prevValues = this.constructor.values;
+
+    function $VeryConstructable(nextValue) {
+      return VeryConstructable.call(this, nextValue);
+    }
+
+    // Uncomment if you actually care about the prototype chain...
+    // $Renewable.prototype = Object.create(Base.prototype);
+    // $Renewable.prototype.constructor = $Renewable;
+
+    Object.defineProperty($VeryConstructable, 'values', {
+      get() {
+        return [...prevValues, value];
+      },
+    });
+
+    return $VeryConstructable;
+  }
+
+  Object.defineProperty($VeryConstructable, 'values', {
+    get() {
+      return [];
+    },
+  });
+
+  return Renewable;
+})();
+```
+
+
 
 ## Asyncifying a Function
 

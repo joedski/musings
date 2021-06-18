@@ -73,3 +73,14 @@ Alright, so how about some concrete use cases?
     - One obvious reason to have this feature, yanno
 6. List Tags Commonly Associated with Given Tag
     - Slightly less obvious, but can help with searchability and mental mapping
+
+
+### What Would Support the Above?
+
+A good question.
+
+- Reifying a list of tags for a given file.
+    - Would need to step through "directory implied" tags, up through the whole hierarchy, as well as "defined implication" tags.
+- Loading the tags DB.
+    - At first, this will be an in-memory DB associated with an on-disk JSON file.
+    - Ideally, an SQLite DB will be used as the backing cache, with the JSON file being the "export" (and "import").  However, that's a performance improvement.

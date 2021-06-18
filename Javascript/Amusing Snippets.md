@@ -174,6 +174,8 @@ class VeryConstructable {
 }
 ```
 
+If we really wanted to support dynamic updates of `values`, we could just directly reference `Base.values` in `static get values`.
+
 
 ### But Also Back to Non-Classy JS
 
@@ -227,6 +229,13 @@ function asyncify(syncFn) {
 // Or if you want to carry `this` over...
 function asyncify(syncFn) {
   return (...args) => callAsync(() => syncFn.apply(this, args));
+}
+
+// Alternatively...
+function asyncify(syncFn) {
+  return function asyncified(...args) {
+    return callAsync(() => syncFn.apply(this, args));
+  };
 }
 ```
 

@@ -19,4 +19,6 @@ Some quick digging by asking Google about "run eclipse formatter on pre commit h
 4. There's also [astyle](http://astyle.sourceforge.net/), which covers Java but also C, C++, and C#.  Oh and Objective C, but Swift is the new hotness so disregard that I guess.  So that's pretty neat.
     1. Nvidia has [some guidance on setting it up for pre-commit](https://docs.nvidia.com/gameworks/content/technologies/mobile/native_android_sweng.htm).
 
-Looks like the ideal case would be to run it on the CI server, so that we don't even have to do any local setup.  That would be awesome, actually.
+Looks like the ideal case would be to run it on the CI server, so that we don't even have to do any local setup.  That would be awesome, actually.  Finally, we can ~~delete~~ de-emphasize all the "you must load up this style XML file or pay attention to these indentations and whatnot" stuff.  I mean, you _should_ still load up things locally, but if we really want to enforce this we need to automate it to free us from having to think about that in the first place.
+
+It's no AST editing, but it's something.

@@ -32,6 +32,8 @@ Of course, that's relative to your current understanding of any given basic part
         - The Component's Controller instantiates those Delegate Controllers and wires them up.
         - This is basically how functionality in the Composition API is, well, composed, but the way Delegate Controllers are defined is different there versus how they're defined for the Vue Object Component API.
         - You can blame iOS for the "delegate" language.
+- Spaghetti: A tangled mass of noodles and sauce.  If when tracing the logic of your application you build up an image of spaghetti, either the business logic itself is spaghetti (in which case `$DIETY` help you) or the implementation needs to be rearchitected.
+    - Most of the opinions presented here are about reducing Spaghetti as much as possible.
 
 
 
@@ -100,7 +102,7 @@ There's a lot of things you can read about this, but the short summary is:
 
 On and on.
 
-> Quick sketch of difference... Maybe something that's not just a strawmanned advert for AsyncData?  Granted, it is based on my frustration with what I usually see in frontend apps (and what I wrote for some apps...)
+> TK: Quick sketch of difference... Maybe something that's not just a strawmanned advert for AsyncData?  Granted, it is based on my frustration with what I usually see in frontend apps (and what I wrote for some apps...)
 
 Imperative:
 
@@ -133,7 +135,7 @@ Reactive:
         - Can be thought of as app-specific library components.
         - These are usually free of any route-specific or state-specific behavior, but that is not always the case.  Sometimes they do depend on global state, but are reused so much that making them a Common Component is worthwhile.
     - Shared Views: Views that are used across multiple Routes.  It's not always common, but it does happen.
-    - Views: Non-Shared View Components are specific to a single Route.
+    - Route Views: Sometimes just called "Views", Non-Shared View Components are specific to a single Route.
         - These almost always depend on global state and should be primarily about integrating various service calls together to implement some interaction.
         - They should contain very little code that itself needs unit testing.  Any unit testable code specific to them can (and perhaps should) be put into another Service, even if that Service is specific to a given View.
 
@@ -277,7 +279,9 @@ It will be especially if you treat API-requested data generally through some req
 
 A short summary of how to use the Router without hating everything:
 
-- Routes should not deal with the data itself, only about identifying locations.
+- Routes should not deal with the data itself, only about identifying locations, and about minimal form state.
+    - Although, since most form state is about identifing resources anyway it really amounts to the same thing.  I felt it necessary to explicitlly call out, though.
+        - What are filter query params except identifiers for a subset of a collection?
 - Services should not deal with which specific data they have, only with the data they have generally.
 - Route-View Components are the only thing that deal with the specific data.
     - Route-View Components take the identifying information from the Route and pick out the specific data from the Service.
@@ -316,6 +320,30 @@ Why am I so dogmatic about the above?
 Then make sure your Requests Service supports the option to skip making a request if that request has been successfully received before.
 
 This keeps coupling between Views loose, while still ensuring a given component has all the remote data it needs.
+
+#### What If I Need to Pass Sensitive Form State Between Components But Don't Want To Use Query Params to Do So?
+
+This is mostly when concerns of crafting potentially malicious links come into play, and is almost entirely reserved for cases of when dealing with mission critical information.
+
+What I recommend is to create a parent container component that maintains the state that needs to be passed, and for the child components to emit the state updates to the parent so that it can update the children.
+
+The parent is then the page component of a parent route, while the children are the page copmonents of the child routes.
+
+This keeps the relevant state tightly encapsulated to only where it is relevant: those children and their shared parent.
+
+What this does to routing depends on how the form is setup.
+
+1. In most cases when this is done, there's 1 or more steps that must be passed through serially.
+    1. Only the parent actually has a Route that references it.
+    2. Because the form state that would normally be part of the route params is no longer there, there's no real meaningful way to actually navigate to any of the child components specifically, so there's no meaningful case where we would even want those children to have actual routes.
+2. In cases where the user could select 1 of many different starting points, then the starting point could be routable to but that's all.  Anything past that point falls under the prior reasoning due to the sensitivity of that data.
+    1. See also: "Tabbed Views".
+
+As far as caching goes, if the above situation applies then you'll want to avoid caching.  Having to go through the form after a refresh or browser restart is a small price to pay for reduced liability.  That means not even Session Storage should be used!
+
+#### What If I Need To Send This Sensitive Data To Many Places In The App?
+
+Then you have an app-wide service, and should build a well defined interface, _possibly_ using a Vuex module as the backing store for it.
 
 #### Tabbed Views
 

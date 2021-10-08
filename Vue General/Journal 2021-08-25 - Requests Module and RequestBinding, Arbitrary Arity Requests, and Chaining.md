@@ -1,3 +1,9 @@
+---
+tags:
+
+# prev:
+---
+
 Journal 2021-08-25 - Requests Module and RequestBinding, Arbitrary Arity Requests, and Chaining
 ===============================================================================================
 
@@ -260,9 +266,26 @@ The whole reason for things like `AutoRequestBinding` is that, for many requests
 
 This is usually for things like route params and such.  Search requests, too, but those are usually handled a little differently.
 
+Thinking about it, it'd be nice if we had a key.
+
+```js
+new MultiRequestBinding(this, () => {
+    return this.messageIds.map(id => ({
+        id,
+        request: getMessageDetails({ id })
+    }));
+});
+
+// Or maybe just tuples/entries?
+
+new MultiRequestBinding(this, () => {
+    return this.messageIds.map(id => [id, getMessageDetails({ id })]);
+});
+```
 
 
-## Aside: Do All Requests Need to be Persistent?
+
+## Aside: Do All Requests Need to be Persistent?  Culling Unneeded Data
 
 One of the reasons the Requests module is written the way it is is so that it can field multiple requests for the same data.
 
@@ -274,6 +297,9 @@ That context is almost always that page component.
 
 The way the Requests Module operates, it's far easier to leave data around than to eagerly clean it up.  Could we change that, though?
 
+
+### Thought: Tracking Who Still Needs the Data, Clear It When No One Does
+
 I think what would solve this is to build in the notion of "subscriptions" or at least "observers".  Not like full blown Reactive Programming Observers, but rather just keeping track of a list of who all is "observing" some datum, or rather who all "needs" some datum.
 
 That is, we would create a mechanism to globally add and remove "needers" to a given key of some sort, then perform an action when ever a given key's "needers" all go away.
@@ -283,3 +309,20 @@ Specifically here, "needers" would be Components that would add themselves on di
 Because `RequestProcessBinding` passes in the methods to use, it can setup such tracking on each of those requests by just intercepting the calls to each requests module method wrapper (usually just `dispatchThenGetDataOrThrow`).
 
 The "needers" tracker itself can be an entirely separate module, no need to complect that directly with the Requests module.
+
+
+### Should Commands Be Automatically Culled On Component Removal?
+
+As noted, Processes generally don't need their request state to be persisted, but what about Commands more generally?  Just because they're a single request doesn't mean they need to have their request state cached.  In fact, as with processes above, usually the first thing that happens in a component is their prior state is cleared.
+
+> This could also be done when the request itself is completed, and the request state is just retained in local state rather than in global state.
+
+So perhaps we should just pre-complect that behavior onto whatever we end up calling this particular bundle, like `CommandRequestBinding` or something.
+
+On the other hand, `AutoQueryRequestBinding` would probably want to keep the caching.
+
+I suppose then that that is a general difference: Queries usually want to cache, because they may be used by multiple components, but Commands usually don't want to cache because there's just not much reason to.
+
+`AutoQueryRequestBinding` would then add on the automatic behavior on top of `QueryRequestBinding`, which would differ in that it assumes by default requests should all be cached while `CommandRequestBinding` defaults to requests being cleared.
+
+I guess that would make `MultiRequestBinding` into `MultiQueryRequestBinding`, along with the added `Auto` variant.

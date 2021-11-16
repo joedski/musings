@@ -82,5 +82,8 @@ A good question.
 - Reifying a list of tags for a given file.
     - Would need to step through "directory implied" tags, up through the whole hierarchy, as well as "defined implication" tags.
 - Loading the tags DB.
-    - At first, this will be an in-memory DB associated with an on-disk JSON file.
+    - Actually at first, this will mostly just be a synchronous process that, for every operation, it reads the DB off of disk.
+        - Not sure about how to handle possible conflicts in execution.  If the given plugin execution is single-threaded across all windows, then we're safe.  If it's not... And that's just it, I don't know if it is or isn't.
+    - At ~~first~~ second, this will be an in-memory DB associated with an on-disk JSON file.
     - Ideally, an SQLite DB will be used as the backing cache, with the JSON file being the "export" (and "import").  However, that's a performance improvement.
+    - In either case, we'd have an interface that could be implemented by just in-memory data structures or by a separate thread or whatever.

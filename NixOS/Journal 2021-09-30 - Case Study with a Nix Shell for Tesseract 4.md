@@ -150,6 +150,18 @@ That's pretty obvious: this is the input argument which can have many keys, but 
 
 Still not exactly sure how the input args are used exactly, but in this case at least if `pkgs` isn't provided then the default value of the result of `import <nixpkgs> {}` is used instead, so I can assume it's that.
 
+> At this point, I'm just accepting that `<nixpkgs>` does a thing, but what's that actually mean?  Not sure right yet, but some sort of default I surmise.
+> 
+> For tying things to a specific env though, you can also directly download by URL which lets you lock things down nice and tight:
+> 
+> ```nix
+> {
+>   pkgs ? import (fetchTarball https://github.com/nixos/nixpkgs/archive/nixpkgs-unstable.tar.gz) {}
+> }:
+> # ...
+> ```
+
+
 So what's next?
 
 ```
@@ -464,7 +476,7 @@ Basically:
 1. Try matching perceptual hash of image against DB.
     1. If confident match, return match.
     2. Otherwise, continue.
-2. Determine TCG type and frame style. (will only support MTG, FAB in variosu treatments for now)
+2. Determine TCG type and frame style. (will only support MTG, FAB in various treatments for now)
     1. If unknown type/style, error: Unable to indentify TCG type.
     2. Otherwise, continue.
 3. Segment card name based on TCG type and frame style.
@@ -479,3 +491,4 @@ Basically:
         1. NOTE: Because OCR is slow, only the name and where possible collector number are run through it.  Anything else is left to as separate process.
 6. Update p-hash DB to include new card image with corresponding (possibly provisional) ID
     1. NOTE: All additions should be logged for statistical reasons.
+    2. NOTE: One case where this is useful is in foil treatments and how that can mess with the print appearance, especially with those funky new etched foils.

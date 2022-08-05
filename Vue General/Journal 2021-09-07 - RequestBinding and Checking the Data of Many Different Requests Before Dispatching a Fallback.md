@@ -1,7 +1,14 @@
+---
+tags:
+    - ui:tooling:requests
+
+prev: ./Journal 2021-08-25 - Requests Module and RequestBinding, Arbitrary Arity Requests, and Chaining.md
+---
+
 Journal 2021-09-07 - RequestBinding and Checking the Data of Many Different Requests Before Dispatching a Fallback
 ==================================================================================================================
 
-Basically: Check these 3 requests, if none are AsyncData.Data then dispatch the first one.
+Basically: We have 3 possible requests that will give us the desired data, check these 3 requests and if none are AsyncData.Data then dispatch the first one.
 
 Some immediate thoughts:
 
